@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 아세톤의 증발과 입자 운동</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1000px;
+        }
+        /* 실험 영역 */
+        .lab-area {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            background: #f9f9f9;
+            cursor: crosshair;
+        }
+        
+        /* 제어 패널 */
+        .control-panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .digital-scale {
+            background: #222;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 2em;
+            text-align: center;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        .btn {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-start { background-color: var(--primary-color); color: white; }
+        .btn-start:hover { background-color: #357ABD; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+        
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; }
+
+        .info-box {
+            background-color: #e8f4fd;
+            border-left: 5px solid var(--primary-color);
+            padding: 10px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* 입자 설명 */
+        .legend {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.85rem;
+            margin-top: 5px;
+        }
+        .dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; }
+        .blue-dot { background-color: rgba(74, 144, 226, 0.8); }
+    </style>
+</head>
+<body>
+
+    <h1>🧪 아세톤 증발과 입자 운동</h1>
+    <p style="text-align: center; color: #666;">아세톤이 증발할 때 입자들은 어떻게 움직일까요? 눈에 보이지 않는 세계를 관찰해보세요.</p>
+
+    <div class="container">
+        <div class="lab-area">
+            <div style="position: absolute; top: 30px; left: 30px; font-weight: bold; color: #555;">현미경 확대 화면 (입자 모형)</div>
+            <canvas id="simCanvas" width="500" height="400"></canvas>
+            <div class="legend">
+                <span class="dot blue-dot"></span> <span>아세톤 입자</span>
+                <span style="color: #888;">(배경의 흰 공간은 공기입니다)</span>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div>
+                <label>전자 저울 (질량)</label>
+                <div class="digital-scale" id="massDisplay">5.00 g</div>
+            </div>
+
+            <div class="info-box" id="feedbackBox">
+                실험 준비 완료.<br>
+                '실험 시작' 버튼을 눌러 아세톤을 증발시켜 보세요.
+            </div>
+
+            <div>
+                <label for="tempSlider">온도 조절 (입자 속도)</label>
+                <input type="range" id="tempSlider" min="1" max="5" value="2" step="1">
+                <div style="display: flex; justify-content: space-between; font-size: 0.8rem; color: #666;">
+                    <span>차가움</span>
+                    <span>상온</span>
+                    <span>뜨거움</span>
+                </div>
+            </div>
+
+            <button class="btn btn-start" id="startBtn">실험 시작</button>
+            <button class="btn btn-reset" id="resetBtn">초기화</button>
+            
+            <div style="margin-top: 10px; font-size: 0.85rem; color: #555;">
+                <strong>💡 학습 포인트:</strong><br>
+                입자가 액체 표면(중앙)에서 공기 중(바깥)으로 튀어 나가는 현상이 바로 <strong>'증발'</strong>입니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 시뮬레이션 설정 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const massDisplay = document.getElementById('massDisplay');
+        const feedbackBox = document.getElementById('feedbackBox');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const tempSlider = document.getElementById('tempSlider');
+
+        let particles = [];
+        let animationId;
+        let isRunning = false;
+        let temperature = 2; // 1~5
+        const initialMass = 5.00;
+        let currentMass = initialMass;
+        
+        // 거름종이(액체 존재 영역) 정의 - 캔버스 중앙
+        const liquidRadius = 80;
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // 입자 클래스
+        class Particle {
+            constructor() {
+                // 초기 위치는 중앙 액체 영역 내 랜덤 분포
+                const angle = Math.random() * Math.PI * 2;
+                const r = Math.sqrt(Math.random()) * liquidRadius; // 균일 분포
+                this.x = centerX + r * Math.cos(angle);
+                this.y = centerY + r * Math.sin(angle);
+                
+                // 속도 (온도에 비례)
+                this.vx = (Math.random() - 0.5) * temperature;
+                this.vy = (Math.random() - 0.5) * temperature;
+                
+                this.state = 'liquid'; // liquid(액체 상태), gas(증발된 상태)
+                this.escaped = false; // 완전히 화면 밖으로 나갔는지
+                this.alpha = 1; // 투명도
+            }
+
+            update() {
+                // 온도에 따라 속도 업데이트 (실시간 반영)
+                const speedMultiplier = temperature * 0.5; 
+                
+                // 랜덤 운동 (브라운 운동 유사 효과)
+                this.vx += (Math.random() - 0.5) * 0.2;
+                this.vy += (Math.random() - 0.5) * 0.2;
+
+                // 속도 제한
+                const maxSpeed = temperature * 1.5;
+                const speed = Math.sqrt(this.vx*this.vx + this.vy*this.vy);
+                if(speed > maxSpeed) {
+                    this.vx = (this.vx / speed) * maxSpeed;
+                    this.vy = (this.vy / speed) * maxSpeed;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 상태 확인: 액체 영역을 벗어났는가?
+                const distFromCenter = Math.sqrt((this.x - centerX)**2 + (this.y - centerY)**2);
+                
+                if (this.state === 'liquid') {
+                    // 액체 상태일 때: 인력(가상의 응집력) 흉내
+                    // 온도가 낮으면 중심부로 살짝 당김, 높으면 잘 튀어나감
+                    if (distFromCenter > liquidRadius) {
+                        // 확률적으로 탈출 (온도가 높을수록 탈출 확률 증가)
+                        if (Math.random() < (temperature * 0.01)) {
+                            this.state = 'gas'; // 증발!
+                        } else {
+                            // 탈출 실패: 튕겨 나옴 (반사)
+                            const angle = Math.atan2(this.y - centerY, this.x - centerX);
+                            this.vx = -Math.cos(angle) * speed;
+                            this.vy = -Math.sin(angle) * speed;
+                        }
+                    }
+                } else {
+                    // 기체 상태(증발 후): 자유롭게 확산, 투명해지며 사라짐
+                    this.alpha -= 0.005;
+                    if (this.alpha <= 0) this.escaped = true;
+                }
+            }
+
+            draw() {
+                if (this.escaped) return;
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 4 + (temperature * 0.5), 0, Math.PI * 2);
+                ctx.fillStyle = `rgba(74, 144, 226, ${this.alpha})`; // 아세톤 색상
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        function init() {
+            particles = [];
+            // 입자 300개 생성
+            for (let i = 0; i < 300; i++) {
+                particles.push(new Particle());
+            }
+            currentMass = initialMass;
+            massDisplay.innerText = currentMass.toFixed(2) + " g";
+            temperature = parseInt(tempSlider.value);
+            drawBackground();
+            
+            // 정지 상태에서의 초기 렌더링
+            particles.forEach(p => p.draw());
+        }
+
+        function drawBackground() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 거름종이 영역 표시
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, liquidRadius, 0, Math.PI * 2);
+            ctx.strokeStyle = "#ccc";
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
+            ctx.fill();
+            
+            // 텍스트 라벨
+            ctx.fillStyle = "#999";
+            ctx.font = "12px sans-serif";
+            ctx.fillText("거름종이 영역", centerX - 35, centerY + liquidRadius + 20);
+        }
+
+        function animate() {
+            if (!isRunning) return;
+
+            drawBackground();
+            temperature = parseInt(tempSlider.value);
+
+            let activeParticles = 0;
+            let liquidParticles = 0;
+
+            particles.forEach(p => {
+                if (!p.escaped) {
+                    p.update();
+                    p.draw();
+                    activeParticles++;
+                    if(p.state === 'liquid') liquidParticles++;
+                }
+            });
+
+            // 질량 계산: 액체 영역에 남아있는 입자 수에 비례
+            // 시각적 효과를 위해 약간의 보정
+            const massRatio = liquidParticles / 300;
+            currentMass = initialMass * massRatio;
+            massDisplay.innerText = Math.max(0, currentMass).toFixed(2) + " g";
+
+            // 피드백 업데이트
+            if (liquidParticles < 250 && liquidParticles > 100) {
+                feedbackBox.innerHTML = "아세톤 입자들이 활발하게 운동하며<br>공기 중으로 날아가고 있습니다! (증발)";
+            } else if (liquidParticles <= 10) {
+                feedbackBox.innerHTML = "거의 모든 입자가 증발했습니다.<br>질량이 0g에 가까워졌습니다.";
+                stopSimulation();
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function startSimulation() {
+            if (isRunning) return;
+            isRunning = true;
+            startBtn.innerText = "진행 중...";
+            startBtn.disabled = true;
+            tempSlider.disabled = false;
+            animate();
+        }
+
+        function stopSimulation() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            startBtn.innerText = "실험 완료";
+        }
+
+        function resetSimulation() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            startBtn.innerText = "실험 시작";
+            startBtn.disabled = false;
+            feedbackBox.innerHTML = "실험 준비 완료.<br>'실험 시작' 버튼을 눌러 아세톤을 증발시켜 보세요.";
+            init();
+        }
+
+        // 이벤트 리스너
+        startBtn.addEventListener('click', startSimulation);
+        resetBtn.addEventListener('click', resetSimulation);
+        tempSlider.addEventListener('input', () => {
+            temperature = parseInt(tempSlider.value);
+            if(isRunning) {
+                feedbackBox.innerHTML = `온도 설정: ${temperature}단계<br>온도가 높을수록 입자 운동이 빨라집니다.`;
+            }
+        });
+
+        // 초기화 실행
+        init();
+
+    </script>
+</body>
+</html>
