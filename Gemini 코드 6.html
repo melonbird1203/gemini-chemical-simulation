@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 실험실: 보일 법칙 시뮬레이션</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f4f7f9; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; }
+        .lab-bench { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 20px; }
+        
+        /* 제어 패널 */
+        .controls { flex: 1; min-width: 300px; padding: 20px; background: #eef2f5; border-radius: 10px; }
+        .slider-group { margin-bottom: 20px; }
+        label { font-weight: bold; display: block; margin-bottom: 10px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .data-display { background: white; padding: 10px; border-radius: 5px; margin-top: 10px; }
+        .value-box { font-size: 1.2em; font-weight: bold; color: #2980b9; }
+
+        /* 시각화 패널 */
+        .visualization { flex: 1; min-width: 300px; text-align: center; }
+        canvas { border: 2px solid #bdc3c7; background: #fff; border-radius: 5px; margin-bottom: 10px; }
+        
+        /* 데이터 테이블 */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9em; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #34495e; color: white; }
+
+        .note { font-size: 0.9em; color: #e74c3c; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔬 보일 법칙 가상 실험 (Boyle's Law)</h1>
+    <p style="text-align: center;">슬라이더를 움직여 피스톤을 누르고(압력 증가), 입자의 움직임과 부피 변화를 관찰하세요.</p>
+    
+    <div class="lab-bench">
+        <div class="controls">
+            <div class="slider-group">
+                <label for="pressureRange">가해지는 압력 (기압, atm)</label>
+                <input type="range" id="pressureRange" min="0.5" max="3.0" step="0.5" value="1.0">
+                <div class="data-display">
+                    현재 압력(P): <span id="pressureVal" class="value-box">1.0</span> 기압
+                </div>
+            </div>
+
+            <div class="data-display">
+                기체의 부피(V): <span id="volumeVal" class="value-box">60.0</span> mL
+            </div>
+            
+            <div class="data-display" style="background-color: #fff3cd;">
+                보일 법칙 상수 (P × V): <span id="constantVal" class="value-box">60.0</span>
+            </div>
+
+            <p class="note">📢 팁: 온도가 일정할 때, 입자의 속력은 변하지 않지만 좁은 공간에서 벽면에 더 자주 부딪힙니다!</p>
+
+            <h3>📊 실험 데이터 기록</h3>
+            <table id="dataTable">
+                <thead>
+                    <tr>
+                        <th>압력 (P)</th>
+                        <th>부피 (V)</th>
+                        <th>P × V</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+        </div>
+
+        <div class="visualization">
+            <h3>🧪 입자 모형 시뮬레이션</h3>
+            <canvas id="simCanvas" width="300" height="400"></canvas>
+            <h3>📈 P-V 그래프</h3>
+            <canvas id="graphCanvas" width="300" height="200"></canvas>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 변수 설정
+    const pressureSlider = document.getElementById('pressureRange');
+    const pressureDisplay = document.getElementById('pressureVal');
+    const volumeDisplay = document.getElementById('volumeVal');
+    const constantDisplay = document.getElementById('constantVal');
+    const dataTable = document.getElementById('dataTable').querySelector('tbody');
+    
+    const simCanvas = document.getElementById('simCanvas');
+    const simCtx = simCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+
+    const K = 60; // 보일 법칙 상수 (P=1일 때 V=60)
+    let pressure = 1.0;
+    let volume = 60.0;
+    
+    // 입자 설정 (20개)
+    const particles = [];
+    for(let i=0; i<30; i++) {
+        particles.push({
+            x: Math.random() * simCanvas.width,
+            y: Math.random() * 300,
+            vx: (Math.random() - 0.5) * 4,
+            vy: (Math.random() - 0.5) * 4,
+            radius: 4,
+            color: '#e74c3c'
+        });
+    }
+
+    // 초기화 및 이벤트 리스너
+    function init() {
+        updateSimulation();
+        drawGraph();
+        updateTable();
+    }
+
+    pressureSlider.addEventListener('input', (e) => {
+        pressure = parseFloat(e.target.value);
+        // 보일 법칙: V = K / P
+        volume = (K / pressure).toFixed(1);
+        
+        pressureDisplay.textContent = pressure.toFixed(1);
+        volumeDisplay.textContent = volume;
+        constantDisplay.textContent = (pressure * volume).toFixed(1);
+        
+        updateTable(); // 값이 바뀔 때마다 테이블 업데이트 (중복 방지 로직 필요시 추가)
+    });
+
+    // 데이터 테이블 업데이트 (단순화: 현재 값만 하이라이트하거나 목록에 추가)
+    // 여기서는 깔끔하게 현재 상태에 대한 주요 지점을 미리 보여주는 방식으로 구현
+    function updateTable() {
+        dataTable.innerHTML = ""; 
+        const steps = [0.5, 1.0, 1.5, 2.0, 2.5, 3.0];
+        
+        steps.forEach(p => {
+            let v = (K / p).toFixed(1);
+            let pv = (p * v).toFixed(1);
+            let row = document.createElement('tr');
+            if (p === pressure) row.style.backgroundColor = "#dff9fb"; // 현재 선택된 값 강조
+            
+            row.innerHTML = `<td>${p}</td><td>${v}</td><td>${pv}</td>`;
+            dataTable.appendChild(row);
+        });
+    }
+
+    // 시뮬레이션 루프 (애니메이션)
+    function animate() {
+        updateSimulation();
+        requestAnimationFrame(animate);
+    }
+
+    function updateSimulation() {
+        simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
+
+        // 1. 주사기 그리기
+        // 부피 60mL를 픽셀 높이 300px로 매핑한다고 가정 (비례식)
+        // 최대 부피 120 (0.5기압) -> 높이 360px 정도
+        // 현재 부피 volume에 비례하는 픽셀 높이 계산
+        // V=60 -> H=200px (기준)
+        const pistonHeight = volume * 3.33; // 60mL * 3.33 = 200px
+        const cylinderBase = 380; // 바닥 위치
+        const pistonY = cylinderBase - pistonHeight;
+
+        // 실린더
+        simCtx.strokeStyle = "#34495e";
+        simCtx.lineWidth = 5;
+        simCtx.strokeRect(50, 20, 200, 360); // 외벽
+
+        // 피스톤 (누르는 판)
+        simCtx.fillStyle = "#95a5a6";
+        simCtx.fillRect(52, pistonY, 196, 20); 
+        
+        // 피스톤 막대
+        simCtx.fillStyle = "#7f8c8d";
+        simCtx.fillRect(140, 20, 20, pistonY - 20);
+
+        // 기체 영역 표시
+        simCtx.fillStyle = "rgba(52, 152, 219, 0.1)";
+        simCtx.fillRect(52, pistonY + 20, 196, cylinderBase - (pistonY + 20));
+
+        // 2. 입자 그리기 및 이동
+        const bottomLimit = cylinderBase;
+        const topLimit = pistonY + 20;
+
+        particles.forEach(p => {
+            // 위치 업데이트
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // 벽 충돌 (X축)
+            if (p.x <= 55 || p.x >= 245) p.vx *= -1;
+
+            // 피스톤 및 바닥 충돌 (Y축)
+            // 입자가 피스톤 위로 올라갔다면 강제로 아래로 내림 (압축 시)
+            if (p.y < topLimit) {
+                p.y = topLimit + 2; 
+                p.vy = Math.abs(p.vy); // 아래로 튕김
+            }
+            if (p.y > bottomLimit) {
+                p.y = bottomLimit - 2;
+                p.vy = -Math.abs(p.vy); // 위로 튕김
+            }
+
+            // 입자 그리기
+            simCtx.beginPath();
+            simCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+            simCtx.fillStyle = p.color;
+            simCtx.fill();
+        });
+        
+        drawGraph();
+    }
+
+    function drawGraph() {
+        graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+        
+        // 축 그리기
+        graphCtx.beginPath();
+        graphCtx.moveTo(40, 10);
+        graphCtx.lineTo(40, 180); // Y축 (부피)
+        graphCtx.lineTo(280, 180); // X축 (압력)
+        graphCtx.strokeStyle = "#333";
+        graphCtx.lineWidth = 2;
+        graphCtx.stroke();
+
+        // 라벨
+        graphCtx.font = "12px Arial";
+        graphCtx.fillStyle = "#333";
+        graphCtx.fillText("V", 25, 20);
+        graphCtx.fillText("P", 280, 195);
+
+        // 곡선 그리기 (이론값)
+        graphCtx.beginPath();
+        graphCtx.strokeStyle = "#e74c3c";
+        graphCtx.lineWidth = 2;
+        for (let x = 0.5; x <= 3.0; x += 0.1) {
+            let plotX = 40 + (x - 0.5) * (240 / 2.5); // 0.5~3.0 매핑
+            let plotY = 180 - ((K/x) / 120 * 160); // 부피 최대 120 기준
+            if (x === 0.5) graphCtx.moveTo(plotX, plotY);
+            else graphCtx.lineTo(plotX, plotY);
+        }
+        graphCtx.stroke();
+
+        // 현재 위치 점 찍기
+        let currentX = 40 + (pressure - 0.5) * (240 / 2.5);
+        let currentY = 180 - (volume / 120 * 160);
+        
+        graphCtx.beginPath();
+        graphCtx.arc(currentX, currentY, 5, 0, Math.PI * 2);
+        graphCtx.fillStyle = "#2980b9";
+        graphCtx.fill();
+    }
+
+    init();
+    animate();
+</script>
+
+</body>
+</html>

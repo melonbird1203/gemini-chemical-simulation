@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 에탄올과 물의 분리</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --glass-border: 2px solid #a4b0be;
+            --liquid-mix: #eccc68; /* 혼합물 색 */
+            --liquid-eth: #dfe4ea; /* 에탄올 색 (투명에 가까움) */
+            --liquid-water: #a4b0be; /* 물 색 */
+            --fire-color: #ff6b6b;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #2f3640;
+            color: #333;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 250px 1fr 300px;
+            gap: 20px;
+            background-color: #fff;
+            width: 1200px;
+            height: 700px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            overflow: hidden;
+        }
+
+        /* 1. 왼쪽 컨트롤 패널 */
+        .panel-left {
+            background-color: var(--secondary-color);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            border-right: 1px solid #ddd;
+        }
+
+        h2 { font-size: 1.2rem; margin-top: 0; color: #2c3e50; }
+        
+        .control-group {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.9rem; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-start { background-color: var(--primary-color); color: white; }
+        .btn-start:hover { background-color: #357abd; }
+        
+        .btn-swap { background-color: #e67e22; color: white; margin-top: 5px; }
+        .btn-swap:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .btn-reset { background-color: #7f8c8d; color: white; margin-top: auto; }
+
+        .status-box {
+            font-size: 0.85rem;
+            line-height: 1.4;
+            color: #555;
+        }
+
+        /* 2. 중앙 실험 시각화 (Apparatus) */
+        .stage {
+            position: relative;
+            background-color: #ffffff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 실험 기구 배치 */
+        .apparatus {
+            position: relative;
+            width: 500px;
+            height: 400px;
+        }
+
+        /* 가열 플라스크 */
+        .flask-source {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            width: 100px;
+            height: 100px;
+            border: var(--glass-border);
+            border-radius: 50%;
+            overflow: hidden;
+            z-index: 2;
+        }
+        
+        .flask-neck {
+            position: absolute;
+            bottom: 145px;
+            left: 90px;
+            width: 20px;
+            height: 80px;
+            border-left: var(--glass-border);
+            border-right: var(--glass-border);
+            background: rgba(255,255,255,0.5);
+            z-index: 1;
+        }
+
+        /* 액체 (소스) */
+        .liquid-source {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 50%; /* 초기 높이 */
+            background-color: var(--liquid-mix);
+            transition: height 0.5s;
+        }
+        
+        /* 기포 애니메이션 */
+        .bubble {
+            position: absolute;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+            animation: rise 2s infinite;
+            display: none;
+        }
+
+        @keyframes rise {
+            0% { bottom: 0; transform: scale(1); opacity: 0; }
+            50% { opacity: 1; }
+            100% { bottom: 100%; transform: scale(1.5); opacity: 0; }
+        }
+
+        /* 불꽃 */
+        .flame {
+            position: absolute;
+            bottom: 10px;
+            left: 85px;
+            width: 30px;
+            height: 30px;
+            background: radial-gradient(circle, #f1c40f 20%, #e74c3c 80%);
+            border-radius: 50% 50% 20% 20%;
+            box-shadow: 0 0 10px #e67e22;
+            transform-origin: bottom center;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .flame.active { opacity: 1; animation: flicker 0.1s infinite alternate; }
+
+        @keyframes flicker { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+        /* 냉각기 (Liebig Condenser) - 단순화 */
+        .condenser {
+            position: absolute;
+            top: 180px;
+            left: 110px;
+            width: 200px;
+            height: 30px;
+            border: var(--glass-border);
+            border-radius: 5px;
+            background: rgba(200, 230, 255, 0.2);
+            transform: rotate(15deg);
+            z-index: 1;
+        }
+
+        .condenser-inner {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 8px;
+            background: transparent;
+            border-top: 1px solid #aaa;
+            border-bottom: 1px solid #aaa;
+            transform: translateY(-50%);
+        }
+
+        .water-flow {
+            position: absolute;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: repeating-linear-gradient(45deg, rgba(74, 144, 226, 0.1), rgba(74, 144, 226, 0.1) 10px, rgba(74, 144, 226, 0.2) 10px, rgba(74, 144, 226, 0.2) 20px);
+            opacity: 0;
+            transition: opacity 0.5s;
+        }
+        .water-flow.active { opacity: 1; animation: flow 2s linear infinite; }
+        @keyframes flow { from { background-position: 0 0; } to { background-position: 50px 0; } }
+
+        /* 받는 플라스크 (삼각) */
+        .flask-dest {
+            position: absolute;
+            bottom: 30px;
+            right: 80px;
+            width: 80px;
+            height: 100px;
+            clip-path: polygon(20% 0, 80% 0, 100% 100%, 0% 100%);
+            border: var(--glass-border); /* clip-path 때문에 border가 잘려서 background로 처리 */
+            background: rgba(255,255,255,0.4);
+            border-bottom: 2px solid #a4b0be;
+        }
+
+        .liquid-dest {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background-color: var(--liquid-eth);
+            transition: height 0.5s;
+        }
+
+        .drop {
+            position: absolute;
+            right: 115px;
+            top: 260px;
+            width: 8px;
+            height: 8px;
+            background: #a4b0be;
+            border-radius: 50%;
+            display: none;
+        }
+        .drop.falling { display: block; animation: dropFall 1s linear infinite; }
+
+        @keyframes dropFall { 0% { top: 260px; opacity: 1; } 100% { top: 370px; opacity: 0; } }
+
+        /* 증기 애니메이션 */
+        .vapor {
+            position: absolute;
+            right: 80px;
+            top: 240px;
+            font-size: 20px;
+            color: #aaa;
+            opacity: 0;
+        }
+        .vapor.active { animation: vaporRise 1.5s infinite; opacity: 0.8; }
+        @keyframes vaporRise { 0% { transform: translateY(0); opacity: 0.8; } 100% { transform: translateY(-20px); opacity: 0; } }
+
+        /* 3. 오른쪽 데이터 패널 */
+        .panel-right {
+            background-color: var(--secondary-color);
+            padding: 20px;
+            border-left: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .data-card {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .temp-display {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #e74c3c;
+            text-align: center;
+        }
+
+        /* 그래프 캔버스 */
+        #tempChart {
+            width: 100%;
+            height: 150px;
+            border-left: 2px solid #333;
+            border-bottom: 2px solid #333;
+            background: #fff;
+        }
+        
+        .result-box {
+            display: none;
+            background: #dff9fb;
+            border: 1px solid #c7ecee;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+        }
+
+        /* 툴팁/라벨 */
+        .label-tag {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-size: 10px;
+            pointer-events: none;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="panel-left">
+        <h2>🧪 실험 제어</h2>
+        
+        <div class="control-group">
+            <label>1. 냉각수 공급</label>
+            <label class="switch">
+                <input type="checkbox" id="check-cooling"> 
+                <span style="font-weight:normal">밸브 열기 (ON/OFF)</span>
+            </label>
+        </div>
+
+        <div class="control-group">
+            <label>2. 가열 세기 (알코올램프)</label>
+            <input type="range" id="range-heat" min="0" max="100" value="0">
+            <div style="font-size: 0.8rem; text-align: center; color:#666;" id="heat-val">꺼짐</div>
+        </div>
+
+        <div class="control-group">
+            <label>3. 받는 용기 (Flask)</label>
+            <div id="current-flask-info" style="margin-bottom:5px; font-size:0.9rem; color:blue;">현재: 플라스크 A</div>
+            <button class="btn-swap" id="btn-swap" disabled>용기 교체하기!</button>
+        </div>
+
+        <div class="status-box" id="status-msg">
+            실험 준비 완료.<br>냉각수를 켜고 가열을 시작하세요.
+        </div>
+
+        <button class="btn-reset" onclick="location.reload()">실험 초기화</button>
+    </div>
+
+    <div class="stage">
+        <div class="apparatus">
+            <div class="label-tag" style="bottom: 150px; left: 50px;">혼합물</div>
+            <div class="label-tag" style="top: 150px; left: 160px;">냉각기</div>
+            <div class="label-tag" style="bottom: 130px; right: 80px;">증류액</div>
+            <div class="label-tag" style="top: 120px; left: 70px;">온도계</div>
+
+            <div class="flask-neck"></div>
+            <div class="flask-source">
+                <div class="liquid-source" id="liquid-source">
+                    <div class="bubble" style="left:20%; width:10px; height:10px; animation-delay:0s;"></div>
+                    <div class="bubble" style="left:50%; width:14px; height:14px; animation-delay:0.5s;"></div>
+                    <div class="bubble" style="left:70%; width:8px; height:8px; animation-delay:1s;"></div>
+                </div>
+            </div>
+            
+            <div class="flame" id="flame"></div>
+
+            <div style="position:absolute; top:80px; left:95px; width:6px; height:150px; background:#eee; border:1px solid #aaa; z-index:5;">
+                <div id="thermometer-bar" style="position:absolute; bottom:0; width:100%; height:20%; background:red; transition:height 0.2s;"></div>
+            </div>
+
+            <div class="condenser">
+                <div class="water-flow" id="water-flow"></div>
+                <div class="condenser-inner"></div>
+            </div>
+
+            <div class="vapor" id="vapor-cloud">☁️</div>
+
+            <div class="drop" id="drop"></div>
+
+            <div class="flask-dest">
+                <div class="liquid-dest" id="liquid-dest"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel-right">
+        <h2>📊 관찰 데이터</h2>
+        
+        <div class="data-card">
+            <label>현재 온도</label>
+            <div class="temp-display" id="temp-display">25.0°C</div>
+        </div>
+
+        <div class="data-card">
+            <label>온도 변화 그래프</label>
+            <svg id="tempChart" viewBox="0 0 200 100" preserveAspectRatio="none">
+                <polyline id="chart-line" fill="none" stroke="red" stroke-width="2" points="0,100" />
+            </svg>
+            <div style="display:flex; justify-content:space-between; font-size:0.7rem; color:#666;">
+                <span>0분</span>
+                <span>시간 ➝</span>
+            </div>
+        </div>
+
+        <div class="data-card">
+            <label>수집된 액체 (현재 용기)</label>
+            <div id="collect-info">0 mL</div>
+            <progress id="collect-bar" value="0" max="50" style="width:100%"></progress>
+        </div>
+
+        <div class="result-box" id="result-box">
+            </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. 실험 변수 및 상태 ---
+    const STATE = {
+        temp: 25.0,        // 현재 온도
+        heatPower: 0,      // 가열 세기 (0~100)
+        coolingOn: false,  // 냉각수 여부
+        
+        // 물질 양 (가상 단위 mL)
+        sourceEthanol: 50,
+        sourceWater: 50,
+        
+        // 수집된 양
+        flask1: { ethanol: 0, water: 0 },
+        flask2: { ethanol: 0, water: 0 },
+        
+        currentFlask: 1,   // 현재 받는 플라스크 (1 or 2)
+        time: 0,           // 실험 시간
+        isBoiling: false
+    };
+
+    // 상수
+    const BP_ETHANOL = 78.3; // 에탄올 끓는점
+    const BP_WATER = 100.0;  // 물 끓는점
+    const ROOM_TEMP = 25.0;
+
+    // --- 2. DOM 요소 연결 ---
+    const els = {
+        heatRange: document.getElementById('range-heat'),
+        heatVal: document.getElementById('heat-val'),
+        checkCooling: document.getElementById('check-cooling'),
+        btnSwap: document.getElementById('btn-swap'),
+        statusMsg: document.getElementById('status-msg'),
+        
+        tempDisplay: document.getElementById('temp-display'),
+        thermoBar: document.getElementById('thermometer-bar'),
+        chartLine: document.getElementById('chart-line'),
+        
+        flame: document.getElementById('flame'),
+        bubbles: document.querySelectorAll('.bubble'),
+        waterFlow: document.getElementById('water-flow'),
+        vaporCloud: document.getElementById('vapor-cloud'),
+        drop: document.getElementById('drop'),
+        
+        liqSource: document.getElementById('liquid-source'),
+        liqDest: document.getElementById('liquid-dest'),
+        collectInfo: document.getElementById('collect-info'),
+        collectBar: document.getElementById('collect-bar'),
+        
+        currentFlaskInfo: document.getElementById('current-flask-info'),
+        resultBox: document.getElementById('result-box')
+    };
+
+    // 차트 데이터 포인트
+    let chartPoints = [];
+    const MAX_CHART_POINTS = 200;
+
+    // --- 3. 이벤트 리스너 ---
+    els.heatRange.addEventListener('input', (e) => {
+        STATE.heatPower = parseInt(e.target.value);
+        els.heatVal.innerText = STATE.heatPower === 0 ? "꺼짐" : `세기: ${STATE.heatPower}%`;
+        
+        // 불꽃 시각화
+        els.flame.style.opacity = STATE.heatPower / 100;
+        els.flame.classList.toggle('active', STATE.heatPower > 0);
+        
+        // 거품 시각화 (가열 중일 때만)
+        els.bubbles.forEach(b => b.style.display = STATE.heatPower > 20 ? 'block' : 'none');
+    });
+
+    els.checkCooling.addEventListener('change', (e) => {
+        STATE.coolingOn = e.target.checked;
+        els.waterFlow.classList.toggle('active', STATE.coolingOn);
+        updateStatus();
+    });
+
+    els.btnSwap.addEventListener('click', () => {
+        if (STATE.currentFlask === 1) {
+            STATE.currentFlask = 2;
+            els.currentFlaskInfo.innerText = "현재: 플라스크 B (교체됨)";
+            els.currentFlaskInfo.style.color = "#e67e22";
+            els.btnSwap.disabled = true; // 한 번만 교체 가능
+            els.liqDest.style.height = '0%'; // 시각적 리셋
+            updateStatus("플라스크를 교체했습니다! 이제 물이 나올 차례인가요?");
+        }
+    });
+
+    // --- 4. 시뮬레이션 루프 (핵심 로직) ---
+    setInterval(gameLoop, 100); // 0.1초마다 갱신
+
+    function gameLoop() {
+        // A. 온도 계산 로직
+        let targetTemp = ROOM_TEMP;
+        if (STATE.heatPower > 0) {
+            // 가열 시 목표 온도 (최대 120도까지)
+            targetTemp = 120; 
+        }
+
+        // 온도 상승/하강 속도
+        let changeRate = (STATE.heatPower / 500) - 0.05; // 가열 - 자연냉각
+        if (changeRate < -0.1) changeRate = -0.1; // 냉각 속도 제한
+
+        // 끓는점 구간(Plateau) 구현: 상변화 잠열 시뮬레이션
+        // 에탄올이 남아있고, 온도가 78도 근처일 때 온도가 잘 안 오름
+        if (STATE.sourceEthanol > 1 && STATE.temp > 76 && STATE.temp < 80) {
+            changeRate *= 0.1; // 온도 상승 억제
+        }
+        // 물만 남았고, 온도가 100도 근처일 때
+        if (STATE.sourceEthanol <= 1 && STATE.sourceWater > 1 && STATE.temp > 98 && STATE.temp < 102) {
+            changeRate *= 0.1;
+        }
+
+        STATE.temp += changeRate;
+        if (STATE.temp < ROOM_TEMP) STATE.temp = ROOM_TEMP; // 실온 밑으로 안 떨어짐
+
+        // B. 증발 및 응축 로직
+        let evaporationRate = 0;
+        let vaporType = 'none'; // 'ethanol' or 'water' or 'mix'
+
+        // 에탄올 끓음 (78도 이상)
+        if (STATE.temp >= BP_ETHANOL && STATE.sourceEthanol > 0) {
+            evaporationRate = (STATE.temp - 70) * 0.05; // 온도가 높을수록 증발 빠름
+            vaporType = 'ethanol';
+        }
+        
+        // 물 끓음 (100도 근처) - 에탄올이 거의 다 없어진 후 활발
+        if (STATE.temp >= 95 && STATE.sourceWater > 0) {
+            let waterRate = (STATE.temp - 90) * 0.05;
+            evaporationRate += waterRate;
+            vaporType = (vaporType === 'ethanol') ? 'mix' : 'water';
+        }
+
+        // 과도한 가열 시 불순물 섞임 로직 (85도 넘으면 물도 조금씩 같이 증발)
+        if (STATE.temp > 85 && STATE.sourceWater > 0 && STATE.sourceEthanol > 0) {
+             vaporType = 'mix';
+        }
+
+        // 실제 액체 감소 및 수집 처리
+        if (evaporationRate > 0) {
+            // 소스 감소
+            if (vaporType === 'ethanol' || vaporType === 'mix') {
+                let amount = Math.min(STATE.sourceEthanol, evaporationRate * 0.1);
+                STATE.sourceEthanol -= amount;
+            }
+            if (vaporType === 'water' || vaporType === 'mix') {
+                let amount = Math.min(STATE.sourceWater, evaporationRate * 0.1);
+                // 100도 이하에서는 물 증발량 적음
+                if (STATE.temp < 95) amount *= 0.1; 
+                STATE.sourceWater -= amount;
+            }
+
+            // 응축 (냉각수가 있어야만 수집됨)
+            if (STATE.coolingOn) {
+                // 수집
+                let targetCollection = (STATE.currentFlask === 1) ? STATE.flask1 : STATE.flask2;
+                
+                // 순도 결정 로직 (단순화)
+                if (STATE.temp < 82) {
+                    targetCollection.ethanol += evaporationRate * 0.1;
+                } else if (STATE.temp > 95) {
+                    targetCollection.water += evaporationRate * 0.1;
+                } else {
+                    // 섞임 구간
+                    targetCollection.ethanol += evaporationRate * 0.05;
+                    targetCollection.water += evaporationRate * 0.05;
+                }
+
+                // 시각 효과: 물방울 떨어짐
+                els.drop.classList.add('falling');
+                els.vaporCloud.classList.remove('active');
+            } else {
+                // 냉각수 없음 -> 증기 손실
+                els.drop.classList.remove('falling');
+                els.vaporCloud.classList.add('active'); // 증기 날아감 애니메이션
+                updateStatus("⚠️ 경고: 냉각수가 없어 증기가 날아가고 있습니다!");
+            }
+        } else {
+            els.drop.classList.remove('falling');
+            els.vaporCloud.classList.remove('active');
+        }
+
+        // C. UI 업데이트
+        updateUI();
+    }
+
+    function updateUI() {
+        // 1. 온도계
+        els.tempDisplay.innerText = STATE.temp.toFixed(1) + "°C";
+        // 높이 매핑 (20도=0%, 120도=100%)
+        let thermoHeight = Math.min(100, Math.max(0, (STATE.temp - 20))); 
+        els.thermoBar.style.height = thermoHeight + "%";
+
+        // 2. 그래프 업데이트
+        STATE.time++;
+        if (STATE.time % 5 === 0) { // 0.5초마다 점 찍기
+            // 그래프 Y좌표: 100 - (온도비율)
+            let y = 100 - ((STATE.temp - 20) * 0.8); // 스케일 조정
+            if (y < 0) y = 0;
+            
+            // X좌표 스케일링
+            let x = (chartPoints.length / MAX_CHART_POINTS) * 200;
+            
+            chartPoints.push(`${x},${y}`);
+            if (chartPoints.length > MAX_CHART_POINTS) {
+                // 그래프 꽉 차면 리셋 혹은 스크롤 (여기선 단순화 위해 정지 or 시프트)
+                // 간단히 앞부분 삭제
+                chartPoints = []; // 루프백 하거나 멈춤. 교육용이라 멈춤 추천
+            } else {
+                els.chartLine.setAttribute('points', chartPoints.join(' '));
+            }
+        }
+
+        // 3. 액체 높이 시각화
+        let totalSourceStart = 100; // 초기 100
+        let currentSource = STATE.sourceEthanol + STATE.sourceWater;
+        els.liqSource.style.height = (currentSource / totalSourceStart * 50) + "%"; // 50%가 max height
+
+        let currentCollectObj = (STATE.currentFlask === 1) ? STATE.flask1 : STATE.flask2;
+        let currentCollectVol = currentCollectObj.ethanol + currentCollectObj.water;
+        
+        // 수집 플라스크 높이 (최대 50ml 가정)
+        els.liqDest.style.height = Math.min(100, (currentCollectVol / 50 * 100)) + "%";
+        
+        els.collectInfo.innerText = `${currentCollectVol.toFixed(1)} mL`;
+        els.collectBar.value = currentCollectVol;
+
+        // 4. 버튼 활성화
+        // 온도가 80도를 넘고, 아직 교체 안했으면 교체 버튼 활성화
+        if (STATE.temp > 82 && STATE.currentFlask === 1) {
+            els.btnSwap.disabled = false;
+            els.btnSwap.style.animation = "flicker 1s infinite"; // 강조
+            updateStatus("💡 지금입니다! 용기를 교체하세요!");
+        } else {
+             els.btnSwap.style.animation = "";
+        }
+
+        // 5. 결과 분석 (실험 종료 감지)
+        if (currentSource < 5 && els.resultBox.style.display === "none") {
+            showResult();
+        }
+    }
+
+    function updateStatus(msg) {
+        if (msg) els.statusMsg.innerText = msg;
+    }
+
+    function showResult() {
+        els.resultBox.style.display = "block";
+        
+        // 플라스크 1 분석
+        let f1_total = STATE.flask1.ethanol + STATE.flask1.water;
+        let f1_purity = f1_total > 0 ? (STATE.flask1.ethanol / f1_total * 100).toFixed(1) : 0;
+        
+        // 플라스크 2 분석
+        let f2_total = STATE.flask2.ethanol + STATE.flask2.water;
+        let f2_water_purity = f2_total > 0 ? (STATE.flask2.water / f2_total * 100).toFixed(1) : 0;
+
+        let feedback = "";
+        if (f1_purity > 90) feedback = "매우 훌륭해요! 순수한 에탄올을 잘 분리했습니다.";
+        else if (f1_purity > 70) feedback = "잘했습니다. 하지만 가열이 너무 빠르거나 교체 타이밍이 늦어 물이 조금 섞였네요.";
+        else feedback = "재시도 해보세요. 천천히 가열하고 80도 부근에서 용기를 교체해야 합니다.";
+
+        els.resultBox.innerHTML = `
+            <strong>🧪 실험 결과 분석</strong><br>
+            - 1차 수집액: 에탄올 농도 <span style="color:red">${f1_purity}%</span><br>
+            - 2차 수집액: 물 함량 ${f2_water_purity}%<br>
+            <br>
+            <em>${feedback}</em>
+        `;
+    }
+</script>
+
+</body>
+</html>

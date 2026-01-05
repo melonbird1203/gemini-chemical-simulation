@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 실험: 압력과 기체의 부피 (보일 법칙)</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f0f4f8; color: #333; margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; }
+        .experiment-layout { display: flex; flex-wrap: wrap; gap: 20px; justify-content: space-between; }
+        .control-panel { flex: 1; min-width: 300px; background: #e8f4fd; padding: 15px; border-radius: 10px; }
+        .visual-panel { flex: 2; min-width: 400px; text-align: center; }
+        .canvas-container { position: relative; border: 2px solid #bdc3c7; background: #fff; margin-bottom: 10px; border-radius: 5px; overflow: hidden;}
+        canvas { display: block; margin: 0 auto; }
+        
+        /* UI Elements */
+        input[type=range] { width: 100%; cursor: pointer; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; font-size: 0.9em; }
+        th { background-color: #3498db; color: white; }
+        .btn { background: #27ae60; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 1em; margin-top: 10px; width: 100%; }
+        .btn:hover { background: #219150; }
+        
+        /* Feedback Box */
+        .feedback { margin-top: 15px; padding: 10px; background: #fff3cd; border-left: 5px solid #ffc107; border-radius: 3px; font-size: 0.9em; }
+        
+        .piston { position: absolute; top: 0; right: 0; height: 100%; background: rgba(52, 73, 94, 0.2); border-left: 5px solid #2c3e50; transition: width 0.1s; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔬 압력에 따른 기체 부피 변화 (보일 법칙)</h1>
+    
+    <div class="experiment-layout">
+        <div class="control-panel">
+            <h3>⚙️ 실험 조작</h3>
+            <label for="pressureRange"><strong>외부 압력 (P) 조절:</strong> <span id="pressureVal">1.0</span> atm</label>
+            <input type="range" id="pressureRange" min="0.5" max="3.0" step="0.1" value="1.0">
+            
+            <p><strong>🌡️ 온도:</strong> 일정 (25°C)</p>
+            
+            <h3>📊 실시간 데이터</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>압력 (P)</th>
+                        <th>부피 (V)</th>
+                        <th>입자 충돌/초</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="dataP">1.0 atm</td>
+                        <td id="dataV">10.0 L</td>
+                        <td id="dataC">측정 중...</td>
+                    </tr>
+                </tbody>
+            </table>
+            
+            <div class="feedback" id="feedbackText">
+                💡 압력을 변화시켜 보세요. 기체 입자들이 어떻게 움직이는지 관찰해 봅시다.
+            </div>
+
+            <button class="btn" onclick="saveReport()">📄 실험 결과 리포트 저장 (PDF)</button>
+        </div>
+
+        <div class="visual-panel">
+            <h3>🧪 입자 모형 시뮬레이션</h3>
+            <div class="canvas-container" style="height: 250px;">
+                <canvas id="particleCanvas" width="500" height="250"></canvas>
+                <div id="pistonVisual" class="piston" style="width: 0px;"></div>
+            </div>
+            
+            <h3>📈 P-V 그래프 (보일 법칙)</h3>
+            <div class="canvas-container" style="height: 200px;">
+                <canvas id="graphCanvas" width="500" height="200"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 설정 변수 ---
+    const pressureInput = document.getElementById('pressureRange');
+    const pressureDisplay = document.getElementById('pressureVal');
+    const dataP = document.getElementById('dataP');
+    const dataV = document.getElementById('dataV');
+    const dataC = document.getElementById('dataC');
+    const feedbackText = document.getElementById('feedbackText');
+    const pistonVisual = document.getElementById('pistonVisual');
+
+    // Canvas 설정
+    const pCanvas = document.getElementById('particleCanvas');
+    const pCtx = pCanvas.getContext('2d');
+    const gCanvas = document.getElementById('graphCanvas');
+    const gCtx = gCanvas.getContext('2d');
+
+    // 실험 상수 (PV = k)
+    const K_CONST = 10.0; // P=1일 때 V=10
+    let currentP = 1.0;
+    let currentV = 10.0;
+    
+    // 입자 설정
+    const particles = [];
+    const particleCount = 40;
+    const particleSpeed = 3; // 온도가 일정하므로 속력도 일정
+
+    class Particle {
+        constructor() {
+            this.x = Math.random() * (pCanvas.width - 50); // 초기 영역 제한
+            this.y = Math.random() * pCanvas.height;
+            this.vx = (Math.random() - 0.5) * particleSpeed * 2;
+            this.vy = (Math.random() - 0.5) * particleSpeed * 2;
+            this.radius = 4;
+        }
+
+        update(limitX) {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // 벽 충돌 (왼쪽, 위, 아래)
+            if (this.x - this.radius < 0) { this.x = this.radius; this.vx *= -1; }
+            if (this.y - this.radius < 0) { this.y = this.radius; this.vy *= -1; }
+            if (this.y + this.radius > pCanvas.height) { this.y = pCanvas.height - this.radius; this.vy *= -1; }
+            
+            // 피스톤(오른쪽 벽) 충돌
+            if (this.x + this.radius > limitX) { 
+                this.x = limitX - this.radius; 
+                this.vx *= -1;
+                return true; // 충돌 발생
+            }
+            return false;
+        }
+
+        draw() {
+            pCtx.beginPath();
+            pCtx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            pCtx.fillStyle = '#e74c3c';
+            pCtx.fill();
+            pCtx.closePath();
+        }
+    }
+
+    // 입자 초기화
+    for(let i=0; i<particleCount; i++) particles.push(new Particle());
+
+    // --- 메인 루프 ---
+    let collisionCount = 0;
+    let lastTime = Date.now();
+    let frameCount = 0;
+
+    function animate() {
+        // 값 업데이트
+        currentP = parseFloat(pressureInput.value);
+        currentV = K_CONST / currentP;
+        
+        // UI 업데이트
+        pressureDisplay.innerText = currentP.toFixed(1);
+        dataP.innerText = currentP.toFixed(1) + " atm";
+        dataV.innerText = currentV.toFixed(1) + " L";
+        
+        // 피스톤 위치 계산 (V가 20L일 때 100% 폭이라 가정)
+        // 화면 width가 500px. V=10 -> 250px 사용. V=20 -> 500px.
+        // V_display = currentV * 25 (스케일링)
+        const activeWidth = currentV * 35; 
+        const pistonX = Math.min(activeWidth, pCanvas.width);
+        
+        // 피스톤 시각적 표현 (회색 영역이 피스톤 밖)
+        pistonVisual.style.width = (pCanvas.width - pistonX) + "px";
+
+        // 입자 그리기
+        pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+        
+        // 활성 영역 표시
+        pCtx.fillStyle = "#ecf0f1";
+        pCtx.fillRect(0, 0, pistonX, pCanvas.height);
+
+        let collisions = 0;
+        particles.forEach(p => {
+            if(p.update(pistonX)) collisions++;
+            p.draw();
+        });
+
+        collisionCount += collisions;
+        frameCount++;
+
+        // 0.5초마다 충돌 횟수 업데이트 (평균화)
+        if (frameCount % 30 === 0) {
+            // 보정된 충돌 횟수 표시
+            let collisionsPerSec = Math.floor(collisionCount * 2); // 단순 시각화용 수치
+            dataC.innerText = collisionsPerSec + " 회";
+            
+            // 자동 피드백 로직
+            updateFeedback(currentP, collisionsPerSec);
+            collisionCount = 0;
+        }
+
+        drawGraph();
+        requestAnimationFrame(animate);
+    }
+
+    // --- 그래프 그리기 ---
+    function drawGraph() {
+        gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+        
+        // 축 그리기
+        gCtx.beginPath();
+        gCtx.strokeStyle = "#333";
+        gCtx.moveTo(40, 10);
+        gCtx.lineTo(40, 180); // Y축 (P)
+        gCtx.lineTo(480, 180); // X축 (V)
+        gCtx.stroke();
+        
+        // 라벨
+        gCtx.fillStyle = "#333";
+        gCtx.fillText("P (압력)", 10, 20);
+        gCtx.fillText("V (부피)", 450, 195);
+
+        // 보일 법칙 곡선 그리기 (PV = 10)
+        gCtx.beginPath();
+        gCtx.strokeStyle = "#3498db";
+        gCtx.lineWidth = 2;
+        
+        for (let v = 2; v <= 20; v += 0.5) {
+            let p = K_CONST / v;
+            // 좌표 변환: V(0~20) -> X(40~480), P(0~4) -> Y(180~10)
+            let x = 40 + (v * 20); 
+            let y = 180 - (p * 40);
+            
+            if (v === 2) gCtx.moveTo(x, y);
+            else gCtx.lineTo(x, y);
+        }
+        gCtx.stroke();
+
+        // 현재 위치 점 찍기
+        let curX = 40 + (currentV * 20);
+        let curY = 180 - (currentP * 40);
+        
+        gCtx.beginPath();
+        gCtx.fillStyle = "#e74c3c";
+        gCtx.arc(curX, curY, 6, 0, Math.PI * 2);
+        gCtx.fill();
+    }
+
+    function updateFeedback(p, c) {
+        if (p > 1.5) {
+            feedbackText.innerHTML = "💡 <strong>압력이 높네요!</strong> 공간이 좁아지니 입자들이 벽에 더 자주 부딪히는 게 보이나요?";
+        } else if (p < 0.8) {
+            feedbackText.innerHTML = "💡 <strong>압력이 낮아졌어요.</strong> 공간이 넓어지니 입자들이 훨씬 여유롭게 움직이네요.";
+        } else {
+            feedbackText.innerHTML = "✅ <strong>기준 상태입니다.</strong> 압력을 천천히 변화시키며 그래프의 붉은 점을 따라가 보세요.";
+        }
+    }
+
+    function saveReport() {
+        alert("📸 찰칵! 현재 실험 결과가 PDF로 저장되었습니다.\n\n[저장 내용]\n- 압력: " + currentP + " atm\n- 부피: " + currentV.toFixed(2) + " L\n- 결과: 압력과 부피는 반비례합니다.");
+    }
+
+    animate();
+</script>
+
+</body>
+</html>

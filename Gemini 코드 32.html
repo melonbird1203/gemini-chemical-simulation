@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 나만의 분자 조립소</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 900px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; }
+        h1 { text-align: center; color: #2c3e50; }
+        .lab-bench { display: flex; gap: 20px; flex-wrap: wrap; }
+        
+        /* 왼쪽: 원자 보관함 */
+        .atom-storage { flex: 1; background: #eef2f5; padding: 15px; border-radius: 10px; min-width: 200px; }
+        .atom-btn { display: flex; align-items: center; gap: 10px; background: white; border: 2px solid #ddd; padding: 10px; margin-bottom: 10px; border-radius: 30px; cursor: pointer; transition: 0.2s; width: 100%; }
+        .atom-btn:hover { background: #e0f7fa; border-color: #00bcd4; transform: translateX(5px); }
+        .atom-circle { width: 30px; height: 30px; border-radius: 50%; display: inline-block; border: 1px solid rgba(0,0,0,0.2); box-shadow: inset -2px -2px 5px rgba(0,0,0,0.2); }
+        
+        /* 원자 색상 (CPK coloring standard) */
+        .h-atom { background-color: #ffffff; border: 1px solid #ccc; } /* 수소 */
+        .c-atom { background-color: #333333; } /* 탄소 */
+        .n-atom { background-color: #3050f8; } /* 질소 */
+        .o-atom { background-color: #ff0d0d; } /* 산소 */
+
+        /* 중앙: 조립 작업대 */
+        .workspace { flex: 2; background: #fff; border: 3px dashed #cbd5e0; border-radius: 10px; min-height: 300px; position: relative; display: flex; justify-content: center; align-items: center; flex-direction: column; }
+        .current-atoms { display: flex; flex-wrap: wrap; justify-content: center; gap: 5px; margin-bottom: 20px; }
+        .floating-atom { width: 50px; height: 50px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; text-shadow: 1px 1px 2px black; animation: popIn 0.3s ease-out; box-shadow: inset -3px -3px 8px rgba(0,0,0,0.3); }
+        .floating-atom.H { background: #f0f0f0; color: #333; text-shadow: none; border: 1px solid #ccc; }
+        .floating-atom.C { background: #333; }
+        .floating-atom.N { background: #3050f8; }
+        .floating-atom.O { background: #ff0d0d; }
+
+        /* 오른쪽: 결과 패널 */
+        .result-panel { flex: 1; background: #fffbe6; padding: 15px; border-radius: 10px; border: 2px solid #ffe58f; min-width: 200px; }
+        .status-box { text-align: center; padding: 10px; }
+        .molecule-name { font-size: 1.5em; font-weight: bold; color: #d35400; margin: 10px 0; }
+        .molecule-formula { font-size: 1.2em; font-family: 'Georgia', serif; color: #555; background: #eee; padding: 5px 10px; border-radius: 5px; display: inline-block;}
+        .description { font-size: 0.9em; line-height: 1.4; color: #666; margin-top: 10px; text-align: left; }
+        
+        /* 컨트롤 버튼 */
+        .controls { width: 100%; text-align: center; margin-top: 20px; }
+        .btn-reset { background: #ff6b6b; color: white; border: none; padding: 10px 25px; border-radius: 5px; cursor: pointer; font-size: 1em; }
+        .btn-reset:hover { background: #fa5252; }
+
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        
+        .hint { font-size: 0.85em; color: #888; margin-top: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🧬 나만의 분자 조립소</h1>
+    <p style="text-align: center;">원자를 클릭하여 작업대에 추가하세요. 올바른 비율이 되면 분자가 완성됩니다!</p>
+    
+    <div class="lab-bench">
+        <div class="atom-storage">
+            <h3>원자 보관함</h3>
+            <div class="atom-btn" onclick="addAtom('H')"><span class="atom-circle h-atom"></span>수소 (H)</div>
+            <div class="atom-btn" onclick="addAtom('O')"><span class="atom-circle o-atom"></span>산소 (O)</div>
+            <div class="atom-btn" onclick="addAtom('N')"><span class="atom-circle n-atom"></span>질소 (N)</div>
+            <div class="atom-btn" onclick="addAtom('C')"><span class="atom-circle c-atom"></span>탄소 (C)</div>
+            <div class="hint">💡 팁: 산소 원자 2개를 모으면 무엇이 될까요?</div>
+        </div>
+
+        <div class="workspace" id="workspaceArea">
+            <div id="atomDisplay" class="current-atoms"></div>
+            <div style="color: #aaa; font-size: 0.9em;" id="emptyMsg">원자가 없습니다. 왼쪽에서 추가해주세요.</div>
+        </div>
+
+        <div class="result-panel">
+            <h3>분자 분석기</h3>
+            <div class="status-box">
+                <div id="moleculeFormula" class="molecule-formula">-</div>
+                <div id="moleculeName" class="molecule-name">미완성</div>
+                <div id="moleculeDesc" class="description">
+                    원자를 조합하여 분자를 만들어보세요.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-reset" onclick="resetLab()">🧪 실험 초기화 (비우기)</button>
+    </div>
+</div>
+
+<script>
+    // 현재 작업대에 있는 원자 개수 저장
+    let currentCounts = { H: 0, O: 0, N: 0, C: 0 };
+    
+    // 분자 데이터베이스 (정답지)
+    const molecules = [
+        { formula: "H₂", name: "수소 기체", counts: {H:2, O:0, N:0, C:0}, desc: "가장 가벼운 기체로, 우주에서 가장 풍부합니다." },
+        { formula: "O₂", name: "산소 기체", counts: {H:0, O:2, N:0, C:0}, desc: "우리가 숨 쉴 때 필요한 기체입니다. 물질을 태우는 것을 돕습니다." },
+        { formula: "O₃", name: "오존", counts: {H:0, O:3, N:0, C:0}, desc: "성층권에서는 자외선을 막아주지만, 지표면에서는 유해한 물질입니다. 산소(O₂)와 성질이 완전히 다릅니다!" },
+        { formula: "H₂O", name: "물", counts: {H:2, O:1, N:0, C:0}, desc: "우리 몸의 70%를 구성하는 소중한 물질입니다. 상온에서 액체 상태입니다." },
+        { formula: "H₂O₂", name: "과산화수소", counts: {H:2, O:2, N:0, C:0}, desc: "상처를 소독할 때 씁니다. 물(H₂O)보다 산소가 하나 더 많을 뿐인데 마시면 위험한 물질이 됩니다." },
+        { formula: "CO₂", name: "이산화탄소", counts: {H:0, O:2, N:0, C:1}, desc: "호흡의 결과로 배출되며, 식물의 광합성에 이용됩니다." },
+        { formula: "NH₃", name: "암모니아", counts: {H:3, O:0, N:1, C:0}, desc: "자극적인 냄새가 나는 기체로, 비료를 만드는 데 사용됩니다." },
+        { formula: "CH₄", name: "메테인", counts: {H:4, O:0, N:0, C:1}, desc: "천연가스(LNG)의 주성분으로, 불에 잘 타는 연료입니다." },
+        { formula: "N₂", name: "질소 기체", counts: {H:0, O:0, N:2, C:0}, desc: "공기의 약 78%를 차지하며, 과자 봉지 충전재로도 쓰입니다." }
+    ];
+
+    function addAtom(type) {
+        // 데이터 업데이트
+        currentCounts[type]++;
+        
+        // 화면 업데이트 (원자 추가 애니메이션)
+        const display = document.getElementById('atomDisplay');
+        const atomDiv = document.createElement('div');
+        atomDiv.className = `floating-atom ${type}`;
+        atomDiv.innerText = type;
+        display.appendChild(atomDiv);
+        
+        document.getElementById('emptyMsg').style.display = 'none';
+        
+        checkMolecule();
+    }
+
+    function checkMolecule() {
+        // 현재 조합과 일치하는 분자가 있는지 확인
+        const match = molecules.find(m => 
+            m.counts.H === currentCounts.H &&
+            m.counts.O === currentCounts.O &&
+            m.counts.N === currentCounts.N &&
+            m.counts.C === currentCounts.C
+        );
+
+        const nameEl = document.getElementById('moleculeName');
+        const formulaEl = document.getElementById('moleculeFormula');
+        const descEl = document.getElementById('moleculeDesc');
+
+        if (match) {
+            nameEl.innerText = match.name;
+            nameEl.style.color = "#27ae60"; // 성공 색상
+            formulaEl.innerText = match.formula;
+            descEl.innerHTML = `<strong>✨ 분자 생성 성공!</strong><br>${match.desc}`;
+        } else {
+            // 원자가 하나라도 있는데 매칭이 안될 때
+            const totalAtoms = currentCounts.H + currentCounts.O + currentCounts.N + currentCounts.C;
+            if (totalAtoms > 0) {
+                nameEl.innerText = "결합 중...";
+                nameEl.style.color = "#d35400";
+                formulaEl.innerText = buildRawFormula();
+                descEl.innerText = "아직 알려진 안정적인 분자가 형성되지 않았습니다. 원자를 더하거나 빼보세요.";
+            } else {
+                resetUI();
+            }
+        }
+    }
+
+    function buildRawFormula() {
+        // 현재 상태를 화학식 형태로 단순 표시 (예: H3O1)
+        let f = "";
+        if (currentCounts.C > 0) f += `C<sub>${currentCounts.C}</sub>`;
+        if (currentCounts.H > 0) f += `H<sub>${currentCounts.H}</sub>`;
+        if (currentCounts.O > 0) f += `O<sub>${currentCounts.O}</sub>`;
+        if (currentCounts.N > 0) f += `N<sub>${currentCounts.N}</sub>`;
+        return f.replace(/<sub>1<\/sub>/g, ""); // 1은 생략
+    }
+
+    function resetLab() {
+        currentCounts = { H: 0, O: 0, N: 0, C: 0 };
+        document.getElementById('atomDisplay').innerHTML = '';
+        document.getElementById('emptyMsg').style.display = 'block';
+        resetUI();
+    }
+
+    function resetUI() {
+        document.getElementById('moleculeName').innerText = "미완성";
+        document.getElementById('moleculeName').style.color = "#d35400";
+        document.getElementById('moleculeFormula').innerText = "-";
+        document.getElementById('moleculeDesc').innerText = "원자를 조합하여 분자를 만들어보세요.";
+    }
+</script>
+
+</body>
+</html>

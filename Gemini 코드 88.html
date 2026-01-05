@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 물질의 상태와 1몰의 양</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --accent-color: #f5a623;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --card-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        header h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+        header p {
+            font-size: 1.1em;
+            color: #666;
+        }
+        .lab-bench {
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            padding-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            justify-content: center;
+            align-items: center;
+        }
+        select, button {
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+        button.action-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+        button.action-btn:hover {
+            background-color: #357abd;
+        }
+        
+        /* Experiment Area */
+        .experiment-area {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            min-height: 400px;
+        }
+        .visual-stage {
+            flex: 2;
+            background: #eef2f5;
+            border-radius: 10px;
+            position: relative;
+            height: 400px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end; /* Bottom align for gravity feel */
+            overflow: hidden;
+            margin-right: 20px;
+            border: 2px solid #ddd;
+        }
+        .data-panel {
+            flex: 1;
+            background: #fafafa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #eee;
+        }
+        .data-item {
+            margin-bottom: 15px;
+        }
+        .data-label {
+            font-size: 0.9em;
+            color: #777;
+        }
+        .data-value {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+
+        /* Visual Elements */
+        .scale-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.8em;
+        }
+        
+        /* Substance Styles */
+        #substance-visual {
+            transition: all 0.5s ease;
+        }
+        /* Solid: Cube */
+        .solid-cube {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #b87333, #d4a373); /* Copper like */
+            border: 2px solid #8c5626;
+            box-shadow: 5px 5px 10px rgba(0,0,0,0.3);
+            margin-bottom: 50px; /* Sitting on a surface */
+            position: relative;
+        }
+        .solid-cube::after {
+            content: "Cu";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: bold;
+        }
+
+        /* Liquid: Beaker */
+        .beaker {
+            width: 80px;
+            height: 100px;
+            border: 3px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: rgba(255,255,255,0.2);
+            margin-bottom: 50px;
+        }
+        .liquid-content {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 40px; /* Dynamic */
+            background: rgba(74, 144, 226, 0.6);
+            border-radius: 0 0 7px 7px;
+            transition: height 1s ease;
+        }
+        
+        /* Gas: Balloon */
+        .balloon-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .balloon {
+            width: 20px; /* Start small */
+            height: 20px;
+            background: rgba(245, 166, 35, 0.7);
+            border-radius: 50%;
+            transition: all 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: inset -10px -10px 20px rgba(0,0,0,0.1);
+        }
+        
+        .particle-text {
+            margin-top: 10px;
+            font-size: 0.8rem;
+            color: #666;
+            animation: fadeIn 2s;
+        }
+
+        /* Quiz Section */
+        .quiz-section {
+            margin-top: 30px;
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: 10px;
+            border-left: 5px solid var(--accent-color);
+        }
+        .quiz-question {
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+        .correct { color: green; }
+        .wrong { color: red; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        /* Safety Note */
+        .safety-note {
+            margin-top: 20px;
+            font-size: 0.85em;
+            color: #888;
+            text-align: center;
+            background: #fff;
+            padding: 10px;
+            border: 1px dashed #ccc;
+        }
+
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 가상 실험실: 1몰(Mole) 비교 체험</h1>
+        <p>고체, 액체, 기체 상태의 물질 1몰은 얼마나 차이가 날까요?</p>
+    </header>
+
+    <div class="lab-bench">
+        <div class="controls">
+            <label>1. 상태 선택: 
+                <select id="stateSelect" onchange="updateSubstanceOptions()">
+                    <option value="" disabled selected>--선택하세요--</option>
+                    <option value="solid">고체 (Solid)</option>
+                    <option value="liquid">액체 (Liquid)</option>
+                    <option value="gas">기체 (Gas)</option>
+                </select>
+            </label>
+
+            <label>2. 물질 선택: 
+                <select id="substanceSelect" disabled onchange="resetExperiment()">
+                    <option>먼저 상태를 선택하세요</option>
+                </select>
+            </label>
+
+            <label id="tempControl" class="hidden">3. 온도 설정: 
+                <select id="tempSelect" onchange="runExperiment()">
+                    <option value="0">0°C (표준 상태)</option>
+                    <option value="25">25°C (상온)</option>
+                </select>
+            </label>
+
+            <button class="action-btn" onclick="runExperiment()">실험 시작 (1몰 측정)</button>
+        </div>
+
+        <div class="experiment-area">
+            <div class="visual-stage" id="visualStage">
+                <div class="scale-label" id="scaleLabel">대기 상태...</div>
+                <div id="substance-visual"></div>
+            </div>
+
+            <div class="data-panel">
+                <h3>📊 측정 결과 (1몰 기준)</h3>
+                <div class="data-item">
+                    <div class="data-label">화학식량 (분자량/원자량)</div>
+                    <div class="data-value" id="molarMassDisplay">- g/mol</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">측정된 질량</div>
+                    <div class="data-value" id="massDisplay">- g</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">차지하는 부피</div>
+                    <div class="data-value" id="volumeDisplay">-</div>
+                </div>
+                <div class="data-item">
+                    <div class="data-label">입자 수 (아보가드로 수)</div>
+                    <div class="data-value" style="font-size: 1em;">6.02 × 10²³ 개</div>
+                </div>
+                <div id="particle-msg" class="particle-text"></div>
+            </div>
+        </div>
+
+        <div class="quiz-section">
+            <h3>📝 학습 확인 퀴즈</h3>
+            <div id="quiz-content">
+                <p>실험을 먼저 진행해주세요.</p>
+            </div>
+        </div>
+    </div>
+
+    <div class="safety-note">
+        ⚠️ <strong>안전 주의:</strong> 가상 실험이지만 실제 실험실에서는 화학 물질을 다룰 때 반드시 보안경과 장갑을 착용해야 합니다. 기체를 다룰 때는 환기가 잘 되는 곳에서 실험하세요.
+    </div>
+</div>
+
+<script>
+    // 물질 데이터베이스
+    const substances = {
+        solid: [
+            { name: "구리 (Cu)", mass: 63.5, density: 8.96, color: "#b87333", type: "atom" },
+            { name: "철 (Fe)", mass: 55.8, density: 7.87, color: "#5c5c5c", type: "atom" },
+            { name: "알루미늄 (Al)", mass: 27.0, density: 2.70, color: "#d1d1d1", type: "atom" }
+        ],
+        liquid: [
+            { name: "물 (H₂O)", mass: 18.0, density: 1.0, color: "rgba(74, 144, 226, 0.6)", type: "molecule" },
+            { name: "에탄올 (C₂H₅OH)", mass: 46.0, density: 0.789, color: "rgba(200, 200, 200, 0.4)", type: "molecule" }
+        ],
+        gas: [
+            { name: "이산화탄소 (CO₂)", mass: 44.0, color: "#f5a623", type: "molecule" },
+            { name: "헬륨 (He)", mass: 4.0, color: "#e0e0e0", type: "atom" },
+            { name: "산소 (O₂)", mass: 32.0, color: "#7ed6df", type: "molecule" }
+        ]
+    };
+
+    let currentSubstance = null;
+    let currentState = "";
+
+    function updateSubstanceOptions() {
+        const stateSelect = document.getElementById("stateSelect");
+        const subSelect = document.getElementById("substanceSelect");
+        const tempControl = document.getElementById("tempControl");
+        
+        currentState = stateSelect.value;
+        subSelect.innerHTML = "";
+        subSelect.disabled = false;
+
+        // 온도 제어 표시 여부
+        if (currentState === 'gas') {
+            tempControl.classList.remove('hidden');
+        } else {
+            tempControl.classList.add('hidden');
+        }
+
+        // 옵션 채우기
+        substances[currentState].forEach((sub, index) => {
+            const option = document.createElement("option");
+            option.value = index;
+            option.text = sub.name;
+            subSelect.add(option);
+        });
+        
+        resetExperiment();
+    }
+
+    function resetExperiment() {
+        document.getElementById("visualStage").innerHTML = '<div class="scale-label">준비 완료</div>';
+        document.getElementById("molarMassDisplay").innerText = "- g/mol";
+        document.getElementById("massDisplay").innerText = "- g";
+        document.getElementById("volumeDisplay").innerText = "-";
+        document.getElementById("particle-msg").innerText = "";
+        document.getElementById("quiz-content").innerHTML = "<p>실험 시작 버튼을 눌러주세요.</p>";
+    }
+
+    function runExperiment() {
+        const subSelect = document.getElementById("substanceSelect");
+        if (subSelect.disabled) return;
+
+        const index = subSelect.value;
+        currentSubstance = substances[currentState][index];
+        
+        // 데이터 표시
+        document.getElementById("molarMassDisplay").innerText = `${currentSubstance.mass} g/mol`;
+        document.getElementById("massDisplay").innerText = `${currentSubstance.mass} g`;
+        
+        const visualStage = document.getElementById("visualStage");
+        visualStage.innerHTML = ""; // 초기화
+
+        let volumeText = "";
+        let visualElement = document.createElement("div");
+
+        // 상태별 로직
+        if (currentState === 'solid') {
+            // 부피 계산 V = m / d
+            const volume = (currentSubstance.mass / currentSubstance.density).toFixed(2);
+            volumeText = `${volume} cm³ (mL)`;
+            
+            // 시각화: 큐브
+            visualElement.className = "solid-cube";
+            visualElement.style.background = `linear-gradient(135deg, ${currentSubstance.color}, #333)`;
+            // 상대적 크기 조절 (매우 작게)
+            visualElement.style.width = "40px"; 
+            visualElement.style.height = "40px";
+            
+            visualStage.innerHTML = `<div class="scale-label">확대 배율: 5x (실제로는 매우 작습니다)</div>`;
+            visualStage.appendChild(visualElement);
+            
+            generateQuiz("solid", volume);
+
+        } else if (currentState === 'liquid') {
+            const volume = (currentSubstance.mass / currentSubstance.density).toFixed(2);
+            volumeText = `${volume} mL`;
+
+            // 시각화: 비커
+            visualElement.className = "beaker";
+            const liquid = document.createElement("div");
+            liquid.className = "liquid-content";
+            liquid.style.height = `${Math.min(volume * 2, 90)}px`; // 비커 내 높이 시뮬레이션
+            liquid.style.background = currentSubstance.color;
+            
+            visualElement.appendChild(liquid);
+            visualStage.innerHTML = `<div class="scale-label">확대 배율: 5x</div>`;
+            visualStage.appendChild(visualElement);
+            
+            generateQuiz("liquid", volume);
+
+        } else if (currentState === 'gas') {
+            const temp = parseInt(document.getElementById("tempSelect").value);
+            // 샤를의 법칙 V2 = V1 * (T2/T1) -> T는 절대온도
+            // 0도일 때 22.4L
+            let volume = 22.4;
+            if (temp === 25) {
+                volume = 22.4 * (298 / 273);
+            }
+            volume = volume.toFixed(1);
+            volumeText = `${volume} L`;
+
+            // 시각화: 풍선
+            visualStage.innerHTML = `<div class="scale-label">축소 배율: 0.1x (고체/액체보다 1000배 이상 큽니다!)</div>`;
+            const balloonContainer = document.createElement("div");
+            balloonContainer.className = "balloon-container";
+            
+            visualElement.className = "balloon";
+            visualElement.style.backgroundColor = currentSubstance.color;
+            
+            // 크기 애니메이션 (픽셀 단위로 환산하여 과장)
+            // 22.4L는 매우 크므로 화면 꽉 차게 설정
+            const size = temp === 0 ? 250 : 280; 
+            
+            balloonContainer.appendChild(visualElement);
+            visualStage.appendChild(balloonContainer);
+
+            // 애니메이션 트리거
+            setTimeout(() => {
+                visualElement.style.width = `${size}px`;
+                visualElement.style.height = `${size}px`;
+                visualElement.innerText = currentSubstance.name;
+            }, 100);
+
+            generateQuiz("gas", volume);
+        }
+
+        document.getElementById("volumeDisplay").innerText = volumeText;
+        document.getElementById("particle-msg").innerText = 
+            `💡 상태는 달라도 입자의 개수는 6.02 × 10²³ 개로 모두 동일합니다!`;
+    }
+
+    function generateQuiz(state, volumeVal) {
+        const quizBox = document.getElementById("quiz-content");
+        let html = "";
+
+        if (state === 'gas') {
+            // 기체용 퀴즈: 반지름 계산 도전
+            html = `
+                <div class="quiz-question">Q. ${currentSubstance.name} 1몰(약 ${volumeVal}L)이 들어있는 풍선을 완벽한 '구(Sphere)'라고 가정할 때, 이 풍선의 지름은 대략 얼마일까요?</div>
+                <input type="number" id="quizInput" placeholder="cm 단위 입력">
+                <button onclick="checkQuiz('gas', ${volumeVal})">정답 확인</button>
+                <p id="quizFeedback" class="feedback"></p>
+                <small>힌트: 1000L = 1m³, 구의 부피 V = 4/3πr³ 입니다. (대략 30~40cm 사이입니다)</small>
+            `;
+        } else {
+            // 고체/액체용 퀴즈
+            html = `
+                <div class="quiz-question">Q. 기체 1몰(22.4L)에 비해 ${currentSubstance.name} 1몰의 부피는 왜 이렇게 작을까요?</div>
+                <textarea id="quizInput" rows="2" style="width:100%" placeholder="이유를 적어보세요"></textarea>
+                <button onclick="checkQuiz('other', 0)">확인</button>
+                <p id="quizFeedback" class="feedback"></p>
+            `;
+        }
+        quizBox.innerHTML = html;
+    }
+
+    function checkQuiz(type, val) {
+        const input = document.getElementById("quizInput").value;
+        const feedback = document.getElementById("quizFeedback");
+        
+        if (type === 'gas') {
+            // 22.4L -> 22400 cm^3
+            // r = cbrt(V * 3 / (4 * PI))
+            // r approx 17.5 cm -> d approx 35 cm
+            const volCm3 = val * 1000;
+            const radius = Math.cbrt((volCm3 * 3) / (4 * Math.PI));
+            const diameter = radius * 2;
+            
+            if (input >= diameter - 5 && input <= diameter + 5) {
+                feedback.innerHTML = `<span class="correct">정답입니다! 약 ${diameter.toFixed(1)}cm 입니다. 농구공보다 훨씬 크죠?</span>`;
+            } else {
+                feedback.innerHTML = `<span class="wrong">아쉽네요. 정답은 약 ${diameter.toFixed(1)}cm 입니다. 다시 계산해보세요!</span>`;
+            }
+        } else {
+            if (input.length > 10) {
+                feedback.innerHTML = `<span class="correct">훌륭합니다! 핵심은 '입자 사이의 거리'입니다. 고체/액체는 입자가 다닥다닥 붙어있지만, 기체는 서로 멀리 떨어져 있습니다.</span>`;
+            } else {
+                feedback.innerHTML = `<span class="wrong">조금 더 구체적으로 적어볼까요? '입자 간 거리'를 생각해보세요.</span>`;
+            }
+        }
+    }
+</script>
+
+</body>
+</html>

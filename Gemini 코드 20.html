@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아세톤 기화 실험 가상실험실</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f0f4f8; text-align: center; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { color: #2c3e50; }
+        .lab-bench { display: flex; justify-content: space-around; align-items: flex-start; margin-top: 20px; flex-wrap: wrap; }
+        .view-box { border: 2px solid #ddd; border-radius: 10px; padding: 10px; margin: 10px; background: #fff; }
+        canvas { background-color: #eef; border-radius: 5px; }
+        .controls { margin: 20px 0; padding: 15px; background-color: #e8f0fe; border-radius: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; background-color: #4CAF50; color: white; border: none; border-radius: 5px; margin: 5px; transition: 0.3s; }
+        button:hover { background-color: #45a049; }
+        button.reset { background-color: #f44336; }
+        button:disabled { background-color: #cccccc; cursor: not-allowed; }
+        .status-display { display: flex; justify-content: space-around; font-size: 1.2em; font-weight: bold; color: #333; margin-bottom: 15px; }
+        .highlight { color: #e91e63; }
+        .explanation { text-align: left; background: #fff3cd; padding: 15px; border-radius: 8px; margin-top: 15px; border-left: 5px solid #ffc107; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🧪 아세톤 기화 실험: 질량과 부피 변화</h1>
+    
+    <div class="status-display">
+        <div>상태: <span id="stateText" class="highlight">액체 (Liquid)</span></div>
+        <div>질량: <span id="massText">0.00</span> g</div>
+        <div>부피: <span id="volText">작음</span></div>
+    </div>
+
+    <div class="controls">
+        <label>아세톤 양: 
+            <select id="amountSelect">
+                <option value="5">5 mL</option>
+                <option value="10">10 mL</option>
+                <option value="20">20 mL</option>
+            </select>
+        </label>
+        <button id="heatBtn" onclick="startHeating()">🔥 가열 시작 (기화)</button>
+        <button id="coolBtn" onclick="startCooling()" disabled>❄️ 냉각 (액화)</button>
+        <button class="reset" onclick="resetExp()">🔄 실험 초기화</button>
+    </div>
+
+    <div class="lab-bench">
+        <div class="view-box">
+            <h3>👁️ 실험 관찰 (거시적)</h3>
+            <canvas id="macroCanvas" width="300" height="350"></canvas>
+        </div>
+
+        <div class="view-box">
+            <h3>🔬 입자 현미경 (미시적)</h3>
+            <canvas id="microCanvas" width="300" height="350"></canvas>
+        </div>
+    </div>
+
+    <div class="explanation" id="guideText">
+        💡 <strong>실험 가이드:</strong> 아세톤의 양을 선택하고 '가열 시작' 버튼을 눌러보세요. 저울의 눈금(질량)과 비닐봉지의 크기(부피) 변화를 유심히 관찰하세요!
+    </div>
+</div>
+
+<script>
+    const macroCanvas = document.getElementById('macroCanvas');
+    const macroCtx = macroCanvas.getContext('2d');
+    const microCanvas = document.getElementById('microCanvas');
+    const microCtx = microCanvas.getContext('2d');
+    
+    let amount = 5;
+    let isGas = false;
+    let heatingProgress = 0; // 0 to 100
+    let animationId;
+    let particles = [];
+    
+    // 초기화
+    function init() {
+        resetExp();
+        animate();
+    }
+
+    function resetExp() {
+        amount = parseInt(document.getElementById('amountSelect').value);
+        isGas = false;
+        heatingProgress = 0;
+        document.getElementById('heatBtn').disabled = false;
+        document.getElementById('coolBtn').disabled = true;
+        document.getElementById('amountSelect').disabled = false;
+        document.getElementById('stateText').innerText = "액체 (Liquid)";
+        document.getElementById('volText').innerText = "작음";
+        document.getElementById('guideText').innerHTML = "💡 <strong>실험 가이드:</strong> 아세톤의 양을 선택하고 '가열 시작' 버튼을 눌러보세요. 질량은 변할까요?";
+        
+        updateMass();
+        createParticles();
+    }
+
+    function updateMass() {
+        // 아세톤 밀도 약 0.79 g/mL, 플라스크+봉지 무게 약 50g 가정
+        let liquidMass = amount * 0.79;
+        let totalMass = 50 + liquidMass;
+        document.getElementById('massText').innerText = totalMass.toFixed(2);
+    }
+
+    function createParticles() {
+        particles = [];
+        // 입자 개수는 양에 비례 (시각화를 위해 적당히 조절)
+        let particleCount = amount * 5; 
+        
+        for(let i=0; i<particleCount; i++) {
+            particles.push({
+                x: Math.random() * 200 + 50,
+                y: Math.random() * 50 + 250, // 바닥에 깔림
+                vx: Math.random() - 0.5,
+                vy: Math.random() - 0.5,
+                size: 6 // 입자 크기는 일정!
+            });
+        }
+    }
+
+    function startHeating() {
+        document.getElementById('heatBtn').disabled = true;
+        document.getElementById('amountSelect').disabled = true;
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += 2;
+            heatingProgress = progress;
+            
+            if (progress >= 100) {
+                clearInterval(interval);
+                isGas = true;
+                document.getElementById('coolBtn').disabled = false;
+                document.getElementById('stateText').innerText = "기체 (Gas)";
+                document.getElementById('volText').innerText = "매우 큼 (팽창)";
+                document.getElementById('guideText').innerHTML = "✅ <strong>결과 분석:</strong> 비닐봉지가 빵빵해졌습니다(부피 증가). 하지만 질량(g)은 그대로죠? 입자의 개수는 변하지 않았기 때문입니다!";
+            }
+        }, 50);
+    }
+
+    function startCooling() {
+        document.getElementById('coolBtn').disabled = true;
+        isGas = false; // 즉시 상태 변경 플래그
+        let progress = 100;
+        const interval = setInterval(() => {
+            progress -= 2;
+            heatingProgress = progress;
+            
+            if (progress <= 0) {
+                clearInterval(interval);
+                document.getElementById('heatBtn').disabled = false;
+                document.getElementById('stateText').innerText = "액체 (Liquid)";
+                document.getElementById('volText').innerText = "작음";
+                document.getElementById('amountSelect').disabled = false;
+                document.getElementById('guideText').innerHTML = "❄️ 다시 액체로 돌아왔습니다. 입자들이 다시 옹기종기 모였네요.";
+            }
+        }, 50);
+    }
+
+    function drawMacro() {
+        macroCtx.clearRect(0, 0, macroCanvas.width, macroCanvas.height);
+        
+        // 저울 그리기
+        macroCtx.fillStyle = "#ddd";
+        macroCtx.fillRect(50, 300, 200, 40);
+        macroCtx.fillStyle = "#000";
+        macroCtx.font = "20px Arial";
+        macroCtx.fillText(document.getElementById('massText').innerText + " g", 100, 327);
+
+        // 플라스크 그리기
+        macroCtx.strokeStyle = "#333";
+        macroCtx.lineWidth = 2;
+        macroCtx.beginPath();
+        macroCtx.moveTo(110, 150);
+        macroCtx.lineTo(110, 250); // 목
+        macroCtx.lineTo(70, 300);  // 바닥 왼쪽
+        macroCtx.lineTo(230, 300); // 바닥 오른쪽
+        macroCtx.lineTo(190, 250); // 목 오른쪽
+        macroCtx.lineTo(190, 150);
+        macroCtx.stroke();
+
+        // 비닐봉지 그리기 (팽창 애니메이션)
+        let balloonScale = 1 + (heatingProgress / 100) * 1.5; // 최대 2.5배 커짐
+        macroCtx.beginPath();
+        macroCtx.strokeStyle = "rgba(200, 200, 255, 0.8)";
+        macroCtx.fillStyle = "rgba(200, 200, 255, 0.3)";
+        // 간단한 원형/타원형 봉지
+        macroCtx.ellipse(150, 150 - (heatingProgress * 0.8), 60 * balloonScale, 70 * balloonScale, 0, 0, Math.PI * 2);
+        macroCtx.fill();
+        macroCtx.stroke();
+
+        // 아세톤 액체 (기화되면 투명해짐/사라짐)
+        if (heatingProgress < 100) {
+            macroCtx.fillStyle = "rgba(173, 216, 230, " + (1 - heatingProgress/100) + ")";
+            macroCtx.beginPath();
+            macroCtx.moveTo(75, 295);
+            macroCtx.lineTo(225, 295);
+            macroCtx.lineTo(200, 260);
+            macroCtx.lineTo(100, 260);
+            macroCtx.fill();
+        }
+    }
+
+    function drawMicro() {
+        microCtx.clearRect(0, 0, microCanvas.width, microCanvas.height);
+        
+        // 경계선 (플라스크/봉지 내부)
+        microCtx.strokeStyle = "#aaa";
+        microCtx.strokeRect(10, 10, 280, 330);
+        microCtx.fillStyle = "#666";
+        microCtx.fillText("입자 모형 (확대)", 20, 30);
+
+        // 입자 그리기
+        particles.forEach(p => {
+            microCtx.beginPath();
+            microCtx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+            
+            // 색상: 입자 종류는 안 변함 (빨간색 고정)
+            microCtx.fillStyle = "#ff5722";
+            microCtx.fill();
+            
+            // 움직임 로직
+            if (heatingProgress < 50) {
+                // 액체 상태: 바닥에서 뭉쳐있고 진동
+                let targetY = 300 - Math.random() * 50; 
+                let speed = 0.5 + (heatingProgress/50); // 가열할수록 활발
+                
+                // 위치 제한 (바닥)
+                if(p.y < 250) p.y += 2;
+                
+                p.x += (Math.random() - 0.5) * speed;
+                p.y += (Math.random() - 0.5) * speed;
+                
+                // 벽 충돌 (간단하게)
+                if(p.x < 20) p.x = 20;
+                if(p.x > 280) p.x = 280;
+                if(p.y > 330) p.y = 330;
+
+            } else {
+                // 기체 상태: 자유롭게 날아다님
+                let speed = 3 + (heatingProgress - 50) / 10;
+                
+                p.x += p.vx * speed;
+                p.y += p.vy * speed;
+
+                // 벽 튕기기
+                if(p.x < 20 || p.x > 280) p.vx *= -1;
+                if(p.y < 20 || p.y > 330) p.vy *= -1;
+            }
+        });
+    }
+
+    function animate() {
+        drawMacro();
+        drawMicro();
+        requestAnimationFrame(animate);
+    }
+
+    // 변경 감지
+    document.getElementById('amountSelect').addEventListener('change', resetExp);
+
+    init();
+</script>
+
+</body>
+</html>

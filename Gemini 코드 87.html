@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>아보가드로수 체감 실험실</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;700&display=swap');
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .slider-thumb::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #4F46E5;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        .animate-pulse-slow {
+            animation: pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-lg">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">🧪 아보가드로수 체감하기</h1>
+                <p class="text-sm opacity-90">100원 동전 1몰을 쌓으면 어디까지 갈까?</p>
+            </div>
+            <div class="text-right text-xs opacity-80">
+                고등학교 화학Ⅰ<br>
+                [12화학Ⅰ01-03]
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-4xl mx-auto p-4 md:p-6 space-y-8">
+
+        <section class="bg-white rounded-xl shadow p-6 border border-slate-200">
+            <h2 class="text-lg font-bold text-indigo-700 mb-4 flex items-center">
+                <span class="mr-2">🎛️</span> 실험 변수 조작
+            </h2>
+            
+            <div class="grid md:grid-cols-2 gap-8">
+                <div class="space-y-6">
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-2">
+                            동전 개수 (지수 스케일: 10<sup>x</sup>)
+                        </label>
+                        <input type="range" id="exponentSlider" min="0" max="23.78" step="0.01" value="0" 
+                               class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer slider-thumb">
+                        <div class="flex justify-between text-xs text-slate-500 mt-1">
+                            <span>1개</span>
+                            <span>1억개</span>
+                            <span>1몰(6.02×10²³)</span>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium text-slate-700 mb-1">
+                            동전 두께 (cm)
+                        </label>
+                        <input type="number" id="thicknessInput" value="0.15" step="0.01" 
+                               class="w-full p-2 border border-slate-300 rounded focus:ring-2 focus:ring-indigo-500 outline-none">
+                    </div>
+
+                    <div class="flex gap-2">
+                         <button onclick="setMole()" class="flex-1 bg-indigo-100 text-indigo-700 py-2 rounded hover:bg-indigo-200 font-bold transition">
+                            ⚡ 1몰로 점프!
+                        </button>
+                        <button onclick="resetSim()" class="flex-1 bg-slate-100 text-slate-700 py-2 rounded hover:bg-slate-200 transition">
+                            🔄 초기화
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-slate-50 p-4 rounded-lg border border-slate-200 flex flex-col justify-center space-y-3">
+                    <div class="flex justify-between items-end border-b pb-2">
+                        <span class="text-sm text-slate-600">현재 동전 개수</span>
+                        <span id="displayCount" class="text-xl font-bold text-indigo-600">1 개</span>
+                    </div>
+                    <div class="flex justify-between items-end border-b pb-2">
+                        <span class="text-sm text-slate-600">쌓인 높이 (km)</span>
+                        <span id="displayHeightKm" class="text-xl font-bold text-emerald-600">0 km</span>
+                    </div>
+                    <div class="mt-2 text-sm text-slate-500 bg-white p-2 rounded">
+                        <p>높이 계산식:</p>
+                        <p class="font-mono text-xs">개수 × 두께(cm) ÷ 100,000</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-slate-900 text-white rounded-xl shadow-lg p-6 overflow-hidden relative min-h-[400px]">
+            <h2 class="text-lg font-bold text-yellow-400 mb-4 z-10 relative">🚀 높이 시각화 및 비교</h2>
+            
+            <div id="comparisonText" class="absolute top-16 right-6 text-right z-10 space-y-2 max-w-[60%]">
+                <p class="text-2xl font-bold transition-all duration-300" id="mainMessage">동전 1개 바닥에 놓여있습니다.</p>
+                <p class="text-sm text-slate-400" id="subMessage">슬라이더를 움직여보세요.</p>
+            </div>
+
+            <div class="absolute bottom-0 left-0 w-full h-full opacity-30 z-0 pointer-events-none" 
+                 style="background: radial-gradient(circle at center, #1e293b 0%, #0f172a 100%);">
+                 <div class="absolute top-10 left-10 text-xs text-white">.</div>
+                 <div class="absolute top-40 left-80 text-xs text-white">.</div>
+                 <div class="absolute top-20 right-20 text-xs text-white">.</div>
+            </div>
+
+            <div class="absolute bottom-0 left-10 w-16 bg-gradient-to-t from-yellow-600 via-yellow-400 to-white transition-all duration-500 rounded-t-lg shadow-[0_0_20px_rgba(250,204,21,0.5)]" 
+                 id="coinStack" style="height: 1px;">
+            </div>
+
+            <div class="absolute bottom-4 left-32 text-xs text-slate-500 space-y-8 pointer-events-none">
+                <div id="marker-63" class="opacity-30">🏢 63빌딩 (0.25km)</div>
+                <div id="marker-earth" class="opacity-30">🌍 지구 반지름 (6,400km)</div>
+                <div id="marker-moon" class="opacity-30">🌕 달까지 거리 (38만km)</div>
+                <div id="marker-sun" class="opacity-30">☀️ 태양까지 거리 (1.5억km)</div>
+                <div id="marker-galaxy" class="opacity-30">🌌 1000광년 (9,460조km)</div>
+            </div>
+        </section>
+
+        <section class="bg-white rounded-xl shadow p-6 border-l-4 border-indigo-500">
+            <h2 class="text-lg font-bold text-slate-800 mb-3">📝 학습 정리 및 평가</h2>
+            <div class="prose prose-sm text-slate-600">
+                <p class="mb-4">
+                    동전 1몰(6.02×10²³)개를 쌓았을 때의 높이는 약 <strong>9.03×10¹⁷ km</strong>입니다.<br>
+                    빛이 1년 동안 가는 거리(1광년)가 약 9.46×10¹² km이니, 동전 기둥의 높이는 약 <strong>95,454 광년</strong>에 해당합니다.<br>
+                    이는 우리 은하(Milky Way)의 지름(약 10만 광년)과 맞먹는 거대한 크기입니다!
+                </p>
+                <div class="bg-indigo-50 p-4 rounded-lg">
+                    <p class="font-bold text-indigo-800">💡 생각해보기</p>
+                    <p>우리가 화학 시간에 다루는 '물 한 컵(180ml)'에는 물 분자가 약 10몰 들어있습니다. 우리 은하 지름의 10배만큼 쌓일 수 있는 개수의 분자가, 고작 물 한 컵에 들어있다는 사실이 느껴지나요?</p>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <footer class="text-center p-6 text-slate-400 text-xs">
+        Developed for Science Education | Based on Curriculum [12화학Ⅰ01-03]
+    </footer>
+
+    <script>
+        const slider = document.getElementById('exponentSlider');
+        const thicknessInput = document.getElementById('thicknessInput');
+        const displayCount = document.getElementById('displayCount');
+        const displayHeightKm = document.getElementById('displayHeightKm');
+        const coinStack = document.getElementById('coinStack');
+        const mainMessage = document.getElementById('mainMessage');
+        const subMessage = document.getElementById('subMessage');
+
+        // Constants (km)
+        const H_63_BUILDING = 0.000249; 
+        const H_EVEREST = 0.008848;
+        const H_EARTH_RADIUS = 6371;
+        const H_MOON_DIST = 384400;
+        const H_SUN_DIST = 149600000;
+        const H_LIGHT_YEAR = 9460730472580;
+        const H_GALAXY_DIA = 94607304725800000; // ~100,000 light years
+
+        // Avogadro constant
+        const AVOGADRO = 6.022e23;
+
+        function updateSimulation() {
+            const exponent = parseFloat(slider.value);
+            const count = Math.pow(10, exponent);
+            const thicknessCm = parseFloat(thicknessInput.value);
+            
+            // Calculate Height
+            const heightCm = count * thicknessCm;
+            const heightKm = heightCm / 100000;
+
+            // Format Numbers
+            displayCount.textContent = count < 10000 ? Math.round(count) + " 개" : count.toExponential(2).replace("e+", "×10^") + " 개";
+            displayHeightKm.textContent = heightKm < 1 ? heightKm.toFixed(4) + " km" : heightKm.toExponential(2).replace("e+", "×10^") + " km";
+
+            // Update Visuals & Text
+            updateVisuals(heightKm, count);
+        }
+
+        function updateVisuals(km, count) {
+            let message = "";
+            let sub = "";
+            let stackHeightPercent = 0; // for CSS visualization
+
+            // Logic for feedback messages based on height milestones
+            if (km < H_63_BUILDING) {
+                message = "아직 시작 단계입니다.";
+                sub = "63빌딩 높이(249m)보다 낮아요.";
+                stackHeightPercent = 5;
+                highlightMarker(null);
+            } else if (km < H_EARTH_RADIUS) {
+                message = "지상 랜드마크 돌파!";
+                const times = (km / H_63_BUILDING).toFixed(0);
+                sub = `63빌딩을 ${times}개 쌓은 높이입니다.`;
+                stackHeightPercent = 15;
+                highlightMarker('marker-63');
+            } else if (km < H_MOON_DIST) {
+                message = "지구를 벗어났습니다! 🚀";
+                sub = "지구 반지름을 넘어 달을 향해 가고 있습니다.";
+                stackHeightPercent = 30;
+                highlightMarker('marker-earth');
+            } else if (km < H_SUN_DIST) {
+                message = "달을 넘어 태양계 여행 중 🌕";
+                const times = (km / H_MOON_DIST).toFixed(1);
+                sub = `달까지 거리의 ${times}배입니다.`;
+                stackHeightPercent = 50;
+                highlightMarker('marker-moon');
+            } else if (km < H_LIGHT_YEAR) {
+                message = "태양계보다 거대합니다! ☀️";
+                const times = (km / H_SUN_DIST).toFixed(1);
+                sub = `태양까지 거리의 약 ${formatBigNumber(times)}배입니다.`;
+                stackHeightPercent = 75;
+                highlightMarker('marker-sun');
+            } else {
+                message = "은하계 규모의 거대함! 🌌";
+                const ly = (km / H_LIGHT_YEAR).toFixed(1);
+                sub = `높이가 약 ${ly} 광년입니다. 우리 은하 지름과 비교해보세요!`;
+                stackHeightPercent = 100;
+                highlightMarker('marker-galaxy');
+            }
+
+            // Special Case for 1 Mole
+            if (count > 6e23) {
+                 message = "✨ 1몰 달성! ✨";
+            }
+
+            mainMessage.textContent = message;
+            subMessage.textContent = sub;
+            coinStack.style.height = stackHeightPercent + "%";
+        }
+
+        function highlightMarker(id) {
+            // Reset all opacity
+            ['marker-63', 'marker-earth', 'marker-moon', 'marker-sun', 'marker-galaxy'].forEach(mid => {
+                document.getElementById(mid).className = "opacity-30 transition-opacity duration-300";
+            });
+            if(id) {
+                document.getElementById(id).className = "opacity-100 font-bold text-yellow-400 transition-opacity duration-300 transform translate-x-2";
+            }
+        }
+
+        function formatBigNumber(num) {
+            return new Intl.NumberFormat().format(num);
+        }
+
+        function setMole() {
+            slider.value = 23.78; // log10(6.02e23)
+            updateSimulation();
+        }
+
+        function resetSim() {
+            slider.value = 0;
+            updateSimulation();
+        }
+
+        // Initialize
+        slider.addEventListener('input', updateSimulation);
+        thicknessInput.addEventListener('input', updateSimulation);
+        updateSimulation();
+    </script>
+</body>
+</html>

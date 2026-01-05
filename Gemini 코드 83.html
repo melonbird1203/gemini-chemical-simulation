@@ -1,0 +1,713 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>세상을 바꾸는 화학 - 개념 탐구 빙고</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --accent: #FF6B6B;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        h1 {
+            color: var(--primary);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1rem;
+        }
+
+        /* Container */
+        .container {
+            width: 100%;
+            max-width: 1000px;
+            background: var(--card-bg);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        /* Stages */
+        .stage {
+            display: none;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        .stage.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Stage 1: Chemist Selection */
+        .chemist-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .chemist-card {
+            border: 2px solid #eee;
+            border-radius: 15px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .chemist-card:hover, .chemist-card.selected {
+            border-color: var(--primary);
+            background-color: #f0f7ff;
+            transform: translateY(-5px);
+        }
+
+        .chemist-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            display: block;
+        }
+
+        /* Stage 2 & 3: Bingo Board */
+        .game-layout {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+        }
+
+        .board-area {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .sidebar-area {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .bingo-board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            background: #eee;
+            padding: 10px;
+            border-radius: 15px;
+            aspect-ratio: 1;
+        }
+
+        .bingo-cell {
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding: 5px;
+            cursor: pointer;
+            position: relative;
+            transition: background 0.2s;
+            user-select: none;
+            word-break: keep-all;
+        }
+
+        .bingo-cell.drag-over {
+            background: #e1f0ff;
+            border: 2px dashed var(--primary);
+        }
+
+        .bingo-cell.marked {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .bingo-cell.marked::after {
+            content: 'O';
+            position: absolute;
+            font-size: 4rem;
+            color: rgba(40, 167, 69, 0.5);
+            pointer-events: none;
+        }
+
+        .term-bank {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        .term-item {
+            background: white;
+            border: 1px solid #ddd;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: grab;
+            font-size: 0.9rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+        
+        .term-item.used {
+            opacity: 0.5;
+            cursor: default;
+            background: #eee;
+            text-decoration: line-through;
+        }
+
+        /* Game Interface */
+        .mentor-box {
+            background: #e8f4fd;
+            border-left: 5px solid var(--primary);
+            padding: 20px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+        }
+
+        .mentor-title {
+            font-weight: bold;
+            color: var(--primary);
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .quiz-card {
+            background: white;
+            border: 2px solid var(--secondary);
+            border-radius: 15px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .hint-btn {
+            background: white;
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 8px 15px;
+            border-radius: 20px;
+            margin: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .hint-btn:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .hint-btn:disabled {
+            background: #eee;
+            border-color: #ccc;
+            color: #999;
+            cursor: not-allowed;
+        }
+
+        .hint-content {
+            margin-top: 15px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+            font-weight: bold;
+            min-height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 25px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: background 0.2s;
+        }
+
+        .btn-primary:hover {
+            background: #357abd;
+        }
+        
+        .btn-primary:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 20px;
+            max-width: 400px;
+            text-align: center;
+            animation: popIn 0.3s;
+        }
+
+        @keyframes popIn {
+            from { transform: scale(0.8); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+
+        .bingo-line {
+            position: absolute;
+            background: rgba(255, 107, 107, 0.7);
+            z-index: 10;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 세상을 바꾸는 화학: 개념 빙고</h1>
+    <p class="subtitle">화학Ⅰ 1단원: 화학의 유용성 탐구 시뮬레이션</p>
+
+    <div class="container">
+        <div id="stage-1" class="stage active">
+            <h2>Step 1. 함께할 멘토 화학자를 선택하세요</h2>
+            <p>이 화학자가 실험을 진행하며 힌트를 제공합니다.</p>
+            <div class="chemist-grid" id="chemist-list">
+                </div>
+            <button class="btn-primary" id="btn-to-setup" disabled>선택 완료</button>
+        </div>
+
+        <div id="stage-2" class="stage">
+            <h2>Step 2. 빙고판을 설계하세요</h2>
+            <p>아래 용어를 드래그하여 빙고판의 빈칸을 채워주세요. (9개 필수)</p>
+            
+            <div class="game-layout">
+                <div class="board-area">
+                    <div class="bingo-board" id="setup-board">
+                        </div>
+                </div>
+                <div class="sidebar-area">
+                    <div class="term-bank" id="term-bank">
+                        </div>
+                    <div class="mentor-box">
+                        <div class="mentor-title">
+                            <span id="setup-mentor-icon">👨‍🔬</span>
+                            <span id="setup-mentor-name">멘토</span>의 조언
+                        </div>
+                        <p>용어를 배치하면서 각 단어의 의미를 한 번씩 생각해보세요. 배치가 끝나면 [실험 시작] 버튼을 눌러주세요.</p>
+                    </div>
+                    <button class="btn-primary" id="btn-start-game" disabled>실험 시작 (Bingo Start)</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="stage-3" class="stage">
+            <h2>Step 3. 개념 탐구 및 빙고 완성</h2>
+            <div class="game-layout">
+                <div class="board-area">
+                    <div class="bingo-board" id="game-board">
+                        </div>
+                </div>
+                <div class="sidebar-area">
+                    <div class="mentor-box">
+                        <div class="mentor-title">
+                            <span id="game-mentor-icon">👨‍🔬</span>
+                            <span id="game-mentor-name">멘토</span>
+                        </div>
+                        <p id="mentor-message">문제를 보고 해당하는 화학 용어를 빙고판에서 클릭하세요!</p>
+                    </div>
+
+                    <div class="quiz-card">
+                        <h3>🔍 이 용어는 무엇일까요?</h3>
+                        <div class="hint-controls">
+                            <button class="hint-btn active" onclick="game.showHint('def')">1. 정의</button>
+                            <button class="hint-btn" onclick="game.showHint('ex')">2. 실생활 예시</button>
+                            <button class="hint-btn" onclick="game.showHint('hist')">3. 역사적 발견</button>
+                        </div>
+                        <div class="hint-content" id="current-clue">
+                            [실험 시작] 버튼을 누르면 문제가 나옵니다.
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top: 10px; text-align: center;">
+                        <span id="bingo-count" style="font-size: 1.2rem; font-weight: bold; color: var(--accent);">현재 빙고: 0줄</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="feedback-modal">
+        <div class="modal-content">
+            <h2 id="fb-title">정답입니다!</h2>
+            <p id="fb-desc">설명 텍스트</p>
+            <button class="btn-primary" onclick="game.nextTurn()">다음 문제</button>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="win-modal">
+        <div class="modal-content">
+            <h2>🎉 실험 성공! (3빙고 달성)</h2>
+            <p>화학의 유용성과 주요 개념을 훌륭하게 연결했습니다.</p>
+            <div id="final-stats" style="margin: 20px 0; background:#f5f5f5; padding:10px; border-radius:10px;"></div>
+            <button class="btn-primary" onclick="location.reload()">다시 실험하기</button>
+        </div>
+    </div>
+
+<script>
+/**
+ * Data: Chemists and Terms based on High School Chemistry I Curriculum
+ */
+const CHEMISTS = [
+    { id: 'hbr', name: '프리츠 하버', icon: '🏭', desc: '공기 중의 질소로 암모니아를 합성하여 식량 문제를 해결했어요.' },
+    { id: 'wal', name: '캐러더스', icon: '👕', desc: '최초의 합성 섬유인 나일론을 개발하여 의류 혁명을 일으켰어요.' },
+    { id: 'men', name: '멘델레예프', icon: '📊', desc: '원소들의 규칙성을 발견하고 주기율표를 만들었어요.' },
+    { id: 'dal', name: '돌턴', icon: '⚫', desc: '원자설을 제안하여 현대 화학의 기초를 다졌어요.' },
+    { id: 'lav', name: '라부아지에', icon: '⚖️', desc: '질량 보존 법칙을 발견하고 연소의 원리를 밝혔어요.' },
+    { id: 'boy', name: '보일', icon: '🎈', desc: '기체의 압력과 부피 관계를 밝혀냈어요.' }
+];
+
+const TERMS = [
+    { id: 'nh3', name: '암모니아', def: '질소와 수소가 반응하여 생성되는 화합물입니다.', ex: '화학 비료의 원료로 사용되어 식량 증산에 기여했습니다.', hist: '하버와 보슈가 대량 생산 공정을 개발했습니다.' },
+    { id: 'fe', name: '철', def: '지각에 풍부하게 매장된 금속 원소입니다.', ex: '단단하여 건축물, 다리, 자동차, 기계 등의 재료로 쓰입니다.', hist: '제련 기술의 발달로 농기구와 무기가 혁신적으로 발전했습니다.' },
+    { id: 'fossil', name: '화석 연료', def: '오랜 세월 동안 땅속에 묻힌 동식물의 유해로 만들어진 에너지원입니다.', ex: '석탄, 석유, 천연가스가 있으며 난방과 수송에 쓰입니다.', hist: '산업 혁명의 주동력이 되었으나 환경 문제의 원인이기도 합니다.' },
+    { id: 'nylon', name: '나일론', def: '캐러더스가 개발한 최초의 합성 섬유입니다.', ex: '질기고 신축성이 좋아 스타킹, 밧줄, 칫솔 등에 쓰입니다.', hist: '"거미줄보다 가늘고 강철보다 강하다"라는 문구로 소개되었습니다.' },
+    { id: 'plastic', name: '플라스틱', def: '원유에서 분리한 나프타를 원료로 만든 고분자 화합물입니다.', ex: '가볍고 녹슬지 않으며 성형이 쉬워 생활용품 전반에 쓰입니다.', hist: '대량 생산이 가능해지며 유리, 나무, 금속을 대체했습니다.' },
+    { id: 'concrete', name: '콘크리트', def: '시멘트, 모래, 자갈, 물을 섞어 만든 건축 자재입니다.', ex: '아파트, 댐, 도로 건설에 필수적으로 사용됩니다.', hist: '로마 시대부터 사용되었으며 현대 도시 건설의 주역입니다.' },
+    { id: 'fire', name: '불', def: '물질이 산소와 격렬하게 반응하며 빛과 열을 내는 현상입니다.', ex: '음식을 익혀 먹고, 추위를 피하며, 맹수로부터 보호하는 데 쓰였습니다.', hist: '인류 문명 시작의 가장 중요한 발견 중 하나입니다.' },
+    { id: 'aspirin', name: '아스피린', def: '버드나무 껍질 성분을 합성하여 만든 진통제입니다.', ex: '두통, 치통 해열제로 널리 사용되는 의약품입니다.', hist: '호프만이 합성하여 인류의 수명 연장에 기여했습니다.' },
+    { id: 'cement', name: '시멘트', def: '석회석을 가열하여 만든 가루 형태의 접착제입니다.', ex: '콘크리트의 주원료로 건축물의 뼈대를 만듭니다.', hist: '건축 기술의 혁명을 가져온 중요한 건축 재료입니다.' },
+    { id: 'alkali', name: '염색', def: '천연 섬유나 합성 섬유에 색을 입히는 기술입니다.', ex: '옷을 다양한 색상으로 만들어 개성을 표현하게 해줍니다.', hist: '최초의 합성 염료 모브(Mauve)는 우연히 발견되었습니다.' },
+    { id: 'ethanol', name: '에탄올', def: '술의 주성분이며 소독제나 연료로도 쓰이는 탄소 화합물입니다.', ex: '병원에서 소독용으로 쓰거나 바이오 연료로 사용합니다.', hist: '발효 기술을 통해 인류가 오랫동안 이용해왔습니다.' },
+    { id: 'methane', name: '메테인', def: '가장 간단한 탄소 화합물로 LNG의 주성분입니다.', ex: '도시가스로 가정에서 난방과 조리에 사용합니다.', hist: '완전 연소 시 이산화탄소와 물을 생성합니다.' }
+];
+
+/**
+ * Game Logic
+ */
+const game = {
+    state: {
+        selectedChemist: null,
+        boardTerms: Array(9).fill(null), // IDs of terms on board
+        targetTerm: null, // Current question answer
+        markedIndices: [], // Indices (0-8) marked correct
+        hintsShown: 0,
+        turnCount: 0,
+        correctCount: 0
+    },
+
+    init: () => {
+        game.renderChemists();
+        game.renderTermBank();
+        game.renderSetupBoard();
+    },
+
+    // Stage 1: Chemist
+    renderChemists: () => {
+        const list = document.getElementById('chemist-list');
+        list.innerHTML = CHEMISTS.map(c => `
+            <div class="chemist-card" onclick="game.selectChemist('${c.id}', this)">
+                <span class="chemist-icon">${c.icon}</span>
+                <h3>${c.name}</h3>
+                <p style="font-size:0.8rem; color:#666;">${c.desc}</p>
+            </div>
+        `).join('');
+    },
+
+    selectChemist: (id, el) => {
+        document.querySelectorAll('.chemist-card').forEach(c => c.classList.remove('selected'));
+        el.classList.add('selected');
+        game.state.selectedChemist = CHEMISTS.find(c => c.id === id);
+        document.getElementById('btn-to-setup').disabled = false;
+    },
+
+    goToSetup: () => {
+        document.getElementById('stage-1').classList.remove('active');
+        document.getElementById('stage-2').classList.add('active');
+        
+        // Update Mentor UI
+        const c = game.state.selectedChemist;
+        document.getElementById('setup-mentor-icon').innerText = c.icon;
+        document.getElementById('setup-mentor-name').innerText = c.name;
+    },
+
+    // Stage 2: Setup Board
+    renderTermBank: () => {
+        const bank = document.getElementById('term-bank');
+        bank.innerHTML = TERMS.map(t => `
+            <div class="term-item" id="term-${t.id}" draggable="true" 
+                 ondragstart="game.drag(event)" data-id="${t.id}">
+                ${t.name}
+            </div>
+        `).join('');
+    },
+
+    renderSetupBoard: () => {
+        const board = document.getElementById('setup-board');
+        board.innerHTML = '';
+        for(let i=0; i<9; i++) {
+            const cell = document.createElement('div');
+            cell.className = 'bingo-cell';
+            cell.dataset.index = i;
+            cell.ondrop = game.drop;
+            cell.ondragover = game.allowDrop;
+            // Touch/Click fallback
+            cell.onclick = () => game.handleCellClickSetup(i);
+            board.appendChild(cell);
+        }
+    },
+
+    drag: (ev) => {
+        ev.dataTransfer.setData("text", ev.target.dataset.id);
+    },
+
+    allowDrop: (ev) => {
+        ev.preventDefault();
+    },
+
+    drop: (ev) => {
+        ev.preventDefault();
+        const termId = ev.dataTransfer.getData("text");
+        const term = TERMS.find(t => t.id === termId);
+        const index = ev.target.dataset.index;
+        
+        if(index !== undefined && term) {
+            game.placeTerm(index, term);
+        }
+    },
+
+    // Simple click-to-place logic for mobile friendliness
+    selectedTermForSetup: null,
+    
+    handleTermClickSetup: (termId) => {
+       // Logic to handle click selection if needed (simplified for drag focus here)
+    },
+
+    placeTerm: (index, term) => {
+        // Remove from existing slot if moved within board
+        const existingIndex = game.state.boardTerms.findIndex(tid => tid === term.id);
+        if(existingIndex !== -1) {
+            game.state.boardTerms[existingIndex] = null;
+            document.querySelector(`#setup-board .bingo-cell[data-index='${existingIndex}']`).innerText = '';
+        }
+
+        game.state.boardTerms[index] = term.id;
+        
+        // Update UI
+        const cells = document.querySelectorAll('#setup-board .bingo-cell');
+        cells[index].innerText = term.name;
+        cells[index].style.backgroundColor = '#e8f4fd';
+
+        // Update Bank Style
+        document.querySelectorAll('.term-item').forEach(el => {
+            if(game.state.boardTerms.includes(el.dataset.id)) {
+                el.classList.add('used');
+            } else {
+                el.classList.remove('used');
+            }
+        });
+
+        // Check if full
+        const isFull = game.state.boardTerms.every(t => t !== null);
+        document.getElementById('btn-start-game').disabled = !isFull;
+    },
+
+    startGame: () => {
+        document.getElementById('stage-2').classList.remove('active');
+        document.getElementById('stage-3').classList.add('active');
+
+        // Copy board layout
+        const gameBoard = document.getElementById('game-board');
+        gameBoard.innerHTML = '';
+        game.state.boardTerms.forEach((tid, i) => {
+            const term = TERMS.find(t => t.id === tid);
+            const cell = document.createElement('div');
+            cell.className = 'bingo-cell';
+            cell.dataset.index = i;
+            cell.dataset.id = tid;
+            cell.innerText = term.name;
+            cell.onclick = () => game.checkAnswer(i, tid);
+            gameBoard.appendChild(cell);
+        });
+
+        // Setup Mentor
+        const c = game.state.selectedChemist;
+        document.getElementById('game-mentor-icon').innerText = c.icon;
+        document.getElementById('game-mentor-name').innerText = c.name;
+
+        game.nextTurn();
+    },
+
+    // Stage 3: Play
+    nextTurn: () => {
+        document.getElementById('feedback-modal').style.display = 'none';
+        
+        // Pick a term that is on the board AND not yet marked
+        const availableIndices = game.state.boardTerms
+            .map((tid, idx) => ({ tid, idx }))
+            .filter(item => !game.state.markedIndices.includes(item.idx));
+
+        if(availableIndices.length === 0) {
+            // Should be handled by win condition, but safety check
+            return; 
+        }
+
+        const target = availableIndices[Math.floor(Math.random() * availableIndices.length)];
+        game.state.targetTerm = TERMS.find(t => t.id === target.tid);
+        
+        // Reset Hints
+        game.state.hintsShown = 1;
+        game.updateHintUI();
+    },
+
+    updateHintUI: () => {
+        const t = game.state.targetTerm;
+        const el = document.getElementById('current-clue');
+        const btns = document.querySelectorAll('.hint-btn');
+        
+        btns.forEach((b, i) => {
+            if (i < game.state.hintsShown) {
+                b.classList.add('active');
+                b.disabled = false;
+            } else {
+                b.classList.remove('active');
+                b.disabled = false; // User can click to reveal
+            }
+        });
+
+        let text = '';
+        if(game.state.hintsShown === 1) text = `[정의]<br>${t.def}`;
+        if(game.state.hintsShown === 2) text = `[실생활 예시]<br>${t.ex}`;
+        if(game.state.hintsShown === 3) text = `[역사적 발견]<br>${t.hist}`;
+        
+        el.innerHTML = text;
+    },
+
+    showHint: (type) => {
+        if(type === 'def') game.state.hintsShown = 1;
+        if(type === 'ex') game.state.hintsShown = 2;
+        if(type === 'hist') game.state.hintsShown = 3;
+        game.updateHintUI();
+    },
+
+    checkAnswer: (index, termId) => {
+        if(game.state.markedIndices.includes(index)) return; // Already marked
+
+        const isCorrect = termId === game.state.targetTerm.id;
+        const modal = document.getElementById('feedback-modal');
+        const title = document.getElementById('fb-title');
+        const desc = document.getElementById('fb-desc');
+
+        if(isCorrect) {
+            // Correct
+            game.state.markedIndices.push(index);
+            document.querySelectorAll('#game-board .bingo-cell')[index].classList.add('marked');
+            
+            title.innerText = "🎉 정답입니다!";
+            title.style.color = "var(--primary)";
+            desc.innerHTML = `
+                <strong>${game.state.targetTerm.name}</strong><br><br>
+                ${game.state.targetTerm.def}<br>
+                (빙고판에 O 표시가 되었습니다)
+            `;
+            modal.style.display = 'flex';
+            
+            game.checkBingo();
+        } else {
+            // Incorrect
+            title.innerText = "🤔 다시 생각해보세요";
+            title.style.color = "var(--accent)";
+            desc.innerHTML = `
+                선택한 용어는 <strong>${TERMS.find(t=>t.id===termId).name}</strong>입니다.<br>
+                멘토의 설명을 다시 읽고 힌트를 활용해보세요!
+            `;
+            // Just close button logic modified slightly for incorrect
+            const btn = modal.querySelector('button');
+            const oldOnClick = btn.onclick;
+            btn.innerText = "다시 시도";
+            btn.onclick = () => {
+                modal.style.display = 'none';
+                btn.onclick = oldOnClick; // restore
+                btn.innerText = "다음 문제";
+            };
+            modal.style.display = 'flex';
+        }
+    },
+
+    checkBingo: () => {
+        const wins = [
+            [0,1,2], [3,4,5], [6,7,8], // Rows
+            [0,3,6], [1,4,7], [2,5,8], // Cols
+            [0,4,8], [2,4,6]           // Diagonals
+        ];
+
+        let bingoCount = 0;
+        wins.forEach(line => {
+            if(line.every(i => game.state.markedIndices.includes(i))) {
+                bingoCount++;
+            }
+        });
+
+        document.getElementById('bingo-count').innerText = `현재 빙고: ${bingoCount}줄`;
+
+        if(bingoCount >= 3) {
+            setTimeout(() => {
+                document.getElementById('win-modal').style.display = 'flex';
+                document.getElementById('final-stats').innerHTML = `
+                    <p>함께한 멘토: ${game.state.selectedChemist.name}</p>
+                    <p>학습한 용어: 9개</p>
+                    <p>과학과 인류의 발전 관계를 이해했습니다!</p>
+                `;
+            }, 500);
+        }
+    }
+};
+
+// Event Listeners setup
+document.getElementById('btn-to-setup').addEventListener('click', game.goToSetup);
+document.getElementById('btn-start-game').addEventListener('click', game.startGame);
+
+// Initialize
+game.init();
+
+</script>
+</body>
+</html>

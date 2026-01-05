@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 생활 속 비열 탐구</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f9ff; }
+        .tab-btn { transition: all 0.3s; }
+        .tab-btn.active { background-color: #3b82f6; color: white; border-bottom: 4px solid #1e40af; }
+        .gauge-container { width: 100%; height: 30px; background: #e5e7eb; border-radius: 15px; overflow: hidden; position: relative; }
+        .gauge-bar { height: 100%; transition: width 0.5s linear, background-color 0.5s; }
+        .feedback-box { animation: fadeIn 0.5s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="p-4 max-w-4xl mx-auto">
+
+    <header class="text-center mb-8">
+        <h1 class="text-3xl font-bold text-blue-800 mb-2">🌡️ 생활 속 비열 탐구 실험실</h1>
+        <p class="text-gray-600">물질에 따라 온도가 어떻게 변하는지 실험하고, 생활 속 원리를 찾아보세요!</p>
+    </header>
+
+    <div class="flex justify-center mb-6 space-x-4">
+        <button onclick="setTab('hotpack')" id="btn-hotpack" class="tab-btn active px-6 py-3 rounded-lg bg-white shadow font-bold text-gray-600 hover:bg-blue-50">1. 찜질팩 실험</button>
+        <button onclick="setTab('pot')" id="btn-pot" class="tab-btn px-6 py-3 rounded-lg bg-white shadow font-bold text-gray-600 hover:bg-blue-50">2. 라면 냄비 실험</button>
+        <button onclick="setTab('engine')" id="btn-engine" class="tab-btn px-6 py-3 rounded-lg bg-white shadow font-bold text-gray-600 hover:bg-blue-50">3. 자동차 엔진 실험</button>
+    </div>
+
+    <main class="bg-white p-6 rounded-2xl shadow-xl min-h-[500px]">
+        
+        <div id="view-hotpack" class="scenario-view">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">🔥 오래가는 찜질팩 만들기</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="mb-4 text-gray-700">추운 겨울, 찜질팩 안에 무엇을 넣어야 오랫동안 따뜻할까요?</p>
+                    <div class="space-y-3">
+                        <label class="block p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="packMaterial" value="water" checked> 
+                            <span class="font-bold ml-2">물 (Water)</span> - 비열이 큼 ($4.18 J/g\cdot^\circ C$)
+                        </label>
+                        <label class="block p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="packMaterial" value="sand"> 
+                            <span class="font-bold ml-2">모래 (Sand)</span> - 비열이 작음 (약 $0.8 J/g\cdot^\circ C$)
+                        </label>
+                    </div>
+                    <button onclick="runHotPack()" class="mt-6 w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 rounded-lg shadow transition">❄️ 식히기 시작 (Start Cooling)</button>
+                    <div id="feedback-hotpack" class="mt-4 hidden feedback-box p-4 bg-yellow-50 rounded border border-yellow-200 text-yellow-800"></div>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-xl">
+                    <canvas id="chartHotPack"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-pot" class="scenario-view hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">🍜 빨리 끓는 냄비 찾기</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="mb-4 text-gray-700">배가 너무 고파요! 어떤 냄비가 물을 더 빨리 끓게 할까요?</p>
+                    <div class="flex justify-center space-x-4 mb-4">
+                        <div id="pot-alu" class="cursor-pointer border-4 border-transparent hover:border-blue-300 rounded-lg p-2 text-center" onclick="selectPot('alu')">
+                            <div class="w-24 h-24 bg-gray-300 rounded-full mx-auto flex items-center justify-center shadow-inner mb-2 text-4xl">🥘</div>
+                            <div class="font-bold">양은 냄비</div>
+                            <div class="text-xs text-gray-500">(알루미늄, 비열 작음)</div>
+                        </div>
+                        <div id="pot-stone" class="cursor-pointer border-4 border-transparent hover:border-blue-300 rounded-lg p-2 text-center" onclick="selectPot('stone')">
+                            <div class="w-24 h-24 bg-amber-800 rounded-full mx-auto flex items-center justify-center shadow-inner mb-2 text-4xl">🍲</div>
+                            <div class="font-bold">뚝배기</div>
+                            <div class="text-xs text-gray-500">(세라믹, 비열 큼)</div>
+                        </div>
+                    </div>
+                    <button onclick="runPot()" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-lg shadow transition">🔥 가열 시작 (Heat Up)</button>
+                    <div id="feedback-pot" class="mt-4 hidden feedback-box p-4 bg-red-50 rounded border border-red-200 text-red-800"></div>
+                </div>
+                <div class="flex flex-col justify-center items-center bg-gray-50 p-4 rounded-xl">
+                    <div class="text-center mb-2 font-bold text-xl" id="timer-display">00:00</div>
+                    <div class="gauge-container border border-gray-300">
+                        <div id="pot-temp-bar" class="gauge-bar bg-blue-500" style="width: 20%;"></div>
+                    </div>
+                    <div class="flex justify-between w-full text-sm text-gray-500 mt-1">
+                        <span>20°C</span>
+                        <span>60°C</span>
+                        <span>100°C (끓음)</span>
+                    </div>
+                    <div id="pot-status" class="mt-4 text-2xl">🥶 가열 전</div>
+                </div>
+            </div>
+        </div>
+
+        <div id="view-engine" class="scenario-view hidden">
+            <h2 class="text-2xl font-bold text-gray-800 mb-4">🚗 자동차 엔진 지키기</h2>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <p class="mb-4 text-gray-700">엔진이 과열되면 고장납니다. 냉각수로 무엇을 써야 할까요?</p>
+                    <div class="space-y-3">
+                        <label class="block p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="coolant" value="water" checked> 
+                            <span class="font-bold ml-2">물 (Water)</span> - 열을 많이 흡수함
+                        </label>
+                        <label class="block p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                            <input type="radio" name="coolant" value="oil"> 
+                            <span class="font-bold ml-2">기름 (Oil)</span> - 열을 적게 흡수함
+                        </label>
+                    </div>
+                    <button onclick="runEngine()" class="mt-6 w-full bg-gray-800 hover:bg-gray-900 text-white font-bold py-3 rounded-lg shadow transition">🏎️ 엔진 가동 (Start Engine)</button>
+                    <div id="feedback-engine" class="mt-4 hidden feedback-box p-4 bg-blue-50 rounded border border-blue-200 text-blue-800"></div>
+                </div>
+                <div class="bg-gray-50 p-4 rounded-xl flex flex-col justify-center items-center">
+                    <div class="relative w-40 h-40">
+                         <svg viewBox="0 0 100 50" class="w-full h-full">
+                            <path d="M10 50 A 40 40 0 0 1 90 50" fill="none" stroke="#ddd" stroke-width="10" />
+                            <path id="engine-gauge" d="M10 50 A 40 40 0 0 1 10 50" fill="none" stroke="red" stroke-width="10" stroke-dasharray="126" stroke-dashoffset="126" style="transition: stroke-dashoffset 2s ease-out;"/>
+                            <text x="50" y="45" text-anchor="middle" font-size="10" fill="#333" font-weight="bold">TEMP</text>
+                        </svg>
+                    </div>
+                    <div id="engine-status" class="font-bold text-lg mt-2 text-gray-700">상태: 정지</div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // State and Chart variables
+        let currentTab = 'hotpack';
+        let hotpackChart = null;
+        let selectedPot = null;
+
+        // Init Chart
+        const ctx = document.getElementById('chartHotPack').getContext('2d');
+        hotpackChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: ['0분', '10분', '20분', '30분', '40분', '50분', '60분'],
+                datasets: []
+            },
+            options: {
+                responsive: true,
+                scales: { y: { min: 20, max: 90, title: {display: true, text: '온도 (°C)'} } }
+            }
+        });
+
+        // Tab Switching Logic
+        function setTab(tabName) {
+            currentTab = tabName;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.scenario-view').forEach(view => view.classList.add('hidden'));
+            
+            document.getElementById(`btn-${tabName}`).classList.add('active');
+            document.getElementById(`view-${tabName}`).classList.remove('hidden');
+        }
+
+        // Scenario 1: Hot Pack Logic
+        function runHotPack() {
+            const material = document.querySelector('input[name="packMaterial"]:checked').value;
+            const feedback = document.getElementById('feedback-hotpack');
+            
+            let label = "";
+            let color = "";
+            let data = [];
+
+            // Simulation Data (Exponential Decay)
+            if (material === 'water') {
+                label = "물 (비열 큼)";
+                color = "#3b82f6";
+                data = [80, 78, 76, 73, 70, 67, 64]; // Slow drop
+                feedback.innerHTML = "<strong>✅ 훌륭한 선택입니다!</strong><br>물은 비열이 커서 열을 많이 품고 있습니다. 그래서 온도가 아주 천천히 내려가 오랫동안 따뜻함을 유지할 수 있어요.";
+                feedback.className = "mt-4 feedback-box p-4 bg-blue-50 rounded border border-blue-200 text-blue-800 block";
+            } else {
+                label = "모래 (비열 작음)";
+                color = "#f97316";
+                data = [80, 60, 45, 35, 28, 24, 22]; // Fast drop
+                feedback.innerHTML = "<strong>⚠️ 너무 빨리 식었어요!</strong><br>모래는 비열이 작아 품을 수 있는 열의 양이 적습니다. 그래서 금방 차가워집니다. 찜질팩 재료로는 적합하지 않아요.";
+                feedback.className = "mt-4 feedback-box p-4 bg-orange-50 rounded border border-orange-200 text-orange-800 block";
+            }
+
+            // Update Chart
+            hotpackChart.data.datasets = [{
+                label: label,
+                data: data,
+                borderColor: color,
+                tension: 0.3
+            }];
+            hotpackChart.update();
+        }
+
+        // Scenario 2: Pot Logic
+        function selectPot(type) {
+            selectedPot = type;
+            document.getElementById('pot-alu').className = type === 'alu' ? "cursor-pointer border-4 border-blue-500 rounded-lg p-2 text-center bg-blue-50" : "cursor-pointer border-4 border-transparent hover:border-blue-300 rounded-lg p-2 text-center";
+            document.getElementById('pot-stone').className = type === 'stone' ? "cursor-pointer border-4 border-blue-500 rounded-lg p-2 text-center bg-blue-50" : "cursor-pointer border-4 border-transparent hover:border-blue-300 rounded-lg p-2 text-center";
+        }
+
+        function runPot() {
+            if(!selectedPot) { alert("냄비를 먼저 선택해주세요!"); return; }
+            
+            const bar = document.getElementById('pot-temp-bar');
+            const status = document.getElementById('pot-status');
+            const feedback = document.getElementById('feedback-pot');
+            const timer = document.getElementById('timer-display');
+            
+            let width = 20;
+            let time = 0;
+            let speed = selectedPot === 'alu' ? 2 : 0.5; // Aluminum heats faster
+            
+            feedback.classList.add('hidden');
+            bar.style.transition = 'none';
+            bar.style.width = '20%';
+            bar.style.backgroundColor = '#3b82f6';
+            status.innerText = "🔥 가열 중...";
+            status.className = "mt-4 text-2xl text-orange-600 font-bold animate-pulse";
+
+            let interval = setInterval(() => {
+                width += speed;
+                time += 1;
+                
+                // Timer format
+                let min = Math.floor(time / 60);
+                let sec = time % 60;
+                timer.innerText = `${min < 10 ? '0'+min : min}:${sec < 10 ? '0'+sec : sec}`;
+
+                // Bar update
+                bar.style.width = `${width}%`;
+                if(width > 60) bar.style.backgroundColor = '#ef4444'; // Red when hot
+
+                if (width >= 100) {
+                    clearInterval(interval);
+                    status.innerText = "🍜 물이 끓었습니다!";
+                    status.className = "mt-4 text-2xl text-red-600 font-bold";
+                    
+                    if(selectedPot === 'alu') {
+                        feedback.innerHTML = "<strong>⚡️ 초고속 가열!</strong><br>양은 냄비(알루미늄)는 비열이 작아 적은 열로도 온도가 금방 올라갑니다. 라면 끓이기에 딱이죠!";
+                    } else {
+                        feedback.innerHTML = "<strong>🐢 너무 오래 걸려요...</strong><br>뚝배기는 비열이 커서 데워지는 데 시간이 오래 걸립니다. 대신 한번 데워지면 잘 식지 않아 찌개 요리에 좋아요.";
+                    }
+                    feedback.classList.remove('hidden');
+                }
+            }, 50);
+        }
+
+        // Scenario 3: Engine Logic
+        function runEngine() {
+            const coolant = document.querySelector('input[name="coolant"]:checked').value;
+            const gauge = document.getElementById('engine-gauge');
+            const status = document.getElementById('engine-status');
+            const feedback = document.getElementById('feedback-engine');
+            
+            status.innerText = "🏎️ 엔진 가동 중...";
+            
+            // Gauge animation logic (Stroke Dashoffset: 126 is empty, 0 is full)
+            let targetOffset = 0;
+            let color = "";
+
+            if (coolant === 'water') {
+                targetOffset = 60; // Stays in middle (Safe)
+                color = "#22c55e"; // Green
+                setTimeout(() => {
+                    status.innerText = "✅ 온도 안정적";
+                    status.style.color = "green";
+                    feedback.innerHTML = "<strong>🛡️ 엔진 보호 성공!</strong><br>물은 비열이 매우 커서 엔진에서 발생하는 엄청난 열을 흡수해도 온도가 쉽게 오르지 않습니다. 최고의 냉각수죠.";
+                    feedback.classList.remove('hidden');
+                }, 2100);
+            } else {
+                targetOffset = 0; // Goes to max (Danger)
+                color = "#ef4444"; // Red
+                setTimeout(() => {
+                    status.innerText = "⚠️ 과열 경고!";
+                    status.style.color = "red";
+                    feedback.innerHTML = "<strong>🔥 엔진 과열!</strong><br>기름은 물보다 비열이 작아 엔진 열을 받으면 온도가 급격히 상승합니다. 냉각수로 쓰면 위험해요!";
+                    feedback.classList.remove('hidden');
+                }, 2100);
+            }
+
+            gauge.style.stroke = color;
+            gauge.style.strokeDashoffset = targetOffset;
+        }
+    </script>
+</body>
+</html>

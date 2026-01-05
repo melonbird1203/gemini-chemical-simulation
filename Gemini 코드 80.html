@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 흡열 반응 손 냉장고</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --secondary-color: #2ecc71;
+            --danger-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--panel-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+        h1 { color: var(--primary-color); margin: 0; }
+        .subtitle { color: #666; font-size: 1.1em; margin-top: 10px; }
+        
+        .experiment-layout {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+        
+        /* 제어 패널 */
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #f9fbff;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e1e8ed;
+        }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .value-display { font-weight: bold; color: var(--primary-color); float: right; }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+            margin-bottom: 10px;
+        }
+        .btn-start { background-color: var(--primary-color); color: white; }
+        .btn-start:hover { background-color: #2980b9; }
+        .btn-reset { background-color: #95a5a6; color: white; }
+        .btn-reset:hover { background-color: #7f8c8d; }
+
+        /* 시각화 영역 */
+        .visualization-panel {
+            flex: 2;
+            min-width: 400px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        
+        .visual-container {
+            position: relative;
+            height: 250px;
+            background: #eef2f3;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 1px solid #ccc;
+        }
+
+        /* 비커/지퍼백 시각화 */
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border: 4px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.5);
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60%; /* 동적 변경 */
+            background: rgba(52, 152, 219, 0.3);
+            transition: height 0.5s, background-color 1s;
+        }
+        .particles-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .thermometer-display {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 2px solid #333;
+            font-family: 'Courier New', monospace;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        .chart-container {
+            height: 200px;
+            background: white;
+            border-radius: 10px;
+            padding: 10px;
+            border: 1px solid #eee;
+        }
+
+        /* 피드백 및 퀴즈 */
+        .feedback-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            border-radius: 5px;
+            display: none; /* 실험 후 표시 */
+        }
+        .safety-note {
+            margin-top: 20px;
+            font-size: 0.9em;
+            color: #7f8c8d;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .quiz-section {
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧊 흡열 반응 손 냉장고 만들기</h1>
+        <p class="subtitle">질산 암모늄과 물이 만나면 에너지는 어떻게 변할까요?</p>
+    </header>
+
+    <div class="experiment-layout">
+        <div class="control-panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>물의 양 (용매) <span id="val-water" class="value-display">50 mL</span></label>
+                <input type="range" id="range-water" min="20" max="100" value="50" step="10">
+            </div>
+
+            <div class="control-group">
+                <label>질산 암모늄 양 (용질) <span id="val-nitrate" class="value-display">10 g</span></label>
+                <input type="range" id="range-nitrate" min="0" max="100" value="10" step="5">
+            </div>
+
+            <div class="control-group">
+                <label>초기 물 온도 <span id="val-temp" class="value-display">25 °C</span></label>
+                <input type="range" id="range-temp" min="15" max="35" value="25" step="1">
+            </div>
+
+            <button class="btn btn-start" onclick="startExperiment()">⚗️ 실험 시작하기</button>
+            <button class="btn btn-reset" onclick="resetExperiment()">🔄 초기화</button>
+
+            <div class="safety-note">
+                ⚠️ <strong>안전 주의사항:</strong><br>
+                실제 실험 시 질산 암모늄은 비료 성분이지만 먹으면 안 됩니다. 실험 후에는 반드시 손을 씻으세요.
+            </div>
+        </div>
+
+        <div class="visualization-panel">
+            <div class="visual-container">
+                <div class="beaker">
+                    <div class="liquid" id="liquid-display"></div>
+                    <canvas id="particle-canvas" width="150" height="200"></canvas>
+                </div>
+                <div class="thermometer-display">
+                    🌡️ <span id="current-temp-display">25.0</span>°C
+                </div>
+            </div>
+
+            <div class="chart-container">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="feedback-area" class="feedback-section">
+        <h3>💡 실험 결과 분석</h3>
+        <p id="feedback-text">결과가 여기에 표시됩니다.</p>
+        
+        <div class="quiz-section">
+            <h4>🤔 생각해보기</h4>
+            <p><strong>Q. 비닐 팩의 온도가 내려간 이유는 무엇일까요?</strong></p>
+            <select id="quiz-answer" style="padding: 8px; width: 100%; margin-bottom: 10px;">
+                <option value="">답변을 선택하세요</option>
+                <option value="1">질산 암모늄이 열을 방출했기 때문이다.</option>
+                <option value="2">질산 암모늄이 물에 녹으며 주변의 열을 흡수했기 때문이다.</option>
+                <option value="3">물이 얼음으로 변했기 때문이다.</option>
+            </select>
+            <button class="btn" style="background:#2ecc71; color:white; width: auto;" onclick="checkAnswer()">정답 확인</button>
+            <p id="quiz-result"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 변수 및 설정 ---
+    let waterMass = 50;
+    let nitrateMass = 10;
+    let startTemp = 25;
+    let currentTemp = 25;
+    let isRunning = false;
+    let intervalId = null;
+    let particleAnimationId = null;
+    
+    // 차트 설정
+    const ctx = document.getElementById('tempChart').getContext('2d');
+    let tempChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '온도 (°C)',
+                data: [],
+                borderColor: '#e74c3c', // 온도니까 빨간색 계열
+                tension: 0.4,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: '시간 (초)' } },
+                y: { title: { display: true, text: '온도 (°C)' }, min: 0, max: 40 }
+            },
+            animation: false
+        }
+    });
+
+    // --- UI 업데이트 함수 ---
+    function updateUIValues() {
+        document.getElementById('val-water').innerText = waterMass + " mL";
+        document.getElementById('val-nitrate').innerText = nitrateMass + " g";
+        document.getElementById('val-temp').innerText = startTemp + " °C";
+        document.getElementById('current-temp-display').innerText = currentTemp.toFixed(1);
+        
+        // 수면 높이 조절 (단순 시각화)
+        const totalVol = parseInt(waterMass) + (parseInt(nitrateMass) * 0.5); 
+        const heightPercent = Math.min((totalVol / 150) * 100, 95); 
+        document.getElementById('liquid-display').style.height = heightPercent + "%";
+    }
+
+    // 슬라이더 이벤트 리스너
+    document.getElementById('range-water').addEventListener('input', (e) => {
+        if(!isRunning) { waterMass = e.target.value; startTemp = document.getElementById('range-temp').value; currentTemp = parseFloat(startTemp); updateUIValues(); }
+    });
+    document.getElementById('range-nitrate').addEventListener('input', (e) => {
+        if(!isRunning) { nitrateMass = e.target.value; updateUIValues(); }
+    });
+    document.getElementById('range-temp').addEventListener('input', (e) => {
+        if(!isRunning) { startTemp = e.target.value; currentTemp = parseFloat(startTemp); updateUIValues(); }
+    });
+
+    // --- 실험 로직 ---
+    function startExperiment() {
+        if (isRunning) return;
+        isRunning = true;
+        
+        // 초기화
+        resetChart();
+        document.getElementById('feedback-area').style.display = 'none';
+        
+        // 최종 온도 계산 (간략화된 모델)
+        // 실제로는 용해열 공식이 복잡하지만, 중학생용 모델링으로 근사치 사용
+        // 질산암모늄 용해열은 흡열(+). 용질이 많을수록, 용매가 적을수록 온도 하강폭 큼.
+        const maxDrop = 20; // 최대 하강 폭 제한
+        const concentrationFactor = nitrateMass / (parseInt(waterMass) + parseInt(nitrateMass));
+        const tempDrop = concentrationFactor * 40; // 임의의 상수 40 곱함
+        const targetTemp = Math.max(startTemp - tempDrop, 2); // 2도 이하로는 잘 안떨어지게 설정
+
+        let time = 0;
+        
+        // 시뮬레이션 루프
+        intervalId = setInterval(() => {
+            time++;
+            
+            // 온도 변화 로직 (지수 함수적으로 목표 온도에 도달)
+            let diff = targetTemp - currentTemp;
+            currentTemp += diff * 0.1; // 10%씩 접근
+            
+            // 차트 업데이트
+            tempChart.data.labels.push(time);
+            tempChart.data.datasets[0].data.push(currentTemp);
+            if(tempChart.data.labels.length > 20) { // x축 스크롤 효과
+                tempChart.options.scales.x.min = tempChart.data.labels.length - 20;
+                tempChart.options.scales.x.max = tempChart.data.labels.length;
+            }
+            tempChart.update();
+            
+            // 온도계 및 입자 속도 업데이트
+            document.getElementById('current-temp-display').innerText = currentTemp.toFixed(1);
+            
+            // 색상 변화 (온도가 낮아지면 파란색이 진해짐 - 시온 잉크 효과 가정)
+            const blueIntensity = Math.min(0.3 + (30 - currentTemp)/40, 0.8);
+            document.getElementById('liquid-display').style.backgroundColor = `rgba(52, 152, 219, ${blueIntensity})`;
+
+            // 종료 조건 (변화가 미미할 때)
+            if (Math.abs(diff) < 0.1 || time > 60) {
+                finishExperiment(targetTemp);
+            }
+        }, 200); // 0.2초마다 업데이트
+
+        startParticleAnimation();
+    }
+
+    function finishExperiment(finalTemp) {
+        clearInterval(intervalId);
+        isRunning = false;
+        
+        // 결과 분석 및 피드백 표시
+        const drop = (startTemp - finalTemp).toFixed(1);
+        const feedbackDiv = document.getElementById('feedback-area');
+        const feedbackText = document.getElementById('feedback-text');
+        
+        feedbackDiv.style.display = 'block';
+        
+        let msg = `실험이 완료되었습니다! <strong>온도가 ${drop}°C 만큼 내려갔습니다.</strong><br>`;
+        if (drop > 10) {
+            msg += "와우! 꽤 성능이 좋은 손 냉장고가 만들어졌네요! 질산 암모늄을 충분히 넣어서 흡열 반응이 활발하게 일어났습니다.";
+        } else if (drop > 5) {
+            msg += "온도가 조금 내려갔습니다. 더 차갑게 만드려면 어떻게 해야 할까요? (힌트: 물의 양을 줄이거나 가루를 더 넣어보세요)";
+        } else {
+            msg += "온도 변화가 크지 않습니다. 질산 암모늄의 양이 너무 적었던 것 같네요.";
+        }
+        
+        msg += "<br><br>입자 모형을 보세요. 반응 전보다 입자들의 움직임이 어떻게 변했나요?";
+        feedbackText.innerHTML = msg;
+    }
+
+    function resetExperiment() {
+        clearInterval(intervalId);
+        cancelAnimationFrame(particleAnimationId);
+        isRunning = false;
+        currentTemp = parseFloat(startTemp);
+        
+        resetChart();
+        updateUIValues();
+        document.getElementById('feedback-area').style.display = 'none';
+        
+        // 캔버스 초기화
+        const canvas = document.getElementById('particle-canvas');
+        const ctx = canvas.getContext('2d');
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        document.getElementById('quiz-result').innerText = "";
+        document.getElementById('quiz-answer').value = "";
+    }
+
+    function resetChart() {
+        tempChart.data.labels = [];
+        tempChart.data.datasets[0].data = [];
+        tempChart.options.scales.x.min = undefined;
+        tempChart.options.scales.x.max = undefined;
+        tempChart.update();
+    }
+
+    function checkAnswer() {
+        const val = document.getElementById('quiz-answer').value;
+        const resultP = document.getElementById('quiz-result');
+        if (val === "2") {
+            resultP.innerHTML = "<span style='color:blue'>⭕ 정답입니다!</span><br>질산 암모늄이 물에 녹는 과정은 에너지를 필요로 하는 '흡열 반응'입니다. 주변(물)의 에너지를 뺏어오기 때문에 물의 온도가 내려갑니다.";
+        } else {
+            resultP.innerHTML = "<span style='color:red'>❌ 다시 생각해보세요.</span><br>온도가 내려갔다는 것은 주변의 열에너지가 어딘가로 흡수되었다는 뜻입니다.";
+        }
+    }
+
+    // --- 입자 애니메이션 (Canvas) ---
+    // 온도가 높으면 빠르고, 낮으면 느리게 움직임
+    const pCanvas = document.getElementById('particle-canvas');
+    const pCtx = pCanvas.getContext('2d');
+    
+    let particles = [];
+    
+    function initParticles() {
+        particles = [];
+        for(let i=0; i<30; i++) {
+            particles.push({
+                x: Math.random() * pCanvas.width,
+                y: Math.random() * pCanvas.height,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                color: '#888' // 초기 색상
+            });
+        }
+    }
+    
+    function startParticleAnimation() {
+        initParticles();
+        animateParticles();
+    }
+
+    function animateParticles() {
+        if (!isRunning) return;
+        
+        pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+        
+        // 온도에 비례한 속도 계수 (온도가 낮을수록 움직임 둔화)
+        // 섭씨 0도 ~ 40도 범위를 0.2 ~ 1.0 속도로 매핑
+        const speedFactor = Math.max(0.2, currentTemp / 40); 
+
+        particles.forEach(p => {
+            p.x += p.vx * speedFactor;
+            p.y += p.vy * speedFactor;
+
+            // 벽 튀기기
+            if(p.x < 0 || p.x > pCanvas.width) p.vx *= -1;
+            if(p.y < 0 || p.y > pCanvas.height) p.vy *= -1;
+
+            // 그리기
+            pCtx.beginPath();
+            pCtx.arc(p.x, p.y, 3, 0, Math.PI * 2);
+            // 에너지가 낮아짐(흡열됨) -> 파란색 계열로 입자 색 변화 표현
+            pCtx.fillStyle = currentTemp < 15 ? '#3498db' : '#e74c3c'; 
+            pCtx.fill();
+        });
+
+        particleAnimationId = requestAnimationFrame(animateParticles);
+    }
+    
+    // 초기 로드 시 값 세팅
+    updateUIValues();
+</script>
+
+</body>
+</html>

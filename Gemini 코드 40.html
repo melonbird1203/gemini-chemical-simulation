@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 황산 구리 결정 만들기</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-color: #2ecc71;
+            --text-color: #2c3e50;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ecf0f1;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            width: 100%;
+            padding: 1rem 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.9; }
+
+        .container {
+            max-width: 900px;
+            width: 95%;
+            margin: 20px auto;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            padding: 20px;
+            background-color: var(--secondary-color);
+            border-bottom: 1px solid #ddd;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: space-around;
+            align-items: center;
+        }
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .control-group label {
+            font-weight: bold;
+            margin-bottom: 8px;
+            font-size: 0.9rem;
+        }
+        input[type="range"] { width: 150px; }
+        select { padding: 5px; border-radius: 5px; }
+        
+        button.action-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: transform 0.2s;
+        }
+        button.action-btn:hover { transform: scale(1.05); background-color: #357abd; }
+        button.reset-btn { background-color: #e74c3c; }
+
+        /* 시뮬레이션 영역 */
+        .simulation-area {
+            position: relative;
+            height: 400px;
+            background: linear-gradient(to bottom, #ffffff, #e0f7fa);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        /* 비커 */
+        .beaker {
+            width: 200px;
+            height: 250px;
+            border: 4px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background-color: rgba(255, 255, 255, 0.5);
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            background-color: rgba(0, 100, 255, 0.2); /* 초기 농도 색상 */
+            transition: background-color 1s;
+        }
+        .crystals-container {
+            position: absolute;
+            bottom: 10px;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        /* 결정 스타일 (JS로 생성) */
+        .crystal {
+            position: absolute;
+            background-color: rgba(0, 50, 180, 0.8);
+            border: 1px solid rgba(255,255,255,0.3);
+            transform: rotate(45deg); /* 마름모 꼴 */
+            box-shadow: 1px 1px 2px rgba(0,0,0,0.2);
+            transition: width 0.5s, height 0.5s, bottom 2s ease-in;
+            bottom: -50px; /* 생성 전 */
+        }
+
+        /* 정보 패널 */
+        .info-panel {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            border-top: 1px solid #ddd;
+        }
+        .panel-card {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary-color);
+        }
+        .panel-card h3 { margin-top: 0; color: var(--primary-color); }
+        .comparison-view { display: none; }
+
+        /* 퀴즈 */
+        .quiz-section {
+            padding: 20px;
+            background-color: #fff3e0;
+            display: none;
+            text-align: center;
+        }
+        .quiz-options button {
+            margin: 5px;
+            padding: 8px 15px;
+            background: white;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .feedback { margin-top: 10px; font-weight: bold; }
+
+        /* 안전 경고 */
+        .safety-warning {
+            background-color: #ffebee;
+            color: #c62828;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 가상 화학 실험실: 결정 만들기</h1>
+    <p>중2 과학: 여러 가지 물질 - 용해도와 결정 생성</p>
+</header>
+
+<div class="safety-warning">
+    ⚠️ 주의: 실제 실험실에서 황산 구리(Ⅱ)는 독성이 있으므로 절대 맛보거나 피부에 닿지 않도록 하세요!
+</div>
+
+<div class="container">
+    <div class="controls">
+        <div class="control-group">
+            <label for="concentration">용액의 농도 (가루의 양)</label>
+            <input type="range" id="concentration" min="1" max="5" value="3">
+            <span id="conc-val">보통 (3 mol)</span>
+        </div>
+        <div class="control-group">
+            <label for="speed">식히는 속도 (냉각 속도)</label>
+            <select id="speed">
+                <option value="slow">느리게 (실온 냉각)</option>
+                <option value="medium" selected>보통</option>
+                <option value="fast">빠르게 (얼음물 냉각)</option>
+            </select>
+        </div>
+        <button class="action-btn" onclick="startExperiment()">실험 시작하기 🌡️</button>
+        <button class="action-btn reset-btn" onclick="resetExperiment()">다시 하기 🔄</button>
+    </div>
+
+    <div class="simulation-area">
+        <div class="beaker">
+            <div class="liquid" id="liquid"></div>
+            <div class="crystals-container" id="crystals-area"></div>
+        </div>
+        <div style="position: absolute; top: 10px; right: 10px; background: rgba(255,255,255,0.8); padding: 5px; border-radius: 5px; font-size: 0.8rem;">
+            🌡️ 현재 온도: <span id="temp-display">60</span>°C
+        </div>
+    </div>
+
+    <div class="info-panel" id="result-panel">
+        <div class="panel-card">
+            <h3>🔬 관찰 결과</h3>
+            <p id="observation-text">실험을 시작해 보세요. 온도가 내려가면 어떤 일이 일어날까요?</p>
+        </div>
+        <div class="panel-card" id="sapphire-card" style="opacity: 0.5;">
+            <h3>💎 사파이어와 비교</h3>
+            <p>실험이 완료되면 사파이어 정보가 나타납니다.</p>
+        </div>
+    </div>
+
+    <div class="quiz-section" id="quiz-area">
+        <h3>🤔 오늘의 퀴즈</h3>
+        <p>크고 고른 모양의 결정을 만들려면 어떤 조건이 가장 좋을까요?</p>
+        <div class="quiz-options">
+            <button onclick="checkAnswer(1)">높은 농도 + 아주 빠른 냉각</button>
+            <button onclick="checkAnswer(2)">높은 농도 + 천천히 냉각</button>
+            <button onclick="checkAnswer(3)">낮은 농도 + 빠른 냉각</button>
+        </div>
+        <div class="feedback" id="quiz-feedback"></div>
+    </div>
+</div>
+
+<script>
+    // 변수 설정
+    const concInput = document.getElementById('concentration');
+    const speedInput = document.getElementById('speed');
+    const concVal = document.getElementById('conc-val');
+    const liquid = document.getElementById('liquid');
+    const crystalsArea = document.getElementById('crystals-area');
+    const tempDisplay = document.getElementById('temp-display');
+    const obsText = document.getElementById('observation-text');
+    const sapphireCard = document.getElementById('sapphire-card');
+    const quizArea = document.getElementById('quiz-area');
+
+    let isRunning = false;
+    let temperature = 60;
+    let experimentInterval;
+
+    // 농도 슬라이더 이벤트
+    concInput.addEventListener('input', (e) => {
+        const val = e.target.value;
+        concVal.innerText = val <= 1 ? "묽음 (1 mol)" : val >= 5 ? "매우 진함 (5 mol)" : `보통 (${val} mol)`;
+        // 농도에 따른 용액 색상 변화
+        const opacity = 0.1 + (val * 0.15);
+        liquid.style.backgroundColor = `rgba(0, 100, 255, ${opacity})`;
+    });
+
+    // 실험 시작 함수
+    function startExperiment() {
+        if (isRunning) return;
+        isRunning = true;
+        resetVisuals();
+        
+        const concentration = parseInt(concInput.value);
+        const speedMode = speedInput.value;
+        let coolingRate = 0;
+        
+        // 속도 설정
+        if (speedMode === 'fast') coolingRate = 2; // 빠름
+        else if (speedMode === 'medium') coolingRate = 0.8; // 보통
+        else coolingRate = 0.2; // 느림
+
+        obsText.innerHTML = "온도가 내려가면서 <strong>용해도</strong>가 작아집니다.<br>더 이상 녹을 수 없는 입자들이 뭉치기 시작해요!";
+
+        experimentInterval = setInterval(() => {
+            temperature -= coolingRate;
+            tempDisplay.innerText = Math.floor(temperature);
+
+            // 결정 생성 로직 (30도 이하부터 본격 생성)
+            if (temperature < 40 && Math.random() > 0.5) {
+                spawnCrystal(concentration, speedMode);
+            }
+
+            if (temperature <= 20) {
+                finishExperiment(concentration, speedMode);
+            }
+        }, 100);
+    }
+
+    // 결정 생성 시각화
+    function spawnCrystal(conc, speed) {
+        const crystal = document.createElement('div');
+        crystal.classList.add('crystal');
+        
+        // 크기 및 개수 로직
+        // 천천히 식힐수록(slow) -> 입자가 붙을 시간이 많아 결정이 큼
+        // 농도가 높을수록(conc high) -> 개수가 많음
+        let size = 0;
+        if (speed === 'slow') size = Math.random() * 20 + 30; // 30~50px
+        else if (speed === 'medium') size = Math.random() * 10 + 15; // 15~25px
+        else size = Math.random() * 5 + 5; // 5~10px (작고 많음)
+
+        crystal.style.width = `${size}px`;
+        crystal.style.height = `${size}px`;
+        
+        // 위치 랜덤 (비커 바닥 근처)
+        const randomLeft = Math.random() * 80 + 10; // 10% ~ 90%
+        const randomBottom = Math.random() * 20;
+        crystal.style.left = `${randomLeft}%`;
+        crystal.style.bottom = `${randomBottom}%`;
+
+        crystalsArea.appendChild(crystal);
+    }
+
+    // 실험 종료 및 결과 분석
+    function finishExperiment(conc, speed) {
+        clearInterval(experimentInterval);
+        isRunning = false;
+        tempDisplay.innerText = "20 (종료)";
+        
+        // 결과 텍스트 생성
+        let resultMsg = "";
+        if (speed === 'slow') {
+            resultMsg = "천천히 식혀서 입자들이 규칙적으로 배열될 시간이 충분했어요. <br>👉 <strong>크고 투명한 결정</strong>이 만들어졌습니다.";
+        } else if (speed === 'fast') {
+            resultMsg = "너무 빨리 식혀서 입자들이 급하게 뭉쳤어요. <br>👉 <strong>작고 불규칙한 알갱이</strong>들이 많이 생겼습니다.";
+        } else {
+            resultMsg = "적당한 속도로 식혀 보통 크기의 결정이 생겼습니다.";
+        }
+        obsText.innerHTML = resultMsg;
+
+        // 사파이어 비교 활성화
+        showComparison();
+        quizArea.style.display = 'block';
+    }
+
+    function showComparison() {
+        sapphireCard.style.opacity = "1";
+        sapphireCard.innerHTML = `
+            <h3>💎 사파이어 vs 황산 구리</h3>
+            <ul style="padding-left: 20px; font-size: 0.9rem;">
+                <li><strong>공통점:</strong> 둘 다 푸른색을 띠며, 입자가 규칙적으로 배열된 '결정'입니다.</li>
+                <li><strong>차이점(성분):</strong> 황산 구리는 구리 성분, 사파이어는 산화 알루미늄 성분입니다.</li>
+                <li><strong>차이점(단단함):</strong> 사파이어는 매우 단단하지만(보석), 황산 구리 결정은 쉽게 부서집니다.</li>
+            </ul>
+        `;
+    }
+
+    function resetExperiment() {
+        clearInterval(experimentInterval);
+        isRunning = false;
+        temperature = 60;
+        tempDisplay.innerText = 60;
+        crystalsArea.innerHTML = '';
+        obsText.innerText = "실험을 시작해 보세요. 온도가 내려가면 어떤 일이 일어날까요?";
+        sapphireCard.style.opacity = "0.5";
+        sapphireCard.innerHTML = "<h3>💎 사파이어와 비교</h3><p>실험이 완료되면 사파이어 정보가 나타납니다.</p>";
+        quizArea.style.display = 'none';
+        document.getElementById('quiz-feedback').innerText = "";
+    }
+
+    function resetVisuals() {
+        crystalsArea.innerHTML = '';
+        temperature = 60;
+    }
+
+    function checkAnswer(ans) {
+        const feedback = document.getElementById('quiz-feedback');
+        if (ans === 2) {
+            feedback.innerHTML = "<span style='color:blue'>정답입니다! 👏</span><br>농도가 진할수록 재료가 많고, 천천히 식힐수록 입자가 규칙적으로 모여 큰 결정이 됩니다.";
+        } else {
+            feedback.innerHTML = "<span style='color:red'>다시 생각해볼까요?</span><br>결정이 커지려면 입자들이 자리를 잡을 '충분한 시간'이 필요해요.";
+        }
+    }
+</script>
+
+</body>
+</html>

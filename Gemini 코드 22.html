@@ -1,0 +1,532 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물이 얼 때의 온도 변화</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --accent-color: #e74c3c;
+            --text-color: #333;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #eceff1;
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { color: #666; font-size: 0.95rem; margin-top: 5px; }
+
+        /* Layout Grid */
+        .lab-grid {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 25px;
+        }
+
+        @media (max-width: 900px) {
+            .lab-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Control Panel */
+        .panel {
+            background: var(--secondary-color);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            border: 1px solid #ddd;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .value-display { font-size: 0.9rem; color: var(--primary-color); float: right; }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: 0.3s;
+            font-weight: bold;
+            margin-bottom: 10px;
+        }
+
+        .btn-start { background-color: var(--primary-color); color: white; }
+        .btn-start:hover { background-color: #357abd; }
+        .btn-reset { background-color: #95a5a6; color: white; }
+        .btn-reset:hover { background-color: #7f8c8d; }
+
+        /* Visualization Area */
+        .display-area {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .canvas-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: var(--border-radius);
+            position: relative;
+            height: 300px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .label-tag {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        #graphCanvas { width: 100%; height: 100%; }
+        
+        /* Particle & Beaker Animation */
+        #simCanvas { background: linear-gradient(to bottom, #e0f7fa, #ffffff); width: 100%; height: 100%; }
+
+        /* Feedback & Analysis */
+        .analysis-box {
+            grid-column: 1 / -1;
+            background: #fff3e0;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            border-left: 5px solid #ff9800;
+            margin-top: 20px;
+            display: none; /* Hidden initially */
+        }
+
+        .analysis-box h3 { margin-top: 0; color: #e65100; }
+
+        /* Educational Guide */
+        .guide-box {
+            margin-top: 30px;
+            padding: 20px;
+            background: #e8f5e9;
+            border-radius: var(--border-radius);
+            font-size: 0.95rem;
+        }
+
+        .status-bar {
+            grid-column: 1 / -1;
+            background: #333;
+            color: white;
+            padding: 10px;
+            text-align: center;
+            border-radius: 8px;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 물이 얼 때 온도는 어떻게 변할까?</h1>
+        <div class="subtitle">중1 과학 > 물질의 상태 변화 > 상태 변화와 열에너지</div>
+    </header>
+
+    <div class="lab-grid">
+        <aside class="panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>초기 물 온도: <span id="tempDisplay" class="value-display">20℃</span></label>
+                <input type="range" id="initTemp" min="10" max="30" value="20">
+            </div>
+
+            <div class="control-group">
+                <label>냉각 강도 (속도): <span id="coolDisplay" class="value-display">보통</span></label>
+                <input type="range" id="coolRate" min="1" max="3" value="2">
+            </div>
+
+            <div class="control-group">
+                <p style="font-size: 0.85rem; color: #666;">
+                    💡 <strong>Tip:</strong> 실제 실험실에서는 드라이아이스나 얼음+소금을 냉매로 사용합니다.
+                </p>
+            </div>
+
+            <button class="btn btn-start" id="startBtn" onclick="toggleExperiment()">▶ 실험 시작</button>
+            <button class="btn btn-reset" onclick="resetExperiment()">↺ 초기화</button>
+
+            <div style="margin-top:20px; font-size: 0.9rem;">
+                <strong>⚠️ 안전 수칙:</strong><br>
+                실제 온도계를 젓개로 사용하지 마세요. 비커가 깨질 수 있습니다.
+            </div>
+        </aside>
+
+        <main>
+            <div class="status-bar">
+                현재 온도: <span id="currentTempDisplay">20.0</span>℃ | 상태: <span id="stateDisplay">액체 (물)</span>
+            </div>
+
+            <div class="display-area" style="margin-top: 15px;">
+                <div class="canvas-container">
+                    <span class="label-tag">🔬 입자 및 비커 관찰</span>
+                    <canvas id="simCanvas" width="400" height="300"></canvas>
+                </div>
+
+                <div class="canvas-container">
+                    <span class="label-tag">📈 온도 변화 그래프</span>
+                    <canvas id="graphCanvas" width="400" height="300"></canvas>
+                </div>
+            </div>
+
+            <div id="resultBox" class="analysis-box">
+                <h3>🧐 실험 결과 분석</h3>
+                <p id="analysisText">실험이 진행 중입니다...</p>
+                <div id="quizSection" style="margin-top:15px; border-top:1px dashed #ccc; padding-top:10px; display:none;">
+                    <strong>[확인 문제]</strong> 물이 어는 동안(0℃) 온도가 내려가지 않고 일정했던 이유는 무엇일까요?
+                    <br><br>
+                    <button class="btn" style="background:#fff; border:1px solid #ccc; font-weight:normal; font-size:0.9rem;" onclick="checkAnswer(1)">냉각 장치가 멈췄기 때문에</button>
+                    <button class="btn" style="background:#fff; border:1px solid #ccc; font-weight:normal; font-size:0.9rem;" onclick="checkAnswer(2)">상태가 변하면서 열에너지를 방출했기 때문에</button>
+                    <p id="quizFeedback" style="font-weight:bold; color:var(--accent-color);"></p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div class="guide-box">
+        <h3>📚 학습 포인트</h3>
+        <ul>
+            <li><strong>어는점:</strong> 액체가 얼어 고체로 변하는 동안 일정하게 유지되는 온도입니다. (물의 어는점: 0℃)</li>
+            <li><strong>상태 변화와 온도:</strong> 물이 얼음으로 변할 때 입자들은 규칙적으로 배열됩니다. 이때 입자가 가지고 있던 에너지를 밖으로 <strong>방출</strong>하기 때문에, 계속 냉각해도 온도가 떨어지지 않고 유지됩니다.</li>
+            <li><strong>입자 운동:</strong> 온도가 낮아질수록 입자의 운동은 둔해지고, 고체가 되면 제자리에서 진동합니다.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    // Configuration
+    const canvasSim = document.getElementById('simCanvas');
+    const ctxSim = canvasSim.getContext('2d');
+    const canvasGraph = document.getElementById('graphCanvas');
+    const ctxGraph = canvasGraph.getContext('2d');
+
+    // State Variables
+    let isRunning = false;
+    let initialTemp = 20;
+    let currentTemp = 20;
+    let time = 0;
+    let coolingRate = 0.05;
+    let latentHeatDuration = 300; // Duration to stay at 0 degrees (in frames)
+    let latentHeatCounter = 0;
+    let particles = [];
+    let graphData = [];
+    let animationId;
+    let isFrozen = false;
+
+    // Initialize Particles
+    function initParticles() {
+        particles = [];
+        for(let i=0; i<30; i++) {
+            particles.push({
+                x: Math.random() * canvasSim.width,
+                y: Math.random() * canvasSim.height,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                baseX: 0, // Target position for solid lattice
+                baseY: 0
+            });
+        }
+        // Assign lattice positions
+        let col = 0, row = 0;
+        particles.forEach((p, index) => {
+            if (index % 6 === 0) { col = 0; row++; }
+            p.baseX = 50 + col * 60 + (row % 2 ? 30 : 0);
+            p.baseY = 50 + row * 50;
+            col++;
+        });
+    }
+
+    // Controls
+    document.getElementById('initTemp').addEventListener('input', (e) => {
+        initialTemp = parseInt(e.target.value);
+        if(!isRunning) {
+            currentTemp = initialTemp;
+            resetExperiment();
+        }
+        document.getElementById('tempDisplay').innerText = initialTemp + "℃";
+    });
+
+    document.getElementById('coolRate').addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        coolingRate = val * 0.03;
+        document.getElementById('coolDisplay').innerText = val === 1 ? "약함" : val === 2 ? "보통" : "강함";
+    });
+
+    function toggleExperiment() {
+        const btn = document.getElementById('startBtn');
+        if (!isRunning) {
+            isRunning = true;
+            btn.innerText = "⏸ 일시 정지";
+            btn.classList.add('btn-reset'); // change style visually
+            animate();
+        } else {
+            isRunning = false;
+            btn.innerText = "▶ 실험 계속";
+            btn.classList.remove('btn-reset');
+            cancelAnimationFrame(animationId);
+        }
+    }
+
+    function resetExperiment() {
+        isRunning = false;
+        cancelAnimationFrame(animationId);
+        document.getElementById('startBtn').innerText = "▶ 실험 시작";
+        document.getElementById('startBtn').classList.remove('btn-reset');
+        
+        currentTemp = initialTemp;
+        time = 0;
+        latentHeatCounter = 0;
+        isFrozen = false;
+        graphData = [];
+        
+        document.getElementById('resultBox').style.display = 'none';
+        document.getElementById('quizSection').style.display = 'none';
+        document.getElementById('quizFeedback').innerText = "";
+        
+        updateDisplay();
+        initParticles();
+        drawSim();
+        drawGraph();
+    }
+
+    function checkAnswer(ans) {
+        const fb = document.getElementById('quizFeedback');
+        if (ans === 2) {
+            fb.innerHTML = "🙆‍♂️ 정답입니다! 물이 얼음이 될 때 '응고열'을 방출하여 온도가 유지됩니다.";
+            fb.style.color = "green";
+        } else {
+            fb.innerHTML = "🙅 다시 생각해보세요. 냉각은 계속 되고 있지만, 내부에서 에너지가 나오고 있어요.";
+            fb.style.color = "red";
+        }
+    }
+
+    // Physics Engine
+    function updatePhysics() {
+        time++;
+
+        if (currentTemp > 0) {
+            // Liquid Phase
+            currentTemp -= coolingRate;
+            if (currentTemp < 0) currentTemp = 0; // Snap to 0
+        } else if (currentTemp === 0) {
+            // Phase Change Plateau
+            if (latentHeatCounter < latentHeatDuration) {
+                latentHeatCounter += (coolingRate * 20); // Consume latent heat buffer
+            } else {
+                currentTemp -= coolingRate; // Finish freezing
+            }
+        } else {
+            // Solid Phase
+            currentTemp -= coolingRate;
+        }
+
+        // Data recording (every 10 frames)
+        if (time % 10 === 0) {
+            graphData.push({t: time, temp: currentTemp});
+        }
+
+        // Check completion
+        if (currentTemp <= -10) {
+            isRunning = false;
+            document.getElementById('startBtn').innerText = "✅ 실험 종료";
+            showResult();
+        }
+    }
+
+    function showResult() {
+        const box = document.getElementById('resultBox');
+        const text = document.getElementById('analysisText');
+        box.style.display = 'block';
+        text.innerHTML = `
+            <strong>실험 완료!</strong><br>
+            그래프를 보세요. 온도가 내려가다가 <strong>0℃ 구간에서 평평한 선</strong>이 나타났나요?<br>
+            이 구간이 바로 물이 얼음으로 상태가 변하는 <strong>'어는점'</strong>입니다.
+        `;
+        document.getElementById('quizSection').style.display = 'block';
+    }
+
+    // Rendering
+    function drawSim() {
+        // Clear
+        ctxSim.fillStyle = currentTemp <= 0 ? "#e3f2fd" : "#e0f7fa";
+        ctxSim.fillRect(0, 0, canvasSim.width, canvasSim.height);
+
+        // Draw Beaker Outline
+        ctxSim.strokeStyle = "#aaa";
+        ctxSim.lineWidth = 5;
+        ctxSim.strokeRect(50, 50, 300, 240);
+        
+        // Water/Ice Level
+        ctxSim.fillStyle = currentTemp <= 0 ? "rgba(200, 230, 255, 0.8)" : "rgba(74, 144, 226, 0.3)";
+        ctxSim.fillRect(55, 100, 290, 185);
+
+        // Thermometer Visual
+        ctxSim.fillStyle = "#fff";
+        ctxSim.fillRect(320, 20, 20, 250);
+        ctxSim.strokeStyle = "#333";
+        ctxSim.strokeRect(320, 20, 20, 250);
+        
+        // Mercury
+        let height = 200 - (currentTemp * 5); 
+        // Clamp height visually
+        if(height > 240) height = 240; 
+        if(height < 50) height = 50;
+
+        ctxSim.fillStyle = "#e74c3c";
+        ctxSim.fillRect(324, height + 20, 12, 250 - height);
+
+        // Particles
+        particles.forEach(p => {
+            ctxSim.beginPath();
+            ctxSim.arc(p.x, p.y, 8, 0, Math.PI * 2);
+            ctxSim.fillStyle = currentTemp <= 0 ? "#2980b9" : "#3498db";
+            ctxSim.fill();
+            
+            // Movement Logic
+            if (currentTemp > 0) {
+                // Liquid: Move freely but slower as temp drops
+                let speedFactor = (currentTemp + 5) / 30; 
+                p.x += p.vx * speedFactor;
+                p.y += p.vy * speedFactor;
+
+                // Bounce walls (simplified)
+                if(p.x < 55 || p.x > 345) p.vx *= -1;
+                if(p.y < 100 || p.y > 285) p.vy *= -1;
+            } else {
+                // Solid: Vibrate around lattice position
+                // Move towards base
+                p.x += (p.baseX - p.x) * 0.1;
+                p.y += (p.baseY - p.y) * 0.1;
+                
+                // Vibrate
+                p.x += (Math.random() - 0.5) * 1.5;
+                p.y += (Math.random() - 0.5) * 1.5;
+            }
+        });
+        
+        // Visual Text Overlay
+        ctxSim.fillStyle = "#333";
+        ctxSim.font = "14px Arial";
+        if (currentTemp > 0) {
+            ctxSim.fillText("액체 (활발한 운동)", 140, 80);
+        } else {
+            ctxSim.fillText("고체 (규칙적 배열, 진동)", 130, 80);
+        }
+    }
+
+    function drawGraph() {
+        ctxGraph.clearRect(0, 0, canvasGraph.width, canvasGraph.height);
+        
+        // Axes
+        ctxGraph.beginPath();
+        ctxGraph.strokeStyle = "#666";
+        ctxGraph.lineWidth = 2;
+        ctxGraph.moveTo(40, 10);
+        ctxGraph.lineTo(40, 270); // Y axis
+        ctxGraph.lineTo(380, 270); // X axis
+        ctxGraph.stroke();
+
+        // Labels
+        ctxGraph.font = "12px Arial";
+        ctxGraph.fillStyle = "#666";
+        ctxGraph.fillText("온도(℃)", 10, 15);
+        ctxGraph.fillText("시간", 360, 285);
+        ctxGraph.fillText("0", 25, 170); // 0 degree mark
+        
+        // 0-line grid
+        ctxGraph.beginPath();
+        ctxGraph.strokeStyle = "#ddd";
+        ctxGraph.moveTo(40, 170);
+        ctxGraph.lineTo(380, 170);
+        ctxGraph.stroke();
+
+        if (graphData.length < 2) return;
+
+        // Plot Line
+        ctxGraph.beginPath();
+        ctxGraph.strokeStyle = "#e74c3c";
+        ctxGraph.lineWidth = 3;
+        
+        // Scaling: Y: 170 is 0 deg. 10px per deg.
+        // X: 40 start, 1px per time unit/2
+        
+        graphData.forEach((point, i) => {
+            const x = 40 + (point.t / 3);
+            const y = 170 - (point.temp * 5);
+            if (i === 0) ctxGraph.moveTo(x, y);
+            else ctxGraph.lineTo(x, y);
+        });
+        ctxGraph.stroke();
+    }
+
+    function updateDisplay() {
+        document.getElementById('currentTempDisplay').innerText = currentTemp.toFixed(1);
+        if (currentTemp > 0) {
+            document.getElementById('stateDisplay').innerText = "액체 (물)";
+            document.getElementById('stateDisplay').style.color = "blue";
+        } else if (currentTemp === 0 && latentHeatCounter < latentHeatDuration) {
+            document.getElementById('stateDisplay').innerText = "상태 변화 중 (물+얼음)";
+            document.getElementById('stateDisplay').style.color = "purple";
+        } else {
+            document.getElementById('stateDisplay').innerText = "고체 (얼음)";
+            document.getElementById('stateDisplay').style.color = "#333";
+        }
+    }
+
+    function animate() {
+        if (!isRunning) return;
+        updatePhysics();
+        updateDisplay();
+        drawSim();
+        drawGraph();
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // Initial Draw
+    initParticles();
+    drawSim();
+    drawGraph();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>물질의 특성: 어는점 가상 실험</title>
+    <style>
+        :root { --primary: #4a90e2; --bg: #f5f7fa; --text: #333; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: var(--primary); margin-bottom: 10px; }
+        .container { display: flex; gap: 20px; max-width: 1000px; width: 100%; flex-wrap: wrap; }
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 300px; }
+        
+        /* Controls */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        select, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; margin-bottom: 5px; cursor: pointer; }
+        button { background: var(--primary); color: white; border: none; font-weight: bold; transition: 0.3s; }
+        button:hover { background: #357abd; }
+        button.reset { background: #e74c3c; }
+
+        /* Visualization */
+        .lab-view { display: flex; justify-content: space-around; align-items: center; height: 200px; background: #eef2f7; border-radius: 8px; position: relative; }
+        .test-tube { width: 40px; height: 120px; border: 2px solid #555; border-radius: 0 0 20px 20px; border-top: none; position: relative; background: rgba(255,255,255,0.5); overflow: hidden; }
+        .chemical { width: 100%; height: 60%; position: absolute; bottom: 0; transition: background 1s; }
+        .thermometer { width: 6px; height: 140px; background: #ccc; position: absolute; left: 50%; top: 20px; transform: translateX(-50%); border-radius: 3px; }
+        .mercury { width: 100%; background: red; position: absolute; bottom: 0; transition: height 0.2s; }
+        
+        /* Particle View */
+        .particle-box { width: 100px; height: 100px; border: 2px dashed #aaa; border-radius: 50%; position: relative; overflow: hidden; background: #fff; margin-top: 10px; }
+        .particle { width: 8px; height: 8px; background: var(--primary); border-radius: 50%; position: absolute; }
+        
+        /* Graph */
+        canvas { width: 100%; height: 300px; background: #fff; border: 1px solid #eee; }
+
+        .status-display { text-align: center; font-size: 1.2em; font-weight: bold; margin-top: 10px; color: #555; }
+        .data-readout { display: flex; justify-content: space-between; font-family: monospace; font-size: 1.1em; margin-top: 10px; }
+    </style>
+</head>
+<body>
+
+    <h1>❄️ 어는점 측정 가상 실험실</h1>
+    <p>물질의 종류와 질량을 선택하고 냉각시켜보세요.</p>
+
+    <div class="container">
+        <div class="panel" style="flex: 0.8;">
+            <h2>⚙️ 실험 설정</h2>
+            <div class="control-group">
+                <label>시료 선택</label>
+                <select id="substance">
+                    <option value="lauric">로르산 (예상 어는점: ???)</option>
+                    <option value="palmitic">팔미트산 (예상 어는점: ???)</option>
+                    <option value="unknown">미지의 물질 A</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>시료의 질량</label>
+                <select id="mass">
+                    <option value="1">1g (적은 양)</option>
+                    <option value="2">2g (많은 양)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>냉각 속도</label>
+                <select id="speed">
+                    <option value="1">자연 냉각 (보통)</option>
+                    <option value="2">급속 냉각 (빠름)</option>
+                </select>
+            </div>
+            <button onclick="startExperiment()" id="startBtn">실험 시작 ▶</button>
+            <button onclick="resetExperiment()" class="reset">초기화 ↺</button>
+            
+            <div class="status-display" id="stateText">상태: 준비 됨</div>
+            <div class="data-readout">
+                <span id="timeDisplay">시간: 0s</span>
+                <span id="tempDisplay">온도: 80.0°C</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>👀 관찰: 입자와 온도</h2>
+            <div class="lab-view">
+                <div style="text-align:center;">
+                    <div class="test-tube">
+                        <div class="chemical" id="chemicalFill" style="background: #aaccff;"></div>
+                        <div class="thermometer"><div class="mercury" id="mercuryHeight" style="height: 80%;"></div></div>
+                    </div>
+                    <small>시험관</small>
+                </div>
+                
+                <div style="text-align:center;">
+                    <div class="particle-box" id="particleBox">
+                        </div>
+                    <small>입자 배열 (확대)</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="panel">
+            <h2>📉 온도-시간 그래프</h2>
+            <canvas id="graphCanvas" width="800" height="300"></canvas>
+            <p id="analysis-feedback" style="color: blue; font-weight: bold; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+<script>
+    // 실험 데이터 및 상수
+    const SUBSTANCES = {
+        'lauric': { name: '로르산', fp: 44, colorLiq: '#fdfd96', colorSol: '#ffffff' },
+        'palmitic': { name: '팔미트산', fp: 63, colorLiq: '#ffcccb', colorSol: '#ffe4e1' },
+        'unknown': { name: '미지의 물질 A', fp: 54, colorLiq: '#e0ffff', colorSol: '#f0ffff' } // 예: 미리스틴산 근사치
+    };
+
+    let isRunning = false;
+    let timer = null;
+    let time = 0;
+    let temp = 80;
+    let currentSubstance = null;
+    let currentMass = 1;
+    let coolingFactor = 1;
+    
+    // 상태 변화 로직 변수
+    let latentHeatDuration = 0; 
+    let maxLatentHeat = 0;
+
+    // 그래프 데이터
+    let dataPoints = [];
+
+    // 초기화
+    window.onload = () => {
+        initParticles();
+        drawGraph();
+    };
+
+    function initParticles() {
+        const box = document.getElementById('particleBox');
+        box.innerHTML = '';
+        for(let i=0; i<15; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 80 + 'px';
+            p.style.top = Math.random() * 80 + 'px';
+            box.appendChild(p);
+        }
+    }
+
+    function startExperiment() {
+        if(isRunning) return;
+        
+        const subKey = document.getElementById('substance').value;
+        currentSubstance = SUBSTANCES[subKey];
+        currentMass = parseFloat(document.getElementById('mass').value);
+        const speedVal = parseFloat(document.getElementById('speed').value);
+
+        // 초기 설정
+        isRunning = true;
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('substance').disabled = true;
+        document.getElementById('mass').disabled = true;
+        
+        time = 0;
+        temp = 80; // 시작 온도
+        dataPoints = [{t:0, temp:80}];
+        
+        // 질량이 클수록 상태 변화 시간이 길어짐 (잠열 구간)
+        // 냉각 속도가 빠르면 빨리 식음
+        maxLatentHeat = (currentMass * 100) / speedVal; 
+        latentHeatDuration = maxLatentHeat;
+        coolingFactor = (0.5 * speedVal) / currentMass; // 질량이 크면 천천히 식음
+
+        document.getElementById('analysis-feedback').innerText = "실험 중... 그래프의 기울기와 평평한 구간을 관찰하세요.";
+
+        timer = setInterval(updateExperiment, 100);
+    }
+
+    function updateExperiment() {
+        time += 0.5; // 가상 시간 0.5초씩 증가
+
+        // 온도 계산 로직 (뉴턴의 냉각 법칙 단순화 + 상태 변화)
+        let targetTemp = 20; // 실내 온도
+        let diff = temp - targetTemp;
+
+        // 어는점 도달 시 로직
+        if (temp <= currentSubstance.fp + 0.5 && temp >= currentSubstance.fp - 0.5 && latentHeatDuration > 0) {
+            // 상태 변화 구간 (온도 유지)
+            temp = currentSubstance.fp + (Math.random() * 0.2 - 0.1); // 약간의 노이즈 추가
+            latentHeatDuration -= 1;
+            document.getElementById('stateText').innerText = "상태: 응고 중 (액체+고체)";
+            updateParticles('solidifying');
+        } else {
+            // 일반 냉각 구간
+            if (latentHeatDuration <= 0) {
+                // 완전히 고체가 된 후
+                document.getElementById('stateText').innerText = "상태: 고체";
+                updateParticles('solid');
+                document.getElementById('chemicalFill').style.background = currentSubstance.colorSol;
+            } else {
+                // 아직 액체
+                document.getElementById('stateText').innerText = "상태: 액체";
+                updateParticles('liquid');
+                document.getElementById('chemicalFill').style.background = currentSubstance.colorLiq;
+            }
+            temp -= (diff * 0.02 * coolingFactor);
+        }
+
+        // 데이터 기록
+        if (time % 1 === 0) dataPoints.push({t: time, temp: temp});
+        
+        // 화면 업데이트
+        updateUI();
+        drawGraph();
+
+        // 종료 조건
+        if (time > 120 || temp <= 25) {
+            stopExperiment();
+        }
+    }
+
+    function stopExperiment() {
+        clearInterval(timer);
+        isRunning = false;
+        document.getElementById('startBtn').innerText = "실험 완료";
+        analyzeResult();
+    }
+
+    function resetExperiment() {
+        clearInterval(timer);
+        isRunning = false;
+        time = 0;
+        temp = 80;
+        dataPoints = [];
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('startBtn').innerText = "실험 시작 ▶";
+        document.getElementById('substance').disabled = false;
+        document.getElementById('mass').disabled = false;
+        document.getElementById('analysis-feedback').innerText = "";
+        document.getElementById('stateText').innerText = "상태: 준비 됨";
+        drawGraph();
+        initParticles();
+    }
+
+    function updateUI() {
+        document.getElementById('timeDisplay').innerText = `시간: ${Math.floor(time)}s`;
+        document.getElementById('tempDisplay').innerText = `온도: ${temp.toFixed(1)}°C`;
+        
+        // 온도계 높이 조절 (0~100도 기준)
+        document.getElementById('mercuryHeight').style.height = `${temp}%`;
+    }
+
+    function updateParticles(state) {
+        const particles = document.querySelectorAll('.particle');
+        particles.forEach(p => {
+            if(state === 'liquid') {
+                // 활발한 움직임
+                p.style.transform = `translate(${Math.random()*10-5}px, ${Math.random()*10-5}px)`;
+            } else if (state === 'solidifying') {
+                // 점차 느려짐
+                p.style.transform = `translate(${Math.random()*4-2}px, ${Math.random()*4-2}px)`;
+            } else {
+                // 제자리 진동 (고체)
+                p.style.transform = `translate(${Math.random()*2-1}px, ${Math.random()*2-1}px)`;
+            }
+        });
+    }
+
+    function drawGraph() {
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const width = canvas.width;
+        const height = canvas.height;
+
+        // 배경 및 축
+        ctx.fillStyle = '#fff';
+        ctx.fillRect(0,0,width,height);
+        ctx.strokeStyle = '#eee';
+        ctx.beginPath();
+        // 격자 그리기 생략(간소화)
+        
+        // 축 그리기
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(40, 10); ctx.lineTo(40, height-30); // Y축
+        ctx.moveTo(40, height-30); ctx.lineTo(width-10, height-30); // X축
+        ctx.stroke();
+
+        // 데이터 그리기
+        if(dataPoints.length < 2) return;
+
+        ctx.strokeStyle = '#4a90e2';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        
+        // X축: 0~120초, Y축: 20~100도 매핑
+        const mapX = (t) => 40 + (t / 120) * (width - 60);
+        const mapY = (tmp) => height - 30 - ((tmp - 20) / 80) * (height - 40);
+
+        ctx.moveTo(mapX(dataPoints[0].t), mapY(dataPoints[0].temp));
+        
+        for(let i=1; i<dataPoints.length; i++) {
+            ctx.lineTo(mapX(dataPoints[i].t), mapY(dataPoints[i].temp));
+        }
+        ctx.stroke();
+    }
+
+    function analyzeResult() {
+        let msg = `실험 결과: ${currentSubstance.name}의 어는점은 약 ${currentSubstance.fp}°C에서 관찰되었습니다. `;
+        if(currentMass == 2) {
+            msg += "질량이 2g으로 늘어났지만, 수평 구간의 온도는 변하지 않고 시간만 길어졌습니다.";
+        } else {
+            msg += "질량과 관계없이 물질의 고유한 어는점은 일정합니다.";
+        }
+        document.getElementById('analysis-feedback').innerText = msg;
+    }
+</script>
+</body>
+</html>

@@ -1,0 +1,529 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 온도에 따른 기체의 용해도</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-color: #ff6b6b;
+            --text-color: #2c3e50;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #ecf0f1;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9rem; color: #7f8c8d; }
+
+        /* Main Grid Layout */
+        .lab-container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--secondary-color);
+            padding: 15px;
+            border-radius: 8px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel h3 { margin-top: 0; border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; }
+
+        /* Controls */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+            width: 100%;
+            margin-bottom: 5px;
+        }
+        .btn:hover { background-color: #357abd; }
+        .btn-reset { background-color: #95a5a6; }
+        .btn-print { background-color: var(--text-color); margin-top: auto; }
+
+        /* Visualization Area */
+        .vis-container {
+            position: relative;
+            height: 400px;
+            background: linear-gradient(to bottom, #ffffff, #e0eafc);
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 20px;
+        }
+
+        /* Beaker & Water Bath */
+        .water-bath {
+            width: 280px;
+            height: 200px;
+            background: rgba(52, 152, 219, 0.3);
+            border: 3px solid #3498db;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            transition: background 0.5s;
+        }
+        
+        .beaker {
+            width: 120px;
+            height: 160px;
+            background: rgba(243, 156, 18, 0.4); /* Soda color */
+            border: 2px solid #aaa;
+            border-top: none;
+            position: relative;
+            margin-bottom: 10px;
+        }
+
+        /* Canvas for Bubbles */
+        #bubbleCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        .thermometer {
+            position: absolute;
+            right: -40px;
+            bottom: 0;
+            width: 20px;
+            height: 250px;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 10px;
+        }
+        .temp-fill {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background: #e74c3c;
+            border-radius: 0 0 10px 10px;
+            transition: height 0.3s;
+        }
+
+        /* Graph & Data */
+        .data-display { font-size: 1.1rem; text-align: center; margin: 10px 0; }
+        .highlight { color: var(--accent-color); font-weight: bold; }
+        
+        #graphCanvas {
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            height: 200px;
+        }
+
+        /* Educational Content */
+        .concept-section {
+            grid-column: 1 / -1;
+            background: #fff;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            margin-top: 20px;
+        }
+
+        .quiz-box {
+            background: #fff8e1;
+            padding: 15px;
+            border-left: 5px solid #ffc107;
+            margin-top: 15px;
+        }
+
+        /* Responsive */
+        @media (max-width: 800px) {
+            .lab-container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 온도에 따른 기체의 용해도 실험</h1>
+    <div class="subtitle">중학교 2학년 과학 Ⅵ. 물질의 특성</div>
+</header>
+
+<div class="lab-container">
+    <aside class="panel">
+        <h3>🎛️ 실험 조작</h3>
+        <p style="font-size: 0.9em; color: #666;">
+            1. 온도 조절 슬라이더를 움직여보세요.<br>
+            2. '실험 시작'을 눌러 거품을 관찰하세요.
+        </p>
+        
+        <div class="control-group">
+            <label for="tempSlider">수조 온도: <span id="tempValue">20</span>℃</label>
+            <input type="range" id="tempSlider" min="0" max="80" value="20">
+            <div style="display:flex; justify-content:space-between; font-size:0.8em; color:#888;">
+                <span>얼음물(0℃)</span>
+                <span>뜨거운물(80℃)</span>
+            </div>
+        </div>
+
+        <button class="btn" id="startBtn" onclick="toggleExperiment()">▶ 실험 시작</button>
+        <button class="btn btn-reset" onclick="resetExperiment()">↺ 초기화</button>
+        
+        <div style="margin-top: 20px; font-size: 0.85em; background: #ffebee; padding: 10px; border-radius: 4px;">
+            <strong>⚠️ 안전 주의:</strong><br>
+            실제 실험 시 뜨거운 물에 화상을 입지 않도록 주의하고, 탄산음료를 직접 가열하지 마세요.
+        </div>
+
+        <button class="btn btn-print" onclick="window.print()">📄 결과 보고서 인쇄</button>
+    </aside>
+
+    <main class="panel" style="padding: 0; background: none; border: none;">
+        <div class="vis-container">
+            <canvas id="bubbleCanvas"></canvas>
+            
+            <div class="water-bath" id="waterBath">
+                <div class="beaker">
+                    <div style="position: absolute; bottom: 5px; width: 100%; text-align: center; color: #fff; font-weight: bold; text-shadow: 1px 1px 2px black;">탄산음료</div>
+                </div>
+                <div class="thermometer">
+                    <div class="temp-fill" id="tempFill" style="height: 25%;"></div>
+                </div>
+            </div>
+        </div>
+        <div style="text-align: center; margin-top: 10px; color: #555;">
+            "온도가 높을수록 물 분자의 운동이 활발해져 기체가 밖으로 탈출합니다."
+        </div>
+    </main>
+
+    <aside class="panel">
+        <h3>📊 실시간 데이터</h3>
+        <div class="data-display">
+            현재 기포 발생량<br>
+            <span id="bubbleCount" class="highlight">낮음</span>
+        </div>
+        <div class="data-display">
+            예상 용해도<br>
+            <span id="solubilityVal" class="highlight">높음</span>
+        </div>
+
+        <canvas id="graphCanvas"></canvas>
+        <p style="font-size: 0.8em; text-align: center; color: #666;">기체의 용해도 곡선</p>
+
+        <div style="margin-top: auto; border-top: 1px solid #ddd; padding-top: 10px;">
+            <strong>💡 선생님의 팁:</strong><br>
+            <span style="font-size: 0.9em;">차가운 사이다가 더 톡 쏘는 이유를 그래프와 연결해 보세요.</span>
+        </div>
+    </aside>
+
+    <section class="concept-section">
+        <h3>📚 학습 정리 및 확인</h3>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+            <div>
+                <h4>핵심 개념 정리</h4>
+                <ul>
+                    <li><strong>기체의 용해도:</strong> 일정한 양의 용매에 녹을 수 있는 기체의 양입니다.</li>
+                    <li><strong>온도와의 관계:</strong> 온도가 <b>높을수록</b> 기체의 분자 운동이 활발해져 용해도는 <b>감소</b>합니다. (기포가 되어 날아감)</li>
+                    <li><strong>생활 속 예시:</strong> 더운 여름철 물고기들이 수면 위로 입을 뻐끔거리는 이유는 수온이 높아 물속 산소(용존 산소량)가 줄어들었기 때문입니다.</li>
+                </ul>
+            </div>
+            <div class="quiz-box">
+                <h4>📝 퀴즈: 개념 확인</h4>
+                <p>온도가 80℃인 수조에 탄산음료를 넣었을 때 가장 많이 발생하는 현상은?</p>
+                <form id="quizForm">
+                    <label><input type="radio" name="q1" value="1"> 기포가 거의 생기지 않는다.</label><br>
+                    <label><input type="radio" name="q1" value="2"> 기포가 매우 격렬하게 발생한다.</label><br>
+                    <label><input type="radio" name="q1" value="3"> 탄산음료가 얼어버린다.</label><br>
+                    <button type="button" onclick="checkQuiz()" style="margin-top: 10px; padding: 5px 10px;">정답 확인</button>
+                </form>
+                <p id="quizFeedback" style="font-weight: bold; margin-top: 10px;"></p>
+            </div>
+        </div>
+    </section>
+</div>
+
+<script>
+    // --- Simulation Variables ---
+    let temperature = 20;
+    let isRunning = false;
+    let bubbles = [];
+    let animationId;
+    
+    // --- DOM Elements ---
+    const tempSlider = document.getElementById('tempSlider');
+    const tempValue = document.getElementById('tempValue');
+    const tempFill = document.getElementById('tempFill');
+    const waterBath = document.getElementById('waterBath');
+    const startBtn = document.getElementById('startBtn');
+    const bubbleCountText = document.getElementById('bubbleCount');
+    const solubilityValText = document.getElementById('solubilityVal');
+    const bubbleCanvas = document.getElementById('bubbleCanvas');
+    const ctx = bubbleCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const gCtx = graphCanvas.getContext('2d');
+
+    // --- Initialization ---
+    function resizeCanvas() {
+        bubbleCanvas.width = bubbleCanvas.parentElement.offsetWidth;
+        bubbleCanvas.height = bubbleCanvas.parentElement.offsetHeight;
+        graphCanvas.width = graphCanvas.parentElement.offsetWidth;
+        graphCanvas.height = 200;
+        drawGraph();
+    }
+    window.addEventListener('resize', resizeCanvas);
+    
+    // --- Interaction ---
+    tempSlider.addEventListener('input', (e) => {
+        temperature = parseInt(e.target.value);
+        updateUI();
+    });
+
+    function updateUI() {
+        tempValue.textContent = temperature;
+        // Map 0-80C to 0-100% height visually
+        tempFill.style.height = `${(temperature / 80) * 80 + 10}%`; 
+        
+        // Change water bath color based on temp
+        if (temperature < 20) {
+            waterBath.style.backgroundColor = "rgba(52, 152, 219, 0.3)"; // Blue
+        } else if (temperature < 50) {
+            waterBath.style.backgroundColor = "rgba(241, 196, 15, 0.3)"; // Yellowish
+        } else {
+            waterBath.style.backgroundColor = "rgba(231, 76, 60, 0.3)"; // Red
+        }
+
+        drawGraph();
+        updateStats();
+    }
+
+    function updateStats() {
+        // Simple Simulation Logic:
+        // Higher Temp = More Bubbles (High Activity) = Low Solubility
+        let activity = "";
+        let sol = "";
+
+        if (temperature < 20) {
+            activity = "매우 적음";
+            sol = "매우 높음";
+        } else if (temperature < 50) {
+            activity = "보통";
+            sol = "보통";
+        } else {
+            activity = "매우 많음 (격렬)";
+            sol = "낮음";
+        }
+
+        bubbleCountText.textContent = isRunning ? activity : "-";
+        solubilityValText.textContent = sol;
+    }
+
+    function toggleExperiment() {
+        if (isRunning) {
+            isRunning = false;
+            startBtn.textContent = "▶ 실험 시작";
+            cancelAnimationFrame(animationId);
+        } else {
+            isRunning = true;
+            startBtn.textContent = "⏸ 일시 정지";
+            animate();
+        }
+        updateStats();
+    }
+
+    function resetExperiment() {
+        isRunning = false;
+        startBtn.textContent = "▶ 실험 시작";
+        cancelAnimationFrame(animationId);
+        temperature = 20;
+        tempSlider.value = 20;
+        bubbles = [];
+        ctx.clearRect(0, 0, bubbleCanvas.width, bubbleCanvas.height);
+        updateUI();
+    }
+
+    // --- Bubble Animation Logic ---
+    class Bubble {
+        constructor() {
+            // Spawn inside the beaker area (approximate center bottom)
+            const centerX = bubbleCanvas.width / 2;
+            const beakerWidth = 100;
+            this.x = centerX - beakerWidth/2 + Math.random() * beakerWidth;
+            this.y = bubbleCanvas.height - 20; // Bottom of beaker
+            this.radius = Math.random() * 2 + 1;
+            // Higher temp = faster bubbles
+            this.speed = (Math.random() * 1 + 1) + (temperature / 20); 
+            this.opacity = 0.8;
+        }
+
+        update() {
+            this.y -= this.speed;
+            // Wiggle effect
+            this.x += Math.sin(this.y / 10) * 0.5;
+            
+            // Fade out near top
+            if (this.y < bubbleCanvas.height - 180) { // Top of beaker
+                this.opacity -= 0.05;
+            }
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = `rgba(255, 255, 255, ${this.opacity})`;
+            ctx.strokeStyle = `rgba(200, 200, 200, ${this.opacity})`;
+            ctx.stroke();
+            ctx.fill();
+        }
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, bubbleCanvas.width, bubbleCanvas.height);
+        
+        // Spawn bubbles based on temperature
+        // Low temp = low probability, High temp = high probability
+        // Spawn rate: 0.05 at 0deg, up to 1.0 at 80deg
+        const spawnRate = 0.05 + (temperature / 80) * 0.8; 
+        
+        // Create multiple bubbles per frame if very hot
+        const count = temperature > 60 ? 3 : 1;
+        
+        for(let i=0; i<count; i++) {
+            if (Math.random() < spawnRate) {
+                bubbles.push(new Bubble());
+            }
+        }
+
+        // Update and draw bubbles
+        for (let i = bubbles.length - 1; i >= 0; i--) {
+            bubbles[i].update();
+            bubbles[i].draw();
+            if (bubbles[i].opacity <= 0) {
+                bubbles.splice(i, 1);
+            }
+        }
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // --- Graph Drawing (Canvas) ---
+    function drawGraph() {
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+        const padding = 30;
+
+        gCtx.clearRect(0, 0, w, h);
+        
+        // Axes
+        gCtx.beginPath();
+        gCtx.moveTo(padding, padding);
+        gCtx.lineTo(padding, h - padding); // Y axis
+        gCtx.lineTo(w - padding, h - padding); // X axis
+        gCtx.strokeStyle = '#333';
+        gCtx.stroke();
+
+        // Labels
+        gCtx.font = '10px sans-serif';
+        gCtx.fillStyle = '#666';
+        gCtx.fillText("온도(℃)", w/2, h - 5);
+        gCtx.save();
+        gCtx.translate(10, h/2);
+        gCtx.rotate(-Math.PI/2);
+        gCtx.fillText("기체 용해도", 0, 0);
+        gCtx.restore();
+
+        // Solubility Curve (Inverse relationship)
+        // y = 1 / x type shape
+        gCtx.beginPath();
+        gCtx.strokeStyle = '#e74c3c';
+        gCtx.lineWidth = 2;
+        
+        for (let t = 0; t <= 80; t++) {
+            const x = padding + (t / 80) * (w - 2 * padding);
+            // Artificial formula for nice curve: y starts high, ends low
+            // Normalized Y (0 to 1): 1 - (t/100)^0.5
+            const normalizedY = 1 - Math.sqrt(t / 100); 
+            const y = (h - padding) - (normalizedY * (h - 2 * padding));
+            
+            if (t === 0) gCtx.moveTo(x, y);
+            else gCtx.lineTo(x, y);
+        }
+        gCtx.stroke();
+
+        // Current Point Indicator
+        const currentX = padding + (temperature / 80) * (w - 2 * padding);
+        const currentNormY = 1 - Math.sqrt(temperature / 100);
+        const currentY = (h - padding) - (currentNormY * (h - 2 * padding));
+
+        gCtx.beginPath();
+        gCtx.arc(currentX, currentY, 6, 0, Math.PI * 2);
+        gCtx.fillStyle = varColor = '#2980b9';
+        gCtx.fill();
+        gCtx.fillStyle = 'black';
+        gCtx.fillText(`(${temperature}℃)`, currentX + 5, currentY - 5);
+    }
+
+    // --- Quiz Logic ---
+    function checkQuiz() {
+        const form = document.getElementById('quizForm');
+        const feedback = document.getElementById('quizFeedback');
+        const selected = form.querySelector('input[name="q1"]:checked');
+
+        if (!selected) {
+            feedback.textContent = "답을 선택해주세요!";
+            feedback.style.color = "orange";
+            return;
+        }
+
+        if (selected.value === "2") {
+            feedback.innerHTML = "✅ 정답입니다!<br>온도가 높으면 기체 용해도가 감소하여 기포가 되어 빠져나갑니다.";
+            feedback.style.color = "green";
+        } else {
+            feedback.textContent = "❌ 다시 생각해보세요. 온도가 높으면 기체는 물속에 있기 힘들답니다.";
+            feedback.style.color = "red";
+        }
+    }
+
+    // Initial draw
+    resizeCanvas();
+    updateUI();
+</script>
+
+</body>
+</html>

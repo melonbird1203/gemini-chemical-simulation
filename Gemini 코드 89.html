@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 반응식 균형 맞추기</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ecc71;
+            --warning-color: #e74c3c;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .description { text-align: center; color: #555; max-width: 600px; margin-bottom: 20px; line-height: 1.5; }
+        
+        /* Main Container */
+        .lab-container {
+            background: var(--panel-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            padding: 30px;
+            width: 100%;
+            max-width: 900px;
+        }
+
+        /* Controls Area */
+        .controls {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            margin-bottom: 30px;
+            padding: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+        }
+        .molecule-control {
+            text-align: center;
+        }
+        .molecule-display {
+            font-size: 1.5em;
+            font-weight: bold;
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 5px;
+        }
+        .btn-control {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            width: 30px;
+            height: 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+        .btn-control:hover { transform: scale(1.1); }
+        .btn-control:active { transform: scale(0.95); }
+        .count-display { font-size: 1.5em; margin: 0 15px; width: 30px; display: inline-block; }
+
+        /* Visualization Area */
+        .visual-stage {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 20px;
+            min-height: 200px;
+            position: relative;
+        }
+        .reaction-side {
+            width: 45%;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            padding: 10px;
+            min-height: 200px;
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            align-content: flex-start;
+            gap: 10px;
+            position: relative;
+        }
+        .reaction-arrow {
+            font-size: 3em;
+            color: #7f8c8d;
+            align-self: center;
+        }
+        .side-label {
+            position: absolute;
+            top: -12px;
+            left: 10px;
+            background: var(--panel-bg);
+            padding: 0 10px;
+            font-weight: bold;
+            color: #7f8c8d;
+        }
+
+        /* Particle Styles */
+        .molecule-visual {
+            display: flex;
+            align-items: center;
+            padding: 5px;
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background: #fff;
+            animation: popIn 0.3s ease-out;
+        }
+        @keyframes popIn { from { transform: scale(0); } to { transform: scale(1); } }
+        
+        .atom {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 0.7em;
+            font-weight: bold;
+            margin: 1px;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.2);
+        }
+        .atom.H { background-color: #bdc3c7; color: #333; } /* White/Grey */
+        .atom.C { background-color: #2c3e50; } /* Black */
+        .atom.N { background-color: #3498db; } /* Blue */
+        .atom.O { background-color: #e74c3c; } /* Red */
+
+        /* Feedback Area */
+        .feedback-panel {
+            background: #f8f9fa;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+        .status-bar {
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 15px;
+        }
+        .status-unbalanced { background: #fadbd8; color: #c0392b; }
+        .status-balanced { background: #d4efdf; color: #27ae60; animation: pulse 1s infinite alternate; }
+        
+        @keyframes pulse { from { box-shadow: 0 0 5px #2ecc71; } to { box-shadow: 0 0 15px #2ecc71; } }
+
+        .atom-counts {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            font-size: 0.9em;
+        }
+        .count-item {
+            padding: 5px 15px;
+            background: white;
+            border-radius: 15px;
+            border: 1px solid #ddd;
+        }
+
+        /* Selection */
+        .reaction-selector {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        select {
+            padding: 10px;
+            font-size: 1em;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 화학 실험실</h1>
+    <p class="description">
+        화학 반응식의 계수를 조절하여 질량 보존 법칙을 만족시켜보세요.<br>
+        좌변(반응물)과 우변(생성물)의 원자 개수가 같아야 합니다.
+    </p>
+
+    <div class="lab-container">
+        <div class="reaction-selector">
+            <label for="reaction-select">실험 주제 선택: </label>
+            <select id="reaction-select" onchange="changeReaction()">
+                <option value="ammonia">1. 암모니아 합성 (N₂ + H₂ → NH₃)</option>
+                <option value="water">2. 물의 합성 (H₂ + O₂ → H₂O)</option>
+                <option value="methane">3. 메테인 연소 (CH₄ + O₂ → CO₂ + H₂O)</option>
+            </select>
+        </div>
+
+        <div class="visual-stage">
+            <div class="reaction-side" id="reactants-visual">
+                <span class="side-label">반응물 (Reactants)</span>
+                </div>
+            <div class="reaction-arrow">➝</div>
+            <div class="reaction-side" id="products-visual">
+                <span class="side-label">생성물 (Products)</span>
+                </div>
+        </div>
+
+        <div class="controls" id="controls-area">
+            </div>
+
+        <div class="feedback-panel">
+            <div id="status-bar" class="status-bar status-unbalanced">
+                상태: 균형이 맞지 않습니다 ⚠️
+            </div>
+            <div class="atom-counts" id="atom-counts-display">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation Data
+        const reactions = {
+            ammonia: {
+                reactants: [
+                    { formula: 'N2', name: '질소', atoms: { N: 2 }, count: 1 },
+                    { formula: 'H2', name: '수소', atoms: { H: 2 }, count: 1 }
+                ],
+                products: [
+                    { formula: 'NH3', name: '암모니아', atoms: { N: 1, H: 3 }, count: 1 }
+                ]
+            },
+            water: {
+                reactants: [
+                    { formula: 'H2', name: '수소', atoms: { H: 2 }, count: 1 },
+                    { formula: 'O2', name: '산소', atoms: { O: 2 }, count: 1 }
+                ],
+                products: [
+                    { formula: 'H2O', name: '물', atoms: { H: 2, O: 1 }, count: 1 }
+                ]
+            },
+            methane: {
+                reactants: [
+                    { formula: 'CH4', name: '메테인', atoms: { C: 1, H: 4 }, count: 1 },
+                    { formula: 'O2', name: '산소', atoms: { O: 2 }, count: 1 }
+                ],
+                products: [
+                    { formula: 'CO2', name: '이산화탄소', atoms: { C: 1, O: 2 }, count: 1 },
+                    { formula: 'H2O', name: '물', atoms: { H: 2, O: 1 }, count: 1 }
+                ]
+            }
+        };
+
+        let currentReactionKey = 'ammonia';
+        let currentReaction = null;
+
+        // Initialize
+        function init() {
+            // Deep copy to reset counts
+            currentReaction = JSON.parse(JSON.stringify(reactions[currentReactionKey]));
+            renderControls();
+            updateState();
+        }
+
+        function changeReaction() {
+            currentReactionKey = document.getElementById('reaction-select').value;
+            init();
+        }
+
+        // Logic: Update Counts
+        function updateCount(type, index, change) {
+            const target = type === 'reactant' ? currentReaction.reactants[index] : currentReaction.products[index];
+            if (target.count + change >= 1 && target.count + change <= 10) {
+                target.count += change;
+                updateState();
+            }
+        }
+
+        // Logic: Calculate Total Atoms & Check Balance
+        function updateState() {
+            renderParticles();
+            
+            const leftAtoms = {};
+            const rightAtoms = {};
+            let allElements = new Set();
+
+            // Calc Reactants
+            currentReaction.reactants.forEach(mol => {
+                for (let [atom, num] of Object.entries(mol.atoms)) {
+                    leftAtoms[atom] = (leftAtoms[atom] || 0) + (num * mol.count);
+                    allElements.add(atom);
+                }
+            });
+
+            // Calc Products
+            currentReaction.products.forEach(mol => {
+                for (let [atom, num] of Object.entries(mol.atoms)) {
+                    rightAtoms[atom] = (rightAtoms[atom] || 0) + (num * mol.count);
+                    allElements.add(atom);
+                }
+            });
+
+            // Check Balance
+            let isBalanced = true;
+            let statusHTML = '';
+            
+            allElements.forEach(atom => {
+                const l = leftAtoms[atom] || 0;
+                const r = rightAtoms[atom] || 0;
+                const match = l === r;
+                if (!match) isBalanced = false;
+                
+                statusHTML += `<div class="count-item" style="border-color: ${match ? '#2ecc71' : '#e74c3c'}">
+                    <span class="atom ${atom}">${atom}</span> : 좌 ${l} / 우 ${r}
+                </div>`;
+            });
+
+            document.getElementById('atom-counts-display').innerHTML = statusHTML;
+            
+            const statusBar = document.getElementById('status-bar');
+            if (isBalanced) {
+                statusBar.className = 'status-bar status-balanced';
+                statusBar.innerHTML = '🎉 축하합니다! 화학 반응식이 완성되었습니다! (질량 보존 성립)';
+            } else {
+                statusBar.className = 'status-bar status-unbalanced';
+                statusBar.innerHTML = '아직 균형이 맞지 않습니다. 원자 개수를 비교해보세요. 🤔';
+            }
+
+            // Update Control Displays (Numbers)
+            updateControlNumbers();
+        }
+
+        // Render: Controls
+        function renderControls() {
+            const container = document.getElementById('controls-area');
+            container.innerHTML = '';
+
+            // Reactants Controls
+            currentReaction.reactants.forEach((mol, idx) => {
+                container.appendChild(createControlElement(mol, 'reactant', idx));
+            });
+            
+            const divider = document.createElement('div');
+            divider.style.fontSize = '2em';
+            divider.innerHTML = '➝';
+            container.appendChild(divider);
+
+            // Products Controls
+            currentReaction.products.forEach((mol, idx) => {
+                container.appendChild(createControlElement(mol, 'product', idx));
+            });
+        }
+
+        function createControlElement(mol, type, idx) {
+            const div = document.createElement('div');
+            div.className = 'molecule-control';
+            
+            // Format chemical formula (subscripts)
+            const formattedFormula = mol.formula.replace(/\d+/g, '<sub>$&</sub>');
+
+            div.innerHTML = `
+                <div class="molecule-display" id="${type}-display-${idx}">
+                    <span style="font-size:1.2em; color:#4a90e2">${mol.count}</span> ${formattedFormula}
+                </div>
+                <div>
+                    <button class="btn-control" onclick="updateCount('${type}', ${idx}, -1)">-</button>
+                    <span class="count-display" id="${type}-count-${idx}">${mol.count}</span>
+                    <button class="btn-control" onclick="updateCount('${type}', ${idx}, 1)">+</button>
+                </div>
+            `;
+            return div;
+        }
+
+        function updateControlNumbers() {
+            currentReaction.reactants.forEach((mol, idx) => {
+                document.getElementById(`reactant-count-${idx}`).innerText = mol.count;
+                const display = document.getElementById(`reactant-display-${idx}`);
+                display.querySelector('span').innerText = mol.count;
+            });
+            currentReaction.products.forEach((mol, idx) => {
+                document.getElementById(`product-count-${idx}`).innerText = mol.count;
+                const display = document.getElementById(`product-display-${idx}`);
+                display.querySelector('span').innerText = mol.count;
+            });
+        }
+
+        // Render: Particles
+        function renderParticles() {
+            const leftZone = document.getElementById('reactants-visual');
+            const rightZone = document.getElementById('products-visual');
+            leftZone.innerHTML = '<span class="side-label">반응물</span>';
+            rightZone.innerHTML = '<span class="side-label">생성물</span>';
+
+            currentReaction.reactants.forEach(mol => {
+                for(let i=0; i<mol.count; i++) {
+                    leftZone.appendChild(createMoleculeVisual(mol));
+                }
+            });
+            currentReaction.products.forEach(mol => {
+                for(let i=0; i<mol.count; i++) {
+                    rightZone.appendChild(createMoleculeVisual(mol));
+                }
+            });
+        }
+
+        function createMoleculeVisual(mol) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'molecule-visual';
+            
+            // Draw atoms based on structure (simplified visual)
+            for (let [atomType, num] of Object.entries(mol.atoms)) {
+                for(let i=0; i<num; i++) {
+                    const atomDiv = document.createElement('div');
+                    atomDiv.className = `atom ${atomType}`;
+                    atomDiv.innerText = atomType;
+                    wrapper.appendChild(atomDiv);
+                }
+            }
+            return wrapper;
+        }
+
+        // Start
+        init();
+    </script>
+</body>
+</html>

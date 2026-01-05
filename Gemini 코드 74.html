@@ -1,0 +1,460 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 일정 성분비 법칙</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --success: #2ecc71;
+            --warning: #f1c40f;
+            --danger: #e74c3c;
+            --text: #333;
+            --bg: #f4f7f6;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 { text-align: center; color: #2c3e50; }
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        /* Control Panel */
+        .controls {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 10px;
+        }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 1rem;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: var(--danger); }
+        button.print { background-color: #34495e; margin-top: 10px;}
+
+        input[type="range"] { width: 100%; }
+        .value-display { font-size: 0.9rem; color: #666; text-align: right; }
+
+        /* Visualization Area */
+        .visualization {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        canvas {
+            background: #fff;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            width: 100%;
+            height: 400px;
+            cursor: crosshair;
+        }
+
+        /* Results Panel */
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f6f3;
+            border-left: 5px solid var(--success);
+            border-radius: 5px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .data-table th { background-color: #f2f2f2; }
+        
+        .feedback-box {
+            margin-top: 15px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 5px;
+            font-weight: bold;
+        }
+
+        /* Print Style */
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; grid-template-columns: 1fr; }
+            .controls { display: none; } /* Hide interactive controls for print */
+            canvas { border: 2px solid black; }
+            button { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 일정 성분비 법칙</h1>
+    <p style="text-align: center; max-width: 800px;">
+        원자들을 결합시켜 화합물을 만들어보세요. 남는 원자를 관찰하며 질량비의 규칙을 찾아봅시다.
+    </p>
+
+    <div class="container">
+        <aside class="controls">
+            <h3>🔬 실험 설정</h3>
+            
+            <div class="control-group">
+                <label for="experimentType">실험 주제 선택</label>
+                <select id="experimentType" onchange="resetExperiment()">
+                    <option value="water">물 생성 반응 (수소 + 산소)</option>
+                    <option value="lead">아이오딘화 납 생성 (납 + 아이오딘)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label id="labelAtom1">수소 원자 (H) 수: <span id="valAtom1">10</span>개</label>
+                <input type="range" id="sliderAtom1" min="1" max="30" value="10" oninput="updateLabels()">
+                <div class="value-display">원자량: <span id="massAtom1">1</span></div>
+            </div>
+
+            <div class="control-group">
+                <label id="labelAtom2">산소 원자 (O) 수: <span id="valAtom2">5</span>개</label>
+                <input type="range" id="sliderAtom2" min="1" max="30" value="5" oninput="updateLabels()">
+                <div class="value-display">원자량: <span id="massAtom2">16</span></div>
+            </div>
+
+            <button onclick="runReaction()">▶ 반응 시키기</button>
+            <button class="reset" onclick="resetExperiment()">↺ 초기화</button>
+            <button class="print" onclick="window.print()">🖨️ 결과 보고서 인쇄(PDF)</button>
+        </aside>
+
+        <main class="visualization">
+            <canvas id="simCanvas"></canvas>
+            
+            <div class="results" id="resultPanel" style="display: none;">
+                <h3>📊 실험 분석 결과</h3>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>구분</th>
+                            <th id="thAtom1">수소(H)</th>
+                            <th id="thAtom2">산소(O)</th>
+                            <th>비고</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>반응 전 개수</td>
+                            <td id="resCount1">0</td>
+                            <td id="resCount2">0</td>
+                            <td>-</td>
+                        </tr>
+                        <tr>
+                            <td>반응한 개수</td>
+                            <td id="resReacted1" style="color: blue; font-weight: bold;">0</td>
+                            <td id="resReacted2" style="color: blue; font-weight: bold;">0</td>
+                            <td id="ratioCount">개수비 2 : 1</td>
+                        </tr>
+                        <tr>
+                            <td>남은 개수</td>
+                            <td id="resLeft1" style="color: red;">0</td>
+                            <td id="resLeft2" style="color: red;">0</td>
+                            <td>남는 물질 발생!</td>
+                        </tr>
+                        <tr>
+                            <td>반응 질량(g)</td>
+                            <td id="resMass1">0</td>
+                            <td id="resMass2">0</td>
+                            <td>(가상 단위)</td>
+                        </tr>
+                    </tbody>
+                </table>
+                
+                <div class="feedback-box" id="massRatioResult">
+                    </div>
+            </div>
+        </main>
+    </div>
+
+    <script>
+        // 전역 변수
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let atoms = [];
+        let molecules = [];
+        let isReacted = false;
+
+        // 원자 데이터베이스
+        const ATOM_DATA = {
+            water: {
+                atom1: { name: '수소', symbol: 'H', mass: 1, color: '#bdc3c7', radius: 8 },
+                atom2: { name: '산소', symbol: 'O', mass: 16, color: '#e74c3c', radius: 15 },
+                product: { name: '물', symbol: 'H₂O', ratio1: 2, ratio2: 1 }
+            },
+            lead: {
+                atom1: { name: '납', symbol: 'Pb', mass: 207, color: '#7f8c8d', radius: 18 },
+                atom2: { name: '아이오딘', symbol: 'I', mass: 127, color: '#8e44ad', radius: 14 },
+                product: { name: '아이오딘화 납', symbol: 'PbI₂', ratio1: 1, ratio2: 2 }
+            }
+        };
+
+        // 초기화 및 이벤트 리스너
+        window.onload = () => {
+            resizeCanvas();
+            resetExperiment();
+        };
+
+        function resizeCanvas() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+        }
+
+        // 라벨 및 데이터 업데이트
+        function updateLabels() {
+            const type = document.getElementById('experimentType').value;
+            const data = ATOM_DATA[type];
+            
+            // 라벨 업데이트
+            document.getElementById('labelAtom1').innerHTML = `${data.atom1.name} (${data.atom1.symbol}) 수: <span id="valAtom1">${document.getElementById('sliderAtom1').value}</span>개`;
+            document.getElementById('labelAtom2').innerHTML = `${data.atom2.name} (${data.atom2.symbol}) 수: <span id="valAtom2">${document.getElementById('sliderAtom2').value}</span>개`;
+            
+            document.getElementById('massAtom1').innerText = data.atom1.mass;
+            document.getElementById('massAtom2').innerText = data.atom2.mass;
+            
+            // 테이블 헤더
+            document.getElementById('thAtom1').innerText = `${data.atom1.name}(${data.atom1.symbol})`;
+            document.getElementById('thAtom2').innerText = `${data.atom2.name}(${data.atom2.symbol})`;
+
+            if(!isReacted) drawPreview();
+        }
+
+        // 실험 리셋
+        function resetExperiment() {
+            isReacted = false;
+            document.getElementById('resultPanel').style.display = 'none';
+            atoms = [];
+            molecules = [];
+            updateLabels();
+            drawPreview();
+        }
+
+        // 반응 전 미리보기 (원자들이 흩어져 있는 상태)
+        function drawPreview() {
+            const type = document.getElementById('experimentType').value;
+            const data = ATOM_DATA[type];
+            const count1 = parseInt(document.getElementById('sliderAtom1').value);
+            const count2 = parseInt(document.getElementById('sliderAtom2').value);
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 무작위 위치에 그리기 (단순화)
+            drawRandomAtoms(count1, data.atom1.color, data.atom1.radius, data.atom1.symbol);
+            drawRandomAtoms(count2, data.atom2.color, data.atom2.radius, data.atom2.symbol);
+        }
+
+        function drawRandomAtoms(count, color, radius, text) {
+            for(let i=0; i<count; i++) {
+                const x = Math.random() * (canvas.width - 40) + 20;
+                const y = Math.random() * (canvas.height - 40) + 20;
+                
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = color;
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+                
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, x, y);
+            }
+        }
+
+        // 핵심: 반응 로직 수행
+        function runReaction() {
+            if(isReacted) return;
+            isReacted = true;
+
+            const type = document.getElementById('experimentType').value;
+            const data = ATOM_DATA[type];
+            
+            const count1 = parseInt(document.getElementById('sliderAtom1').value);
+            const count2 = parseInt(document.getElementById('sliderAtom2').value);
+            
+            // 한계 반응물 계산 (몇 개의 분자가 만들어지는가?)
+            // 예: 물(2:1) -> H가 10개면 5번 가능, O가 5개면 5번 가능 -> min(5, 5) = 5개 생성
+            const possibleFrom1 = Math.floor(count1 / data.product.ratio1);
+            const possibleFrom2 = Math.floor(count2 / data.product.ratio2);
+            
+            const productCount = Math.min(possibleFrom1, possibleFrom2);
+            
+            // 실제 반응한 원자 수
+            const reacted1 = productCount * data.product.ratio1;
+            const reacted2 = productCount * data.product.ratio2;
+            
+            // 남은 원자 수
+            const left1 = count1 - reacted1;
+            const left2 = count2 - reacted2;
+
+            // 시각화 업데이트 (정렬된 형태로 그리기)
+            drawResult(productCount, left1, left2, data);
+            
+            // 결과표 업데이트
+            updateResultsTable(count1, count2, reacted1, reacted2, left1, left2, data);
+        }
+
+        // 결과 그리기 (분자와 남은 원자 구분)
+        function drawResult(productCount, left1, left2, data) {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            let currentX = 50;
+            let currentY = 50;
+            
+            // 1. 생성된 분자 그리기
+            ctx.font = '16px Pretendard';
+            ctx.fillStyle = '#333';
+            ctx.fillText(`생성된 ${data.product.name} 분자: ${productCount}개`, 20, 30);
+
+            for(let i=0; i<productCount; i++) {
+                // 분자 그리기 (단순 모형)
+                drawMolecule(currentX, currentY + 30, data);
+                currentX += 80;
+                if(currentX > canvas.width - 50) {
+                    currentX = 50;
+                    currentY += 80;
+                }
+            }
+            
+            // 2. 남은 원자 그리기 영역
+            currentY += 100;
+            ctx.fillStyle = '#e74c3c';
+            ctx.fillText("반응하지 않고 남은 원자들 (잉여 반응물)", 20, currentY);
+            currentY += 30;
+            currentX = 50;
+
+            // 남은 원자 1
+            for(let i=0; i<left1; i++) {
+                drawAtom(currentX, currentY, data.atom1);
+                currentX += 40;
+                if(currentX > canvas.width - 40) { currentX = 50; currentY += 40; }
+            }
+            // 남은 원자 2
+            for(let i=0; i<left2; i++) {
+                drawAtom(currentX, currentY, data.atom2);
+                currentX += 40;
+                if(currentX > canvas.width - 40) { currentX = 50; currentY += 40; }
+            }
+        }
+
+        function drawMolecule(x, y, data) {
+            // 중심 원자 (보통 ratio가 1인 것, 시각적 편의상 atom2를 중심으로 가정하거나 조정)
+            // 물(H2O): O가 중심, H가 귀처럼 붙음
+            // 납(PbI2): Pb가 중심, I가 붙음
+            
+            if(data.product.symbol === 'H₂O') {
+                // 산소 중심
+                drawAtom(x, y, data.atom2); 
+                // 수소 2개
+                drawAtom(x - 12, y - 12, data.atom1);
+                drawAtom(x + 12, y - 12, data.atom1);
+            } else { // PbI2
+                // 납 중심
+                drawAtom(x, y, data.atom1);
+                // 아이오딘 2개
+                drawAtom(x - 20, y, data.atom2);
+                drawAtom(x + 20, y, data.atom2);
+            }
+        }
+
+        function drawAtom(x, y, atomInfo) {
+            ctx.beginPath();
+            ctx.arc(x, y, atomInfo.radius, 0, Math.PI * 2);
+            ctx.fillStyle = atomInfo.color;
+            ctx.fill();
+            ctx.strokeStyle = '#333';
+            ctx.stroke();
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText(atomInfo.symbol, x, y);
+        }
+
+        function updateResultsTable(c1, c2, r1, r2, l1, l2, data) {
+            document.getElementById('resultPanel').style.display = 'block';
+            
+            document.getElementById('resCount1').innerText = c1;
+            document.getElementById('resCount2').innerText = c2;
+            
+            document.getElementById('resReacted1').innerText = r1;
+            document.getElementById('resReacted2').innerText = r2;
+            
+            document.getElementById('resLeft1').innerText = l1 > 0 ? `${l1} (남음)` : 0;
+            document.getElementById('resLeft2').innerText = l2 > 0 ? `${l2} (남음)` : 0;
+            
+            // 질량 계산
+            const mass1 = r1 * data.atom1.mass;
+            const mass2 = r2 * data.atom2.mass;
+            
+            document.getElementById('resMass1').innerText = mass1;
+            document.getElementById('resMass2').innerText = mass2;
+
+            document.getElementById('ratioCount').innerText = `개수비 ${data.product.ratio1} : ${data.product.ratio2}`;
+
+            // 피드백 메시지 생성
+            let massRatioText = "";
+            let simplifiedRatio = "";
+            
+            if(data.product.symbol === 'H₂O') {
+                // H : O = 1*2 : 16*1 = 2 : 16 = 1 : 8
+                simplifiedRatio = "1 : 8";
+            } else {
+                // Pb : I = 207 : 127*2 = 207 : 254 (약 1:1.2)
+                simplifiedRatio = "207 : 254";
+            }
+
+            const feedback = document.getElementById('massRatioResult');
+            if(r1 === 0 && r2 === 0) {
+                feedback.innerHTML = "⚠️ 반응이 일어나지 않았습니다. 원자 수를 확인하세요.";
+            } else {
+                feedback.innerHTML = `
+                    ✅ <strong>결론: 일정 성분비 법칙 성립</strong><br>
+                    반응한 질량비 = ${data.atom1.symbol} : ${data.atom2.symbol} = ${mass1} : ${mass2}<br>
+                    가장 간단한 정수비로 약분하면 <strong>${simplifiedRatio}</strong> 입니다.<br>
+                    <span style="font-size:0.9em; color:#555;">(남은 원자는 질량비 계산에 포함되지 않습니다. 이것이 법칙의 핵심입니다!)</span>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

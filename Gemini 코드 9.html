@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 기체의 온도와 부피 (샤를의 법칙)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #FF6B6B;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        /* 시뮬레이션 영역 */
+        #sim-area {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas#particleCanvas {
+            border: 2px solid #333;
+            border-radius: 4px;
+            background: #fff;
+            margin-top: 10px;
+        }
+        /* 컨트롤 패널 */
+        #control-area {
+            flex: 1;
+            min-width: 300px;
+        }
+        .slider-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+        .data-display {
+            display: flex;
+            justify-content: space-around;
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .data-item {
+            text-align: center;
+        }
+        .data-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+        /* 그래프 영역 */
+        #graph-area {
+            flex: 1;
+            min-width: 300px;
+            height: 300px;
+        }
+        .piston {
+            width: 100%;
+            height: 10px;
+            background-color: #555;
+            position: absolute;
+            top: 0;
+            transition: top 0.1s linear;
+        }
+        .fire-effect {
+            text-align: center;
+            font-size: 24px;
+            height: 30px;
+        }
+        .explanation {
+            margin-top: 10px;
+            font-size: 0.9em;
+            color: #666;
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎈 기체의 온도와 부피 (샤를의 법칙)</h1>
+    <p>온도를 조절하여 입자의 운동과 부피 변화를 관찰해보세요.</p>
+
+    <div class="container">
+        <div id="sim-area" class="panel">
+            <h3>실험 장치 (실린더 내부)</h3>
+            <div style="position: relative;">
+                <canvas id="particleCanvas" width="300" height="400"></canvas>
+            </div>
+            <div id="thermal-visual" class="fire-effect">🌡️</div>
+        </div>
+
+        <div id="control-area" class="panel">
+            <h3>🎛️ 조작 패널</h3>
+            
+            <div class="data-display">
+                <div class="data-item">
+                    <div>온도 (섭씨)</div>
+                    <div id="val-celsius" class="data-value">27 °C</div>
+                </div>
+                <div class="data-item">
+                    <div>절대온도</div>
+                    <div id="val-kelvin" class="data-value">300 K</div>
+                </div>
+                <div class="data-item">
+                    <div>부피 (상대값)</div>
+                    <div id="val-volume" class="data-value">1.0 L</div>
+                </div>
+            </div>
+
+            <div class="slider-group">
+                <label for="tempSlider">온도 조절 (-273°C ~ 327°C)</label>
+                <input type="range" id="tempSlider" min="-273" max="327" value="27">
+            </div>
+
+            <div class="explanation" id="feedback-text">
+                현재 상태: 실온(27°C)입니다. 입자들이 활발하게 움직이고 있습니다.
+            </div>
+            
+            <hr>
+            <h4>📋 실험 노트</h4>
+            <p>1. 온도를 높이면 입자가 빨라지고 피스톤이 올라갑니다.<br>
+            2. 온도를 낮추면 입자가 느려지고 피스톤이 내려갑니다.<br>
+            3. -273°C(0K)에서는 이론상 부피가 0이 됩니다.</p>
+        </div>
+
+        <div id="graph-area" class="panel">
+            <h3>📈 V-T 그래프</h3>
+            <canvas id="chartCanvas"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 변수 설정 ---
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        const tempSlider = document.getElementById('tempSlider');
+        const valCelsius = document.getElementById('val-celsius');
+        const valKelvin = document.getElementById('val-kelvin');
+        const valVolume = document.getElementById('val-volume');
+        const thermalVisual = document.getElementById('thermal-visual');
+        const feedbackText = document.getElementById('feedback-text');
+
+        // 상태 변수
+        let temperatureC = 27; // 섭씨
+        let temperatureK = 300; // 절대온도
+        const minTempK = 10; // 시각화를 위해 최소 10K 유지
+        
+        // 입자 설정
+        const particles = [];
+        const numParticles = 30;
+        const particleSize = 4;
+        let containerHeight = 200; // 초기 높이
+        const containerWidth = canvas.width;
+        const maxContainerHeight = canvas.height - 20;
+        const baseVolumeFactor = 0.8; // 부피 계산용 계수
+
+        // --- 2. 초기화 ---
+        function initParticles() {
+            for(let i=0; i<numParticles; i++) {
+                particles.push({
+                    x: Math.random() * containerWidth,
+                    y: Math.random() * containerHeight,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2
+                });
+            }
+        }
+
+        // 차트 설정
+        const chartCtx = document.getElementById('chartCanvas').getContext('2d');
+        const vtChart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: [], // x축 (온도)
+                datasets: [{
+                    label: '부피 (V)',
+                    data: [], // y축 (부피)
+                    borderColor: '#4A90E2',
+                    backgroundColor: 'rgba(74, 144, 226, 0.2)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        title: { display: true, text: '절대온도 (K)' },
+                        type: 'linear',
+                        min: 0,
+                        max: 600
+                    },
+                    y: {
+                        title: { display: true, text: '부피 (L)' },
+                        min: 0,
+                        max: 2.5
+                    }
+                },
+                animation: { duration: 0 }
+            }
+        });
+
+        // --- 3. 물리 엔진 및 렌더링 ---
+        function updatePhysics() {
+            // 온도 계산
+            temperatureC = parseInt(tempSlider.value);
+            temperatureK = temperatureC + 273;
+            if (temperatureK < minTempK) temperatureK = minTempK;
+
+            // 샤를의 법칙: V = k * T (간단한 비례식 적용)
+            // 300K일 때 높이가 약 200px이 되도록 설정
+            const targetHeight = (temperatureK / 300) * 200;
+            
+            // 부드러운 피스톤 움직임
+            containerHeight += (targetHeight - containerHeight) * 0.1;
+            if(containerHeight > maxContainerHeight) containerHeight = maxContainerHeight;
+            if(containerHeight < 10) containerHeight = 10;
+
+            // 입자 속도 제어 (온도의 제곱근에 비례)
+            const speedFactor = Math.sqrt(temperatureK) * 0.15;
+
+            // 화면 업데이트 텍스트
+            valCelsius.textContent = `${temperatureC} °C`;
+            valKelvin.textContent = `${temperatureK} K`;
+            const volumeL = (containerHeight / 200).toFixed(2);
+            valVolume.textContent = `${volumeL} L`;
+
+            // 시각적 피드백
+            if(temperatureC > 100) thermalVisual.textContent = "🔥🔥🔥 (가열 중)";
+            else if(temperatureC < 0) thermalVisual.textContent = "🧊🧊🧊 (냉각 중)";
+            else thermalVisual.textContent = "🌡️ (실온)";
+
+            // 설명 텍스트 업데이트
+            if (temperatureK <= 50) {
+                feedbackText.innerHTML = "<b>[극저온]</b> 입자의 운동이 거의 멈추고 부피가 매우 작습니다.";
+            } else if (temperatureC > 200) {
+                feedbackText.innerHTML = "<b>[고온]</b> 입자가 매우 빠릅니다! 충돌이 강해져 부피가 크게 늘어났습니다.";
+            } else {
+                feedbackText.innerHTML = "온도를 변화시키며 입자 속도와 부피 변화를 관찰하세요.";
+            }
+
+            // 그래프 데이터 실시간 업데이트 (현재 점만 표시하거나 궤적 표시 가능, 여기선 현재 점)
+            // 성능을 위해 데이터셋 전체를 계속 다시 그리는 대신, 포인트 하나를 강조하는 방식 사용 가능
+            // 여기서는 단순화를 위해 현재 상태를 차트에 반영하지 않고, 미리 계산된 샤를의 법칙 라인을 보여주는게 교육적으로 나을 수 있음.
+            // 하지만 요청사항인 '실시간 시각화'를 위해 현재 값을 포인트로 추가해봄.
+            
+            if(vtChart.data.datasets[0].data.length > 50) vtChart.data.datasets[0].data.shift();
+            // vtChart.data.datasets[0].data.push({x: temperatureK, y: volumeL}); // 궤적 그리기
+            // vtChart.update();
+        }
+
+        // 초기 그래프 라인 그리기 (이상적인 샤를의 법칙)
+        function drawIdealGraph() {
+            const data = [];
+            for(let t=0; t<=600; t+=50) {
+                data.push({x: t, y: (t/300) * 1.0}); // 300K일 때 1.0L 기준
+            }
+            vtChart.data.datasets[0].data = data;
+            
+            // 현재 상태를 나타내는 포인트 추가 (두 번째 데이터셋)
+            vtChart.data.datasets.push({
+                label: '현재 상태',
+                data: [{x: temperatureK, y: (containerHeight/200)}],
+                borderColor: '#FF6B6B',
+                backgroundColor: '#FF6B6B',
+                pointRadius: 6,
+                type: 'scatter'
+            });
+            vtChart.update();
+        }
+
+        function draw() {
+            // 배경 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 실린더(컨테이너) 그리기
+            ctx.fillStyle = '#f0f8ff';
+            ctx.fillRect(0, canvas.height - containerHeight, containerWidth, containerHeight);
+            
+            // 피스톤 그리기
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(0, canvas.height - containerHeight - 10, containerWidth, 10);
+            
+            // 입자 그리기
+            ctx.fillStyle = '#e74c3c';
+            const speedFactor = Math.sqrt(temperatureK) * 0.15;
+
+            particles.forEach(p => {
+                // 위치 업데이트
+                p.x += p.vx * speedFactor;
+                p.y += p.vy * speedFactor;
+
+                // 벽 충돌 (X축)
+                if(p.x < 0 || p.x > containerWidth) p.vx *= -1;
+                
+                // 바닥 충돌
+                if(p.y > canvas.height) p.vy *= -1;
+
+                // 피스톤 충돌 (위쪽 벽)
+                // 피스톤의 아랫면 위치: canvas.height - containerHeight
+                const pistonBottom = canvas.height - containerHeight;
+                if(p.y < pistonBottom) {
+                    p.y = pistonBottom; // 위치 보정
+                    p.vy *= -1;
+                }
+
+                // 그리기
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, particleSize, 0, Math.PI*2);
+                ctx.fill();
+            });
+
+            // 현재 상태 그래프 업데이트
+            vtChart.data.datasets[1].data[0] = {
+                x: temperatureK, 
+                y: parseFloat((containerHeight / 200).toFixed(2))
+            };
+            vtChart.update('none'); // 애니메이션 없이 업데이트
+
+            requestAnimationFrame(draw);
+            updatePhysics();
+        }
+
+        // --- 4. 실행 ---
+        initParticles();
+        drawIdealGraph();
+        draw();
+
+    </script>
+</body>
+</html>

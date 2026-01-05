@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물질의 특성 - 밀도</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap');
+        
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f9ff; }
+        
+        /* 실험 도구 스타일 */
+        .cylinder-container {
+            width: 80px;
+            height: 250px;
+            border-left: 2px solid #333;
+            border-right: 2px solid #333;
+            border-bottom: 2px solid #333;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.8);
+            margin: 0 auto;
+        }
+        .water {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: #3b82f6; /* Blue-500 */
+            opacity: 0.7;
+            transition: height 1s ease-in-out;
+            border-radius: 0 0 8px 8px;
+        }
+        .object-in-water {
+            width: 40px;
+            height: 40px;
+            background-color: #555;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 4px;
+            display: none;
+            transition: bottom 0.5s ease;
+        }
+        .scale-display {
+            font-family: 'Courier New', monospace;
+            background: #e0f2fe;
+            border: 2px inset #cbd5e1;
+            color: #0f172a;
+        }
+        
+        /* 눈금 표시 */
+        .tick {
+            position: absolute;
+            right: 0;
+            width: 10px;
+            border-top: 1px solid #333;
+        }
+        .tick.major { width: 15px; border-top: 2px solid #333; }
+        .tick-label {
+            position: absolute;
+            right: 20px;
+            font-size: 10px;
+            transform: translateY(-50%);
+        }
+
+        /* 애니메이션 */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-5px); }
+            100% { transform: translateY(0px); }
+        }
+        .teacher-bubble {
+            animation: float 3s ease-in-out infinite;
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen text-slate-800">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-lg">
+        <div class="max-w-4xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">🧪 가상 실험실: 밀도 탐구</h1>
+                <p class="text-sm opacity-90">중학교 2학년 6단원 - 물질의 특성</p>
+            </div>
+            <div class="text-xs bg-indigo-800 px-3 py-1 rounded-full">
+                안전 제일: 가상 실험이라 안전해요!
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-grow max-w-4xl mx-auto w-full p-4 flex flex-col md:flex-row gap-6">
+        
+        <section class="w-full md:w-1/3 bg-white rounded-xl shadow-md p-6 flex flex-col gap-4">
+            <h2 class="text-lg font-bold border-b pb-2 text-indigo-700">⚙️ 실험 설정</h2>
+            
+            <div class="flex gap-1 mb-2">
+                <button onclick="setStage(1)" id="btn-stage-1" class="flex-1 text-xs py-1 bg-indigo-500 text-white rounded">1. 물</button>
+                <button onclick="setStage(2)" id="btn-stage-2" class="flex-1 text-xs py-1 bg-gray-200 rounded hover:bg-gray-300">2. 철</button>
+                <button onclick="setStage(3)" id="btn-stage-3" class="flex-1 text-xs py-1 bg-gray-200 rounded hover:bg-gray-300">3. 동전</button>
+            </div>
+
+            <div id="controls-area">
+                </div>
+
+            <div class="mt-auto bg-yellow-50 p-3 rounded-lg border border-yellow-200 text-sm">
+                <div class="font-bold flex items-center gap-2 mb-1">
+                    <span>👩‍🏫 선생님의 팁</span>
+                </div>
+                <p id="teacher-msg">실험 단계를 선택하여 시작해보세요!</p>
+            </div>
+        </section>
+
+        <section class="w-full md:w-2/3 flex flex-col gap-4">
+            
+            <div class="bg-white rounded-xl shadow-md p-6 relative min-h-[300px] flex items-end justify-center gap-8">
+                
+                <div class="text-center relative">
+                    <div class="cylinder-container" id="cylinder">
+                        <div class="water" id="water-level" style="height: 0%;"></div>
+                        <div class="object-in-water" id="submerged-object"></div>
+                        </div>
+                    <p class="mt-2 font-semibold">눈금 실린더</p>
+                    <div class="absolute top-10 -right-24 bg-white border px-2 py-1 rounded shadow text-xs">
+                        부피: <span id="volume-readout" class="font-bold text-blue-600">0.0</span> mL
+                    </div>
+                </div>
+
+                <div class="text-center">
+                    <div class="w-32 h-16 bg-gray-200 rounded-lg flex items-center justify-center border-b-4 border-gray-300 relative">
+                        <div id="scale-plate" class="absolute -top-2 w-24 h-2 bg-gray-400 rounded"></div>
+                        <div class="scale-display text-2xl font-bold px-2 py-1 rounded w-28 text-right">
+                            <span id="mass-readout">0.0</span> g
+                        </div>
+                    </div>
+                    <p class="mt-2 font-semibold">전자 저울</p>
+                </div>
+            </div>
+
+            <div class="bg-indigo-50 rounded-xl shadow-inner p-5 border border-indigo-100">
+                <h3 class="font-bold text-lg mb-3">📝 실험 결과 기록</h3>
+                <div class="grid grid-cols-3 gap-4 text-center">
+                    <div class="bg-white p-2 rounded shadow-sm">
+                        <p class="text-xs text-gray-500">질량 (m)</p>
+                        <p class="text-xl font-bold" id="result-mass">0</p>
+                        <p class="text-xs">g</p>
+                    </div>
+                    <div class="bg-white p-2 rounded shadow-sm">
+                        <p class="text-xs text-gray-500">부피 (V)</p>
+                        <p class="text-xl font-bold" id="result-volume">0</p>
+                        <p class="text-xs">mL</p>
+                    </div>
+                    <div class="bg-indigo-100 p-2 rounded shadow-sm border border-indigo-300">
+                        <p class="text-xs text-indigo-700">밀도 ($$\rho$$)</p>
+                        <p class="text-xl font-bold text-indigo-800" id="result-density">-</p>
+                        <p class="text-xs">g/mL</p>
+                    </div>
+                </div>
+                <div class="mt-4 text-center">
+                    <p class="text-sm">밀도 공식: $$ \text{밀도} = \frac{\text{질량}}{\text{부피}} $$</p>
+                </div>
+                <div id="feedback-area" class="mt-3 text-center text-sm font-bold text-emerald-600 hidden">
+                    </div>
+            </div>
+
+        </section>
+    </main>
+
+    <script>
+        // --- 전역 변수 ---
+        let currentStage = 1;
+        let currentMass = 0;
+        let currentVolume = 0;
+        let baseWaterVolume = 0;
+        
+        // 상수
+        const WATER_DENSITY = 1.0;
+        const IRON_DENSITY = 7.87;
+        const REAL_COIN_DENSITY = 8.96; // 구리 합금 예시
+        const FAKE_COIN_DENSITY = 2.70; // 알루미늄 가짜 동전
+
+        // --- 초기화 ---
+        window.onload = () => {
+            createTicks();
+            setStage(1);
+        };
+
+        function createTicks() {
+            const cylinder = document.getElementById('cylinder');
+            for(let i=0; i<=100; i+=10) {
+                const tick = document.createElement('div');
+                tick.className = i % 20 === 0 ? 'tick major' : 'tick';
+                tick.style.bottom = (i * 2) + 'px'; // 2px per mL scaling
+                cylinder.appendChild(tick);
+
+                if (i % 20 === 0 && i > 0) {
+                    const label = document.createElement('div');
+                    label.className = 'tick-label';
+                    label.innerText = i;
+                    label.style.bottom = (i * 2) + 'px';
+                    cylinder.appendChild(label);
+                }
+            }
+        }
+
+        // --- 스테이지 관리 ---
+        function setStage(stage) {
+            currentStage = stage;
+            resetExperiment();
+            
+            // 버튼 스타일 업데이트
+            [1, 2, 3].forEach(i => {
+                const btn = document.getElementById(`btn-stage-${i}`);
+                if(i === stage) {
+                    btn.classList.remove('bg-gray-200', 'text-black');
+                    btn.classList.add('bg-indigo-500', 'text-white');
+                } else {
+                    btn.classList.add('bg-gray-200', 'text-black');
+                    btn.classList.remove('bg-indigo-500', 'text-white');
+                }
+            });
+
+            renderControls(stage);
+        }
+
+        function resetExperiment() {
+            currentMass = 0;
+            currentVolume = 0;
+            baseWaterVolume = 0;
+            updateVisuals(0, 0);
+            document.getElementById('feedback-area').classList.add('hidden');
+            document.getElementById('submerged-object').style.display = 'none';
+        }
+
+        // --- 컨트롤 UI 렌더링 ---
+        function renderControls(stage) {
+            const container = document.getElementById('controls-area');
+            const teacherMsg = document.getElementById('teacher-msg');
+            container.innerHTML = '';
+
+            if (stage === 1) { // 물 실험
+                teacherMsg.innerText = "물은 양이 달라져도 밀도가 일정할까요? 물의 양을 조절해서 확인해봅시다.";
+                container.innerHTML = `
+                    <label class="block text-sm font-medium mb-1">물의 양 선택</label>
+                    <select id="water-select" onchange="runWaterExperiment(this.value)" class="w-full p-2 border rounded mb-4">
+                        <option value="0">선택하세요</option>
+                        <option value="10">10 mL</option>
+                        <option value="20">20 mL</option>
+                        <option value="40">40 mL</option>
+                        <option value="50">50 mL</option>
+                    </select>
+                    <p class="text-xs text-gray-500">* 비커의 무게는 영점 조절된 상태입니다.</p>
+                `;
+            } else if (stage === 2) { // 철 실험
+                teacherMsg.innerText = "고체인 철 조각의 밀도를 구해봅시다. 물이 담긴 실린더에 철을 넣어 부피 변화를 관찰하세요!";
+                container.innerHTML = `
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">1. 실린더에 물 채우기</label>
+                        <button onclick="fillBaseWater()" class="w-full bg-blue-100 text-blue-700 py-1 rounded hover:bg-blue-200">물 30mL 채우기</button>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-1">2. 철 조각 질량 선택</label>
+                        <input type="range" min="10" max="100" step="10" value="10" id="iron-slider" 
+                            oninput="updateIronPreview(this.value)" class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                        <div class="flex justify-between text-xs mt-1">
+                            <span>10g</span>
+                            <span id="iron-val-display" class="font-bold text-indigo-600">10g</span>
+                            <span>100g</span>
+                        </div>
+                        <button onclick="runIronExperiment()" class="w-full mt-2 bg-indigo-600 text-white py-2 rounded shadow hover:bg-indigo-700">실험 시작 (철 조각 넣기)</button>
+                    </div>
+                `;
+            } else if (stage === 3) { // 동전 (응용)
+                teacherMsg.innerText = "겉보기가 똑같은 두 동전이 있습니다. 밀도를 측정해서 진짜 보물 동전을 찾아보세요!";
+                container.innerHTML = `
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium mb-1">실린더 준비</label>
+                        <button onclick="fillBaseWater()" class="w-full bg-blue-100 text-blue-700 py-1 rounded hover:bg-blue-200">물 50mL 채우기</button>
+                    </div>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="runCoinExperiment('A')" class="p-3 border-2 border-yellow-400 rounded bg-yellow-50 hover:bg-yellow-100">
+                            <span class="block text-xl">🪙</span> 동전 A
+                        </button>
+                        <button onclick="runCoinExperiment('B')" class="p-3 border-2 border-yellow-400 rounded bg-yellow-50 hover:bg-yellow-100">
+                            <span class="block text-xl">🪙</span> 동전 B
+                        </button>
+                    </div>
+                    <div id="coin-quiz" class="mt-4 hidden">
+                        <p class="text-sm font-bold mb-2">어느 것이 진짜 금화(밀도 약 8.96)일까요?</p>
+                        <div class="flex gap-2">
+                            <button onclick="checkCoinAnswer('A')" class="flex-1 bg-white border border-gray-300 py-1 rounded hover:bg-gray-50">A가 진짜</button>
+                            <button onclick="checkCoinAnswer('B')" class="flex-1 bg-white border border-gray-300 py-1 rounded hover:bg-gray-50">B가 진짜</button>
+                        </div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateIronPreview(val) {
+            document.getElementById('iron-val-display').innerText = val + 'g';
+        }
+
+        // --- 실험 로직 ---
+
+        // 1. 물 실험
+        function runWaterExperiment(volumeStr) {
+            const volume = parseFloat(volumeStr);
+            if (volume === 0) { resetExperiment(); return; }
+            
+            // 물의 밀도는 1이므로 질량 = 부피
+            currentVolume = volume;
+            currentMass = volume * WATER_DENSITY; 
+            
+            updateVisuals(currentMass, currentVolume);
+            calculateAndShowDensity();
+            
+            showFeedback(`물의 양이 ${volume}mL일 때 질량도 ${currentMass}g이네요. 밀도는 얼마인가요?`);
+        }
+
+        // 2. 철 실험 준비
+        function fillBaseWater() {
+            baseWaterVolume = currentStage === 2 ? 30 : 50;
+            currentVolume = baseWaterVolume;
+            currentMass = 0; // 물 질량은 저울에서 영점 잡았다고 가정 (철 실험을 위해)
+            
+            updateVisuals(0, baseWaterVolume);
+            document.getElementById('submerged-object').style.display = 'none';
+            document.getElementById('volume-readout').innerText = baseWaterVolume.toFixed(1);
+            showFeedback("물이 채워졌습니다. 이제 물체를 넣어보세요.");
+        }
+
+        // 2. 철 실험 실행
+        function runIronExperiment() {
+            if(baseWaterVolume === 0) {
+                alert("먼저 물을 채워주세요!");
+                return;
+            }
+            
+            const mass = parseFloat(document.getElementById('iron-slider').value);
+            // 철의 부피 = 질량 / 밀도
+            const objectVolume = mass / IRON_DENSITY;
+            
+            currentMass = mass;
+            currentVolume = baseWaterVolume + objectVolume;
+            
+            // 시각화
+            document.getElementById('submerged-object').style.display = 'block';
+            document.getElementById('submerged-object').style.backgroundColor = '#555'; // Iron color
+            
+            updateVisuals(currentMass, currentVolume);
+            calculateAndShowDensity(objectVolume); // 밀도 계산 시에는 물체의 부피만 사용
+            
+            showFeedback(`늘어난 부피는 ${(objectVolume).toFixed(1)}mL 입니다. 밀도를 확인해보세요.`);
+        }
+
+        // 3. 동전 실험
+        let currentCoinType = '';
+        function runCoinExperiment(type) {
+             if(baseWaterVolume === 0) {
+                alert("먼저 물을 채워주세요!");
+                return;
+            }
+            currentCoinType = type;
+            const mass = 45; // 동전 질량 고정
+            
+            // A는 진짜(8.96), B는 가짜(2.7) 라고 가정
+            const density = type === 'A' ? REAL_COIN_DENSITY : FAKE_COIN_DENSITY;
+            const objectVolume = mass / density;
+            
+            currentMass = mass;
+            currentVolume = baseWaterVolume + objectVolume;
+
+            document.getElementById('submerged-object').style.display = 'block';
+            document.getElementById('submerged-object').style.backgroundColor = '#fbbf24'; // Gold color
+
+            updateVisuals(currentMass, currentVolume);
+            calculateAndShowDensity(objectVolume);
+            
+            document.getElementById('coin-quiz').classList.remove('hidden');
+            showFeedback(`동전 ${type}를 넣었습니다. 밀도값을 확인하고 진위를 판별하세요.`);
+        }
+
+        function checkCoinAnswer(answer) {
+            if (answer === 'A') {
+                alert("정답입니다! 동전 A의 밀도는 약 8.96으로 진짜 금화와 같습니다.");
+            } else {
+                alert("틀렸습니다. 동전 B의 밀도는 약 2.7로 알루미늄으로 만든 가짜입니다.");
+            }
+        }
+
+        // --- 공통 기능 ---
+        function updateVisuals(mass, volume) {
+            // 수위 조절 (100mL = 200px)
+            const heightPx = volume * 2; 
+            document.getElementById('water-level').style.height = heightPx + 'px';
+            
+            // 수치 표시
+            document.getElementById('mass-readout').innerText = mass.toFixed(1);
+            document.getElementById('volume-readout').innerText = volume.toFixed(1);
+
+            // 결과창 업데이트 (부피는 증가량 계산이 필요할 수 있음)
+            document.getElementById('result-mass').innerText = mass.toFixed(1);
+            document.getElementById('result-volume').innerText = volume.toFixed(1);
+        }
+
+        function calculateAndShowDensity(specificObjectVolume = null) {
+            // 순수 물 실험: 전체 부피 사용
+            // 고체 실험: (나중 부피 - 처음 부피) 사용해야 함
+            
+            let calcVolume = currentVolume;
+            if (specificObjectVolume !== null) {
+                calcVolume = specificObjectVolume;
+                document.getElementById('result-volume').innerText = calcVolume.toFixed(1); // 결과창엔 물체 부피만 표시
+            }
+
+            if (calcVolume > 0) {
+                const density = currentMass / calcVolume;
+                document.getElementById('result-density').innerText = density.toFixed(2);
+            } else {
+                document.getElementById('result-density').innerText = "-";
+            }
+        }
+
+        function showFeedback(msg) {
+            const el = document.getElementById('feedback-area');
+            el.innerText = msg;
+            el.classList.remove('hidden');
+        }
+
+    </script>
+</body>
+</html>

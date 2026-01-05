@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>드라이아이스 승화 가상 실험</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f0f4f8; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); max-width: 800px; width: 100%; }
+        h1 { color: #2c3e50; text-align: center; }
+        .canvas-wrapper { position: relative; width: 100%; height: 400px; background: #eef2f3; border: 2px solid #bdc3c7; border-radius: 10px; overflow: hidden; margin-bottom: 20px; }
+        canvas { display: block; width: 100%; height: 100%; }
+        .controls { display: flex; flex-direction: column; gap: 15px; background: #fafafa; padding: 15px; border-radius: 10px; }
+        .control-group { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+        label { font-weight: bold; color: #34495e; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        .btn-group { display: flex; justify-content: center; gap: 10px; margin-top: 10px; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        .btn-start { background-color: #3498db; color: white; }
+        .btn-start:hover { background-color: #2980b9; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+        .btn-reset:hover { background-color: #c0392b; }
+        .status-panel { margin-top: 10px; padding: 10px; background: #e8f6f3; border-radius: 5px; border-left: 5px solid #1abc9c; }
+        .status-text { font-size: 0.95rem; color: #16a085; }
+        .overlay-text { position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.8); padding: 5px 10px; border-radius: 5px; font-size: 0.9rem; pointer-events: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🧊 드라이아이스 승화 실험</h1>
+    
+    <div class="canvas-wrapper">
+        <canvas id="simCanvas"></canvas>
+        <div class="overlay-text" id="stateLabel">현재 상태: 고체 (드라이아이스)</div>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="tempSlider">온도 조절 (열 에너지):</label>
+            <span id="tempValue">-78°C</span>
+            <input type="range" id="tempSlider" min="-100" max="30" value="-80" step="1">
+        </div>
+        
+        <div class="status-panel">
+            <strong>👀 관찰 포인트:</strong> <span id="feedbackText">입자들이 규칙적으로 배열되어 제자리에서 진동하고 있습니다.</span>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-start" onclick="toggleSimulation()">⏯ 시뮬레이션 시작/정지</button>
+            <button class="btn-reset" onclick="resetSimulation()">🔄 초기화</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    const tempSlider = document.getElementById('tempSlider');
+    const tempValue = document.getElementById('tempValue');
+    const feedbackText = document.getElementById('feedbackText');
+    const stateLabel = document.getElementById('stateLabel');
+
+    let particles = [];
+    let isRunning = true;
+    let animationId;
+    
+    // 설정값
+    const particleCount = 64; // 8x8 격자
+    const particleRadius = 6;
+    const sublimationPoint = -78.5;
+
+    // 캔버스 크기 조정
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+        resetSimulation();
+    }
+
+    class Particle {
+        constructor(x, y, fixedX, fixedY) {
+            this.x = x;
+            this.y = y;
+            this.fixedX = fixedX; // 고체일 때 기준 위치
+            this.fixedY = fixedY;
+            this.vx = 0;
+            this.vy = 0;
+            this.isGas = false;
+        }
+
+        update(temp) {
+            // 온도에 따른 에너지 계수 (0 ~ 1.5)
+            const energy = (temp + 100) / 130; 
+
+            if (temp < sublimationPoint) {
+                // 고체 상태: 제자리 진동
+                this.isGas = false;
+                // 온도가 높을수록 진동 폭이 커짐
+                this.x = this.fixedX + (Math.random() - 0.5) * (energy * 5);
+                this.y = this.fixedY + (Math.random() - 0.5) * (energy * 5);
+            } else {
+                // 기체 상태 (승화): 자유 운동
+                if (!this.isGas) {
+                    // 고체 -> 기체로 변하는 순간 초기 속도 부여
+                    this.isGas = true;
+                    const angle = Math.random() * Math.PI * 2;
+                    const speed = 2 + (energy * 3); // 온도가 높을수록 더 빠름
+                    this.vx = Math.cos(angle) * speed;
+                    this.vy = Math.sin(angle) * speed;
+                }
+
+                // 이동
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 벽 충돌 (튕기기)
+                if (this.x < particleRadius || this.x > canvas.width - particleRadius) this.vx *= -1;
+                if (this.y < particleRadius || this.y > canvas.height - particleRadius) this.vy *= -1;
+            }
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, particleRadius, 0, Math.PI * 2);
+            // 색상: 고체(진한 파랑) -> 기체(연한 하늘색/회색)
+            ctx.fillStyle = this.isGas ? `rgba(100, 149, 237, 0.7)` : `rgba(41, 128, 185, 1)`;
+            ctx.fill();
+            ctx.strokeStyle = "#2c3e50";
+            ctx.stroke();
+            ctx.closePath();
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        const cols = 8;
+        const startX = (canvas.width / 2) - (cols * particleRadius * 2.5) / 2;
+        const startY = canvas.height - 100;
+
+        for (let i = 0; i < particleCount; i++) {
+            const col = i % cols;
+            const row = Math.floor(i / cols);
+            const x = startX + col * (particleRadius * 2.5);
+            const y = startY + row * (particleRadius * 2.5);
+            particles.push(new Particle(x, y, x, y));
+        }
+    }
+
+    function animate() {
+        if (!isRunning) return;
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 투명 용기 그리기 (부피감 표현)
+        ctx.strokeStyle = "#bdc3c7";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(10, 10, canvas.width - 20, canvas.height - 20);
+
+        const currentTemp = parseFloat(tempSlider.value);
+
+        particles.forEach(p => {
+            p.update(currentTemp);
+            p.draw();
+        });
+
+        // 텍스트 업데이트
+        updateFeedback(currentTemp);
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    function updateFeedback(temp) {
+        tempValue.innerText = temp + "°C";
+        
+        if (temp < sublimationPoint) {
+            stateLabel.innerText = "현재 상태: 고체 (드라이아이스)";
+            stateLabel.style.color = "blue";
+            feedbackText.innerText = "입자들이 규칙적으로 배열되어 빽빽하게 모여 있습니다. 열을 받으면 제자리에서 진동합니다.";
+        } else {
+            stateLabel.innerText = "현재 상태: 기체 (이산화탄소)";
+            stateLabel.style.color = "red";
+            feedbackText.innerText = "입자 간의 인력이 끊어져 매우 자유롭고 빠르게 움직입니다. 부피가 크게 늘어납니다!";
+        }
+    }
+
+    function toggleSimulation() {
+        isRunning = !isRunning;
+        if (isRunning) animate();
+    }
+
+    function resetSimulation() {
+        tempSlider.value = -80;
+        isRunning = true;
+        cancelAnimationFrame(animationId);
+        initParticles();
+        animate();
+    }
+
+    // 이벤트 리스너
+    window.addEventListener('resize', resizeCanvas);
+    tempSlider.addEventListener('input', () => {
+        // 슬라이더 조작 시 즉각 반응
+        if(!isRunning) {
+             isRunning = true;
+             animate();
+        }
+    });
+
+    // 초기 실행
+    setTimeout(() => {
+        resizeCanvas();
+        animate();
+    }, 100);
+
+</script>
+</body>
+</html>

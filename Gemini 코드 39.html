@@ -1,0 +1,291 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>황산 구리(Ⅱ) 결정 생성 가상실험</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #2c3e50; }
+        .container { display: flex; gap: 20px; flex-wrap: wrap; justify-content: center; max-width: 1000px; }
+        .panel { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        /* Canvas Areas */
+        #simCanvas { border: 2px solid #3498db; border-radius: 10px; background: #e0f7fa; }
+        #graphCanvas { border: 2px solid #7f8c8d; border-radius: 10px; background: #fff; }
+
+        /* Controls */
+        .controls { display: flex; flex-direction: column; gap: 15px; width: 300px; }
+        .control-group { border: 1px solid #ddd; padding: 10px; border-radius: 8px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .btn-group { display: flex; gap: 5px; }
+        button { flex: 1; padding: 8px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; }
+        button:hover { background: #2980b9; }
+        button:disabled { background: #bdc3c7; cursor: not-allowed; }
+        
+        /* Feedback Area */
+        #feedback { margin-top: 10px; padding: 10px; background: #fff3cd; border-left: 5px solid #ffc107; border-radius: 5px; font-weight: bold; min-height: 40px; }
+        
+        .status-display { display: flex; justify-content: space-between; margin-top: 5px; font-size: 0.9em; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1>💎 황산 구리(Ⅱ) 결정 만들기</h1>
+
+    <div class="container">
+        <div class="panel">
+            <canvas id="simCanvas" width="300" height="400"></canvas>
+            <div id="feedback">실험을 시작해 볼까요? 물에 가루를 넣어보세요.</div>
+        </div>
+
+        <div class="panel">
+            <h3>📈 용해도 곡선</h3>
+            <canvas id="graphCanvas" width="300" height="300"></canvas>
+            <p style="font-size: 0.8em; color: gray;">*빨간 점: 현재 내 비커의 상태</p>
+        </div>
+
+        <div class="panel controls">
+            <div class="control-group">
+                <label>1. 황산 구리(Ⅱ) 넣기 (현재: <span id="amountVal">0</span>g)</label>
+                <div class="btn-group">
+                    <button onclick="addSolute(20)">20g 넣기</button>
+                    <button onclick="addSolute(40)">40g 넣기</button>
+                    <button onclick="resetSolute()">비우기</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>2. 온도 조절 (현재: <span id="tempVal">60</span>℃)</label>
+                <input type="range" id="tempSlider" min="0" max="100" value="60" oninput="updateTemp(this.value)">
+                <div class="status-display">
+                    <span>❄️ 차가움</span>
+                    <span>뜨거움 🔥</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>📝 상태 요약</label>
+                <div id="statusText">불포화 상태</div>
+            </div>
+        </div>
+    </div>
+
+<script>
+    // 상태 변수
+    let temp = 60; // 온도
+    let solute = 0; // 용질의 양 (g)
+    let crystals = 0; // 석출된 결정의 양 (g)
+    let particles = []; // 시각화용 입자 배열
+
+    const simCanvas = document.getElementById('simCanvas');
+    const simCtx = simCanvas.getContext('2d');
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+    const feedbackEl = document.getElementById('feedback');
+    const statusTextEl = document.getElementById('statusText');
+
+    // 용해도 함수 (가상의 데이터: S = 0.6T + 10)
+    // 예: 0도->10g, 20도->22g, 60도->46g, 80도->58g
+    function getSolubility(t) {
+        return (0.6 * t) + 10;
+    }
+
+    // 입자 클래스 (시각화용)
+    class Particle {
+        constructor() {
+            this.x = Math.random() * 280 + 10;
+            this.y = Math.random() * 300 + 50;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.state = 'dissolved'; // dissolved, crystal
+        }
+
+        update() {
+            if (this.state === 'dissolved') {
+                // 온도가 높으면 빨리 움직임
+                let speedFactor = (temp / 100) + 0.2;
+                this.x += this.vx * speedFactor;
+                this.y += this.vy * speedFactor;
+
+                // 벽 튕기기
+                if(this.x < 10 || this.x > 290) this.vx *= -1;
+                if(this.y < 50 || this.y > 380) this.vy *= -1;
+            } else {
+                // 결정 상태면 털실(중앙) 쪽으로 이동 후 고정
+                let targetX = 150 + (Math.random()-0.5)*20;
+                let targetY = 100 + Math.random()*200;
+                this.x += (targetX - this.x) * 0.1;
+                this.y += (targetY - this.y) * 0.1;
+            }
+        }
+
+        draw() {
+            simCtx.beginPath();
+            if (this.state === 'dissolved') {
+                simCtx.fillStyle = 'rgba(0, 0, 255, 0.6)';
+                simCtx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+            } else {
+                simCtx.fillStyle = '#1e3799'; // 진한 파랑 (결정)
+                // 다이아몬드 모양 그리기
+                simCtx.moveTo(this.x, this.y - 4);
+                simCtx.lineTo(this.x + 4, this.y);
+                simCtx.lineTo(this.x, this.y + 4);
+                simCtx.lineTo(this.x - 4, this.y);
+            }
+            simCtx.fill();
+        }
+    }
+
+    function initParticles(amount) {
+        // 입자 개수 조절 (시각적 부하 방지를 위해 실제 양/2)
+        const targetCount = amount * 2;
+        if (particles.length < targetCount) {
+            for(let i=particles.length; i<targetCount; i++) particles.push(new Particle());
+        } else if (particles.length > targetCount) {
+            particles = particles.slice(0, targetCount);
+        }
+    }
+
+    function updatePhysics() {
+        const solubility = getSolubility(temp);
+        const maxDissolved = solubility; 
+        
+        // 석출량 계산
+        let precip = Math.max(0, solute - maxDissolved);
+        crystals = precip;
+
+        // 입자 상태 업데이트 (석출량 비율만큼 입자를 결정화)
+        let crystalCountTarget = Math.floor(precip * 2); 
+        let currentCrystalCount = particles.filter(p => p.state === 'crystal').length;
+
+        // 상태 변경 로직
+        particles.forEach((p, index) => {
+            if (index < crystalCountTarget) {
+                p.state = 'crystal';
+            } else {
+                p.state = 'dissolved';
+            }
+            p.update();
+        });
+
+        // 피드백 업데이트
+        if (crystals > 0) {
+            feedbackEl.innerHTML = `✨ 결정이 생성되고 있습니다!<br>현재 온도에서 <b>${crystals.toFixed(1)}g</b>이 석출되었습니다.`;
+            statusTextEl.innerText = "과포화 (결정 생성 중)";
+            statusTextEl.style.color = "blue";
+        } else if (solute > solubility - 5 && solute <= solubility) {
+            feedbackEl.innerText = "⚠️ 포화 상태에 가까워졌습니다. 온도를 조금만 더 낮추면?";
+            statusTextEl.innerText = "포화 임박";
+            statusTextEl.style.color = "orange";
+        } else {
+            feedbackEl.innerText = "물이 따뜻해서 가루가 잘 녹아 있습니다.";
+            statusTextEl.innerText = "불포화";
+            statusTextEl.style.color = "green";
+        }
+    }
+
+    function drawSim() {
+        simCtx.clearRect(0, 0, 300, 400);
+
+        // 비커 그리기
+        simCtx.fillStyle = `rgba(135, 206, 250, ${Math.min(0.2 + (solute/100), 0.8)})`; // 농도에 따른 물 색깔
+        simCtx.fillRect(10, 50, 280, 330);
+        simCtx.strokeStyle = '#333';
+        simCtx.lineWidth = 2;
+        simCtx.strokeRect(10, 50, 280, 330);
+
+        // 털실 그리기
+        simCtx.beginPath();
+        simCtx.moveTo(150, 0);
+        simCtx.lineTo(150, 300);
+        simCtx.strokeStyle = '#8d6e63';
+        simCtx.lineWidth = 3;
+        simCtx.setLineDash([5, 5]);
+        simCtx.stroke();
+        simCtx.setLineDash([]);
+
+        // 입자 그리기
+        particles.forEach(p => p.draw());
+    }
+
+    function drawGraph() {
+        graphCtx.clearRect(0, 0, 300, 300);
+        
+        // 축 그리기
+        graphCtx.beginPath();
+        graphCtx.moveTo(30, 10);
+        graphCtx.lineTo(30, 270);
+        graphCtx.lineTo(290, 270);
+        graphCtx.strokeStyle = "black";
+        graphCtx.stroke();
+
+        // 텍스트
+        graphCtx.font = "10px Arial";
+        graphCtx.fillStyle = "black";
+        graphCtx.fillText("온도(℃)", 250, 290);
+        graphCtx.fillText("용해도(g)", 0, 20);
+
+        // 용해도 곡선 그리기
+        graphCtx.beginPath();
+        graphCtx.strokeStyle = "red";
+        graphCtx.lineWidth = 2;
+        for(let t=0; t<=100; t+=5) {
+            let s = getSolubility(t);
+            let x = 30 + (t * 2.5); // 100도 -> 250px
+            let y = 270 - (s * 2); // 100g -> 200px
+            if(t===0) graphCtx.moveTo(x, y);
+            else graphCtx.lineTo(x, y);
+        }
+        graphCtx.stroke();
+
+        // 현재 상태 점 찍기
+        let curX = 30 + (temp * 2.5);
+        let curY = 270 - (solute * 2);
+        
+        graphCtx.beginPath();
+        graphCtx.fillStyle = "red";
+        graphCtx.arc(curX, curY, 5, 0, Math.PI*2);
+        graphCtx.fill();
+
+        // 영역 표시
+        graphCtx.fillStyle = "black";
+        if (curY < 270 - (getSolubility(temp)*2)) { // 곡선 위
+             graphCtx.fillText("과포화", curX + 10, curY);
+        } else {
+             graphCtx.fillText("현재 상태", curX + 10, curY);
+        }
+    }
+
+    function loop() {
+        updatePhysics();
+        drawSim();
+        drawGraph();
+        requestAnimationFrame(loop);
+    }
+
+    // Controls
+    function addSolute(amount) {
+        solute += amount;
+        if(solute > 100) solute = 100; // 최대 100g 제한
+        document.getElementById('amountVal').innerText = solute;
+        initParticles(solute);
+    }
+    
+    function resetSolute() {
+        solute = 0;
+        document.getElementById('amountVal').innerText = solute;
+        initParticles(solute);
+    }
+
+    function updateTemp(val) {
+        temp = parseInt(val);
+        document.getElementById('tempVal').innerText = temp;
+    }
+
+    // Start
+    loop();
+
+</script>
+</body>
+</html>

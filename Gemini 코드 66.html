@@ -1,0 +1,473 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>캠핑 장비 속 과학 탐험</title>
+    <style>
+        :root {
+            --primary-color: #2c7744; /* 숲 색상 */
+            --secondary-color: #d35400; /* 불 색상 */
+            --bg-color: #e8f5e9;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Gamja Flower', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #555;
+            max-width: 600px;
+        }
+
+        /* 메인 캠핑장 맵 */
+        .campsite-container {
+            position: relative;
+            width: 800px;
+            height: 500px;
+            background: linear-gradient(to bottom, #87CEEB 0%, #e0f7fa 50%, #81c784 50%, #66bb6a 100%);
+            border-radius: 20px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        /* 아이템 스타일 */
+        .item {
+            position: absolute;
+            cursor: pointer;
+            transition: transform 0.2s, filter 0.2s;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+            color: #fff;
+            text-shadow: 1px 1px 2px black;
+        }
+
+        .item:hover {
+            transform: scale(1.1);
+            filter: drop-shadow(0 0 10px yellow);
+        }
+
+        .item-icon {
+            font-size: 60px;
+            display: block;
+        }
+
+        .check-mark {
+            position: absolute;
+            top: -10px;
+            right: -10px;
+            background: #27ae60;
+            color: white;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            display: none; /* 탐구 완료 시 block */
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            border: 2px solid white;
+        }
+
+        /* 아이템 배치 */
+        #tent { bottom: 120px; left: 100px; }
+        #fire { bottom: 80px; left: 350px; }
+        #pot { bottom: 130px; left: 360px; }
+        #thermos { bottom: 60px; right: 200px; }
+        #sleeping-bag { bottom: 130px; left: 180px; }
+
+        /* 팝업 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 15px;
+            width: 600px;
+            max-width: 90%;
+            position: relative;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            animation: slideDown 0.3s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { transform: translateY(-50px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .close-btn {
+            position: absolute;
+            top: 15px;
+            right: 20px;
+            font-size: 24px;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .science-visual {
+            background-color: #f0f4c3;
+            border: 2px dashed #afb42b;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        .question-box {
+            background-color: #e3f2fd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 15px;
+        }
+
+        input[type="text"], textarea {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+
+        button:hover {
+            background-color: #1e5230;
+        }
+
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            display: none;
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .feedback.success { background-color: #d4edda; color: #155724; }
+        .feedback.hint { background-color: #fff3cd; color: #856404; }
+
+        /* 진행 상황 및 최종 리포트 */
+        .progress-bar {
+            width: 800px;
+            height: 20px;
+            background-color: #ddd;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: var(--secondary-color);
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        #final-report {
+            display: none;
+            width: 800px;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .idea-lab {
+            margin-top: 30px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🏕️ 캠핑 장비 속 숨은 과학 찾기</h1>
+    <p class="subtitle">캠핑장에 있는 물건들을 클릭하여 숨겨진 열의 과학 원리를 찾아내고, 여러분만의 아이디어를 제안해보세요!</p>
+
+    <div class="progress-bar">
+        <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div style="margin-bottom: 10px;">탐구 진행률: <span id="progress-text">0</span>/5</div>
+
+    <div class="campsite-container" id="campsite">
+        
+        <div class="item" id="tent" onclick="openModal('tent')">
+            <span class="item-icon">⛺</span>
+            텐트
+            <div class="check-mark" id="check-tent">✔</div>
+        </div>
+
+        <div class="item" id="fire" onclick="openModal('fire')">
+            <span class="item-icon">🔥</span>
+            모닥불
+            <div class="check-mark" id="check-fire">✔</div>
+        </div>
+
+        <div class="item" id="pot" onclick="openModal('pot')">
+            <span class="item-icon">🥘</span>
+            코펠(냄비)
+            <div class="check-mark" id="check-pot">✔</div>
+        </div>
+
+        <div class="item" id="thermos" onclick="openModal('thermos')">
+            <span class="item-icon">🥤</span>
+            보온병
+            <div class="check-mark" id="check-thermos">✔</div>
+        </div>
+
+        <div class="item" id="sleeping-bag" onclick="openModal('sleeping-bag')">
+            <span class="item-icon">🌭</span>
+            침낭
+            <div class="check-mark" id="check-sleeping-bag">✔</div>
+        </div>
+
+    </div>
+
+    <div id="final-report">
+        <h2>🎉 탐구 완료! 과학 원리 정리</h2>
+        <ul id="summary-list">
+            </ul>
+        
+        <div class="idea-lab">
+            <h3>💡 나만의 캠핑 장비 발명하기</h3>
+            <p>오늘 배운 열의 이동(전도, 대류, 복사) 원리를 이용해서 기존 장비를 개선하거나 새로운 장비를 제안해보세요.</p>
+            <p><em>예시: 가벼우면서도 단열이 잘 되는 에어로젤 소재 텐트</em></p>
+            <textarea id="idea-input" rows="4" placeholder="여기에 아이디어를 적어보세요..."></textarea>
+            <button onclick="submitIdea()">아이디어 제출</button>
+            <div id="idea-feedback" class="feedback"></div>
+        </div>
+    </div>
+
+    <div id="modal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal()">&times;</span>
+            <h2 id="modal-title">아이템 이름</h2>
+            <div id="modal-visual" class="science-visual">
+                </div>
+            <p id="modal-desc">설명 텍스트</p>
+            
+            <div class="question-box">
+                <p id="modal-question">질문 텍스트</p>
+                <input type="text" id="user-answer" placeholder="답을 입력하세요 (예: 전도, 단열 등)">
+                <button onclick="checkAnswer()">확인</button>
+                <div id="modal-feedback" class="feedback"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 데이터 베이스
+        const items = {
+            'tent': {
+                name: "캠핑용 텐트",
+                desc: "텐트는 비바람을 막아주고 얇은 천이지만 우리 몸을 보호해줍니다. 주로 나일론 같은 합성 섬유로 만들어지며 내부는 코팅되어 있습니다.",
+                visual: "🌬️ 텐트 안과 밖 온도 실험 <br><br> [바깥] 찬 바람 ➡️ || (텐트 천) || ⬅️ [안쪽] 따뜻한 공기 <br> *천이 공기의 이동(대류)을 막고 열을 가둡니다.*",
+                question: "텐트 천은 열을 잘 전달하지 않는 재질을 사용하고, 바람을 막아 내부 온도를 유지합니다. 여기에 적용된 핵심 원리는 무엇일까요?",
+                keywords: ["단열", "대류", "전도"],
+                hint: "열이 밖으로 나가는 것을 막는 것을 'O열'이라고 해요. 또한 공기의 흐름을 막아 'O류'를 차단합니다.",
+                explanation: "정답입니다! 텐트는 열전도가 낮은 소재를 사용하여 내부의 열이 밖으로 나가는 것(전도)을 막고, 바람을 막아 공기가 섞이는 것(대류)을 차단하여 '단열' 효과를 냅니다."
+            },
+            'fire': {
+                name: "모닥불과 난로",
+                desc: "추운 밤, 모닥불 옆에 앉아 있으면 따뜻함을 느낍니다. 공기를 데우기도 하지만, 불을 직접 쳐다보기만 해도 얼굴이 화끈거립니다.",
+                visual: "🔥 열의 이동 경로 <br><br> 1. 위쪽으로 올라가는 열기 (공기의 이동) <br> 2. 옆으로 직접 전달되는 열기 (빛처럼 이동)",
+                question: "불 위쪽이 아니라 옆에 있어도 따뜻한 이유는, 열이 빛처럼 직접 전달되기 때문입니다. 이 현상을 무엇이라고 할까요?",
+                keywords: ["복사"],
+                hint: "태양열이 우주를 건너 지구에 도달하는 것과 같은 원리입니다. 'O사'라고 합니다.",
+                explanation: "맞아요! 열이 물질을 거치지 않고 직접 이동하는 현상을 '복사'라고 합니다. 위쪽으로 따뜻한 공기가 올라가는 것은 '대류'입니다."
+            },
+            'pot': {
+                name: "알루미늄 코펠",
+                desc: "캠핑장에서는 가볍고 튼튼한 금속 코펠을 주로 사용합니다. 물이 아주 빨리 끓는 특징이 있습니다.",
+                visual: "🥘 물 끓이기 실험 <br><br> (A) 뚝배기: 천천히 뜨거워짐 <br> (B) 알루미늄 코펠: 매우 빨리 뜨거워짐 ⚡",
+                question: "코펠은 불의 열을 음식으로 빠르게 전달해야 합니다. 그래서 금속은 '이것'이 높은 재질을 사용합니다. 무엇일까요?",
+                keywords: ["전도", "열전도", "전도율"],
+                hint: "고체에서 열이 전달되는 현상입니다. 금속은 이것이 아주 잘 일어납니다.",
+                explanation: "정답! 금속은 '열전도율'이 매우 높습니다. 그래서 연료를 적게 쓰고도 음식을 빨리 익힐 수 있습니다."
+            },
+            'thermos': {
+                name: "진공 보온병",
+                desc: "보온병은 뜨거운 물을 오랫동안 식지 않게 해줍니다. 안을 뜯어보면 벽이 두 겹이고, 내부는 은색으로 반짝입니다.",
+                visual: "🥤 보온병 단면도 <br><br> 1. 이중벽 사이: 진공 상태 (공기가 없음) <br> 2. 은색 도금: 거울처럼 열을 반사 ✨",
+                question: "이중벽 사이를 진공으로 만들면 물질이 없으므로 전도와 대류가 일어나지 않습니다. 그렇다면 '은색 도금'은 어떤 열의 이동을 막기 위함일까요?",
+                keywords: ["복사"],
+                hint: "거울이 빛을 반사하듯이, 은색 벽은 열을 반사하여 내부로 돌려보냅니다.",
+                explanation: "훌륭합니다! 진공은 전도와 대류를 막고, 은색 도금은 '복사'에 의한 열 손실을 반사하여 막습니다. 완벽한 단열 시스템이죠."
+            },
+            'sleeping-bag': {
+                name: "침낭",
+                desc: "침낭 속에는 오리털이나 솜이 빵빵하게 들어있습니다. 누르면 푹신하고 공기가 많이 들어있는 느낌이 듭니다.",
+                visual: "☁️ 충전재 확대 모습 <br><br> 솜/털 사이사이에 작은 '공기 주머니'들이 많이 있습니다. <br> *공기는 열을 잘 전달하지 않는 최고의 단열재입니다.*",
+                question: "침낭이 따뜻한 이유는 솜이나 털 자체가 따뜻해서가 아니라, 그 사이에 가두어진 '이것' 때문입니다. 열전도율이 매우 낮은 기체인 '이것'은 무엇일까요?",
+                keywords: ["공기"],
+                hint: "우리 주변에 항상 있으며, 우리가 숨 쉴 때 마시는 기체입니다.",
+                explanation: "맞습니다! 정지해 있는 '공기'는 열전도율이 매우 낮아 훌륭한 단열재 역할을 합니다. 침낭은 체온이 밖으로 뺏기지 않게 공기층을 이용합니다."
+            }
+        };
+
+        let currentItemKey = null;
+        let exploredItems = new Set();
+
+        function openModal(key) {
+            currentItemKey = key;
+            const item = items[key];
+            
+            document.getElementById('modal-title').innerText = item.name;
+            document.getElementById('modal-visual').innerHTML = item.visual;
+            document.getElementById('modal-desc').innerText = item.desc;
+            document.getElementById('modal-question').innerText = item.question;
+            
+            // 초기화
+            document.getElementById('user-answer').value = '';
+            const feedbackEl = document.getElementById('modal-feedback');
+            feedbackEl.style.display = 'none';
+            feedbackEl.className = 'feedback';
+
+            document.getElementById('modal').style.display = 'flex';
+        }
+
+        function closeModal() {
+            document.getElementById('modal').style.display = 'none';
+        }
+
+        function checkAnswer() {
+            const userVal = document.getElementById('user-answer').value.trim();
+            const item = items[currentItemKey];
+            const feedbackEl = document.getElementById('modal-feedback');
+            
+            if (!userVal) {
+                alert("답을 입력해주세요!");
+                return;
+            }
+
+            // 키워드 체크
+            let isCorrect = false;
+            for (let kw of item.keywords) {
+                if (userVal.includes(kw)) {
+                    isCorrect = true;
+                    break;
+                }
+            }
+
+            feedbackEl.style.display = 'block';
+
+            if (isCorrect) {
+                feedbackEl.className = 'feedback success';
+                feedbackEl.innerHTML = `<strong>정답입니다!</strong><br>${item.explanation}`;
+                
+                // 완료 처리
+                if (!exploredItems.has(currentItemKey)) {
+                    exploredItems.add(currentItemKey);
+                    document.getElementById(`check-${currentItemKey}`).style.display = 'flex';
+                    updateProgress();
+                }
+            } else {
+                feedbackEl.className = 'feedback hint';
+                feedbackEl.innerHTML = `<strong>힌트:</strong> ${item.hint} <br> 다시 생각해보고 입력해보세요!`;
+            }
+        }
+
+        function updateProgress() {
+            const count = exploredItems.size;
+            const total = Object.keys(items).length;
+            const percentage = (count / total) * 100;
+
+            document.getElementById('progress-fill').style.width = percentage + '%';
+            document.getElementById('progress-text').innerText = count;
+
+            if (count === total) {
+                showFinalReport();
+            }
+        }
+
+        function showFinalReport() {
+            const report = document.getElementById('final-report');
+            const list = document.getElementById('summary-list');
+            list.innerHTML = '';
+
+            // 요약 리스트 생성
+            for (let key in items) {
+                const li = document.createElement('li');
+                li.innerHTML = `<strong>${items[key].name}:</strong> ${items[key].keywords[0]} 원리 활용`;
+                list.appendChild(li);
+            }
+
+            report.style.display = 'block';
+            
+            // 부드럽게 스크롤 이동
+            setTimeout(() => {
+                report.scrollIntoView({ behavior: 'smooth' });
+            }, 500);
+        }
+
+        function submitIdea() {
+            const idea = document.getElementById('idea-input').value;
+            const feedback = document.getElementById('idea-feedback');
+            
+            const scienceTerms = ['전도', '대류', '복사', '단열', '비열', '열팽창', '온도', '입자', '소재', '진공', '공기'];
+            let foundTerms = scienceTerms.filter(term => idea.includes(term));
+
+            feedback.style.display = 'block';
+
+            if (idea.length < 10) {
+                feedback.className = 'feedback hint';
+                feedback.innerHTML = "아이디어가 너무 짧아요. 조금 더 구체적으로 설명해볼까요?";
+            } else if (foundTerms.length > 0) {
+                feedback.className = 'feedback success';
+                feedback.innerHTML = `<strong>훌륭한 제안입니다!</strong><br>
+                과학적 용어(${foundTerms.join(', ')})를 사용하여 논리적으로 설명했네요.<br>
+                여러분이 제안한 아이디어가 실제로 제품으로 만들어질 수도 있습니다.`;
+            } else {
+                feedback.className = 'feedback hint';
+                feedback.innerHTML = `아이디어는 좋지만 과학적 원리 설명이 부족해요.<br>
+                <strong>'전도', '단열', '소재'</strong> 같은 단어를 사용하여 왜 그런 기능이 가능한지 설명해보세요.`;
+            }
+        }
+
+        // 모달 밖 클릭시 닫기
+        window.onclick = function(event) {
+            const modal = document.getElementById('modal');
+            if (event.target == modal) {
+                closeModal();
+            }
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 포도당 vs 설탕 입자 수 비교</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --accent: #FF6B6B;
+            --bg: #F5F7FA;
+            --text: #333;
+        }
+        body { font-family: 'Nanum Gothic', sans-serif; line-height: 1.6; color: var(--text); background: var(--bg); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1, h2 { text-align: center; color: #2c3e50; }
+        
+        .lab-bench { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; margin-top: 20px; }
+        .control-panel { flex: 1; min-width: 300px; padding: 20px; background: #eef2f7; border-radius: 10px; }
+        .visual-panel { flex: 1.5; min-width: 400px; display: flex; flex-direction: column; align-items: center; }
+        
+        .beaker-container { position: relative; width: 300px; height: 400px; }
+        .beaker { 
+            width: 250px; height: 300px; border: 4px solid #aaa; border-top: none; 
+            border-radius: 0 0 20px 20px; position: absolute; bottom: 0; left: 25px;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.8), rgba(230,240,255,0.9));
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 0%;
+            background: rgba(74, 144, 226, 0.2);
+            transition: height 1s ease-out;
+        }
+        .particle {
+            position: absolute; border-radius: 50%; opacity: 0.8;
+            transition: all 0.5s;
+        }
+        /* 포도당: 작고 파란색 */
+        .glucose-particle { width: 8px; height: 8px; background: var(--primary); }
+        /* 설탕: 크고 빨간색 */
+        .sucrose-particle { width: 14px; height: 14px; background: var(--accent); }
+
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="range"], select { width: 100%; padding: 8px; }
+        .value-display { font-size: 0.9em; color: #666; text-align: right; }
+        
+        button {
+            width: 100%; padding: 12px; background: var(--primary); color: white; border: none; 
+            border-radius: 5px; font-size: 1.1em; cursor: pointer; transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background: #357ABD; }
+        button.reset { background: #95a5a6; margin-top: 10px; }
+
+        .data-display { margin-top: 20px; border-collapse: collapse; width: 100%; }
+        .data-display th, .data-display td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        .data-display th { background-color: #f2f2f2; }
+
+        .feedback-box {
+            margin-top: 20px; padding: 15px; border-radius: 8px; background: #fff3cd; 
+            border-left: 5px solid #ffc107; display: none;
+        }
+        
+        .quiz-section { margin-top: 40px; border-top: 2px dashed #ccc; padding-top: 20px; }
+        .quiz-opt { display: block; margin: 10px 0; padding: 10px; background: #f9f9f9; cursor: pointer; border: 1px solid #ddd; border-radius: 5px; }
+        .quiz-opt:hover { background: #eef; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔬 같은 농도, 다른 입자 수 실험</h1>
+    <p style="text-align: center;">같은 질량(g)을 녹였을 때, 포도당과 설탕 중 어디에 더 많은 입자가 들어있을까요?</p>
+
+    <div class="lab-bench">
+        <div class="control-panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="input-group">
+                <label for="soluteType">용질 선택:</label>
+                <select id="soluteType">
+                    <option value="glucose">포도당 (MW: 180)</option>
+                    <option value="sucrose">설탕 (MW: 342)</option>
+                </select>
+            </div>
+
+            <div class="input-group">
+                <label>용질의 질량 (g): <span id="massVal" class="value-display">10</span>g</label>
+                <input type="range" id="massRange" min="1" max="50" value="10">
+            </div>
+
+            <div class="input-group">
+                <label>용액의 부피 (mL): <span id="volVal" class="value-display">100</span>mL</label>
+                <input type="range" id="volRange" min="50" max="250" value="100" step="10">
+            </div>
+
+            <button onclick="runExperiment()">실험 시작 (용해시키기)</button>
+            <button class="reset" onclick="resetExperiment()">초기화</button>
+
+            <div id="feedback" class="feedback-box"></div>
+        </div>
+
+        <div class="visual-panel">
+            <div class="beaker-container">
+                <div class="beaker">
+                    <div class="liquid" id="liquidLevel">
+                        </div>
+                </div>
+            </div>
+            <p>🧪 비커 내부 입자 모형 (스케일: 입자 1개 ≈ 0.001몰)</p>
+        </div>
+    </div>
+
+    <div style="margin-top: 30px;">
+        <h3>📊 실험 결과 분석</h3>
+        <table class="data-display">
+            <thead>
+                <tr>
+                    <th>구분</th>
+                    <th>화학식량(MW)</th>
+                    <th>질량 (g)</th>
+                    <th>몰 수 (mol)</th>
+                    <th>입자 수 비유</th>
+                    <th>몰 농도 (M)</th>
+                </tr>
+            </thead>
+            <tbody id="resultBody">
+                <tr>
+                    <td colspan="6">실험을 시작해주세요.</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="quiz-section">
+        <h3>🧠 개념 확인 퀴즈</h3>
+        <p>Q. 포도당 10g과 설탕 10g을 각각 물에 녹여 100mL 수용액을 만들었습니다. 다음 중 옳은 설명은?</p>
+        <div id="quizOptions">
+            <span class="quiz-opt" onclick="checkQuiz(1)">1. 두 용액의 몰 농도는 같다.</span>
+            <span class="quiz-opt" onclick="checkQuiz(2)">2. 설탕 수용액의 입자 수가 더 많다.</span>
+            <span class="quiz-opt" onclick="checkQuiz(3)">3. 포도당 수용액의 입자 수가 더 많다.</span>
+            <span class="quiz-opt" onclick="checkQuiz(4)">4. 입자 수는 질량에 정비례하므로 같다.</span>
+        </div>
+        <p id="quizResult" style="font-weight: bold;"></p>
+    </div>
+</div>
+
+<script>
+    // 상수 정의
+    const MW_GLUCOSE = 180;
+    const MW_SUCROSE = 342;
+    const PARTICLE_SCALE = 2000; // 시각화를 위한 계수
+
+    // DOM 요소
+    const massRange = document.getElementById('massRange');
+    const volRange = document.getElementById('volRange');
+    const massVal = document.getElementById('massVal');
+    const volVal = document.getElementById('volVal');
+    const soluteSelect = document.getElementById('soluteType');
+    const liquid = document.getElementById('liquidLevel');
+    const feedback = document.getElementById('feedback');
+    const resultBody = document.getElementById('resultBody');
+
+    // 이벤트 리스너
+    massRange.oninput = () => massVal.textContent = massRange.value;
+    volRange.oninput = () => volVal.textContent = volRange.value;
+
+    function runExperiment() {
+        const mass = parseFloat(massRange.value);
+        const volumeMl = parseFloat(volRange.value);
+        const volumeL = volumeMl / 1000;
+        const type = soluteSelect.value;
+        
+        let mw, name, particleClass;
+        
+        if (type === 'glucose') {
+            mw = MW_GLUCOSE;
+            name = "포도당";
+            particleClass = 'glucose-particle';
+        } else {
+            mw = MW_SUCROSE;
+            name = "설탕";
+            particleClass = 'sucrose-particle';
+        }
+
+        // 계산
+        const moles = mass / mw;
+        const molarity = moles / volumeL;
+        const visualCount = Math.floor(moles * PARTICLE_SCALE);
+
+        // 시각화 업데이트
+        liquid.innerHTML = ''; // 기존 입자 제거
+        liquid.style.height = (volumeMl / 300 * 100) + '%'; // 수위 조절 (최대 300mL 기준)
+        
+        // 입자 생성 애니메이션
+        for(let i=0; i<visualCount; i++) {
+            const dot = document.createElement('div');
+            dot.className = `particle ${particleClass}`;
+            // 랜덤 위치
+            dot.style.left = Math.random() * 90 + '%';
+            dot.style.bottom = Math.random() * 90 + '%';
+            
+            // 브라운 운동 효과 (CSS animation 대용 간단 위치)
+            liquid.appendChild(dot);
+            
+            // 간단한 움직임 JS
+            animateParticle(dot);
+        }
+
+        // 결과 테이블 업데이트
+        resultBody.innerHTML = `
+            <tr>
+                <td>${name}</td>
+                <td>${mw}</td>
+                <td>${mass} g</td>
+                <td>${moles.toFixed(3)} mol</td>
+                <td>약 ${visualCount} 개</td>
+                <td><strong>${molarity.toFixed(3)} M</strong></td>
+            </tr>
+        `;
+
+        // 피드백 제공
+        provideFeedback(type, mass, moles, visualCount);
+    }
+
+    function animateParticle(element) {
+        setInterval(() => {
+            const x = Math.random() * 90;
+            const y = Math.random() * 90;
+            element.style.left = x + '%';
+            element.style.bottom = y + '%';
+        }, 2000 + Math.random() * 1000);
+    }
+
+    function provideFeedback(type, mass, moles, count) {
+        feedback.style.display = 'block';
+        let msg = `🧪 <strong>실험 분석:</strong><br>`;
+        msg += `${mass}g을 녹였지만, <strong>${type === 'glucose' ? '포도당' : '설탕'}</strong>은 분자량이 ${type === 'glucose' ? '작아서(180)' : '커서(342)'} `;
+        msg += `같은 질량이어도 입자의 개수(몰 수)는 ${type === 'glucose' ? '<strong>훨씬 많습니다!</strong>' : '<strong>더 적습니다.</strong>'}<br><br>`;
+        msg += `💡 <strong>비유:</strong> 같은 100kg이라도 '볼링공'보다 '탁구공'의 개수가 훨씬 많은 것과 같습니다. 화학 반응은 입자끼리 만나서 일어나므로 질량보다 <strong>몰 농도</strong>가 중요합니다.`;
+        feedback.innerHTML = msg;
+    }
+
+    function resetExperiment() {
+        liquid.style.height = '0%';
+        liquid.innerHTML = '';
+        feedback.style.display = 'none';
+        resultBody.innerHTML = '<tr><td colspan="6">실험을 시작해주세요.</td></tr>';
+        document.getElementById('quizResult').textContent = '';
+    }
+
+    function checkQuiz(ans) {
+        const res = document.getElementById('quizResult');
+        if (ans === 3) {
+            res.innerHTML = "✅ 정답입니다! 포도당의 분자량이 설탕보다 작으므로, 같은 질량일 때 입자 수가 더 많고 몰 농도도 큽니다.";
+            res.style.color = "green";
+        } else {
+            res.innerHTML = "❌ 다시 생각해보세요. 분자량이 작을수록 같은 질량 안에 더 많은 입자가 들어갈 수 있습니다.";
+            res.style.color = "red";
+        }
+    }
+</script>
+
+</body>
+</html>

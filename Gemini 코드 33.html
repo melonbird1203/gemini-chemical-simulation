@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 원소 기호의 비밀</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --accent-color: #ff6b6b;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1, h2 { text-align: center; color: #2c3e50; }
+        
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 20px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            border-bottom: 2px solid #eee;
+        }
+
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 15px 20px;
+            font-size: 1.1rem;
+            cursor: pointer;
+            font-weight: bold;
+            color: #888;
+            transition: color 0.3s;
+        }
+
+        .tab-btn.active {
+            color: var(--primary-color);
+            border-bottom: 3px solid var(--primary-color);
+        }
+
+        .tab-content { display: none; animation: fadeIn 0.5s; }
+        .tab-content.active { display: block; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+        /* Experiment Section */
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        input[type="text"] {
+            flex: 1;
+            padding: 15px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 1.2rem;
+        }
+
+        button.action-btn {
+            padding: 15px 25px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            font-weight: bold;
+        }
+        
+        button.action-btn:hover { background-color: #357abd; }
+
+        .element-card {
+            border: 3px solid var(--primary-color);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            margin-top: 20px;
+            background: linear-gradient(135deg, #ffffff 0%, #f0f8ff 100%);
+            display: none;
+            position: relative;
+        }
+
+        .symbol {
+            font-size: 5rem;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin: 10px 0;
+            font-family: serif;
+        }
+
+        .details { font-size: 1.2rem; margin: 10px 0; }
+        .origin-badge {
+            display: inline-block;
+            padding: 5px 15px;
+            background-color: var(--secondary-color);
+            color: #005f4e;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .feedback {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            border-radius: 5px;
+            display: none;
+        }
+
+        /* Quiz Section */
+        .quiz-area { text-align: center; padding: 20px; }
+        .score-board { font-size: 1.5rem; color: var(--accent-color); font-weight: bold; margin-bottom: 15px;}
+        .options { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 20px; }
+        .option-btn {
+            padding: 20px;
+            background: #f8f9fa;
+            border: 2px solid #dee2e6;
+            border-radius: 10px;
+            font-size: 1.2rem;
+            cursor: pointer;
+        }
+        .option-btn:hover { background: #e2e6ea; }
+
+        /* Guide Section */
+        .rule-box {
+            background: #f1f3f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+        .rule-title { font-weight: bold; color: var(--primary-color); margin-bottom: 5px;}
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 원소 기호 실험실</h1>
+    
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('learn')">1. 규칙 배우기</button>
+        <button class="tab-btn" onclick="switchTab('experiment')">2. 기호 만들기</button>
+        <button class="tab-btn" onclick="switchTab('quiz')">3. 실전 퀴즈</button>
+    </div>
+
+    <div id="learn" class="tab-content active">
+        <h2>원소 기호는 어떻게 만들까요?</h2>
+        <div class="rule-box">
+            <div class="rule-title">규칙 1: 첫 글자는 대문자로!</div>
+            <p>원소 기호는 전 세계 과학자들의 약속이에요. 첫 글자는 무조건 <strong>대문자</strong>로 씁니다.</p>
+            <p>예: 수소(Hydrogen) → <strong>H</strong></p>
+        </div>
+        <div class="rule-box">
+            <div class="rule-title">규칙 2: 겹치면 두 번째 글자는 소문자로!</div>
+            <p>이미 첫 글자를 다른 원소가 쓰고 있다면, 중간 글자를 <strong>소문자</strong>로 붙여서 구별해요.</p>
+            <p>예: 탄소(Carbon) → <strong>C</strong> vs 칼슘(Calcium) → <strong>Ca</strong></p>
+        </div>
+        <div class="rule-box">
+            <div class="rule-title">규칙 3: 영어 이름이 아닐 수도 있어요!</div>
+            <p>옛날부터 알려진 원소는 라틴어나 독일어 이름에서 기호를 따왔어요.</p>
+            <p>예: 나트륨(Natrium) → <strong>Na</strong> (영어로는 Sodium이라고 불러요)</p>
+        </div>
+        <button class="action-btn" onclick="switchTab('experiment')" style="width:100%">실험하러 가기 👉</button>
+    </div>
+
+    <div id="experiment" class="tab-content">
+        <h2>🔍 원소 기호 탐색기</h2>
+        <p>원소의 한글 이름(예: 수소, 탄소, 철)을 입력하고 '변환'을 눌러보세요.</p>
+        
+        <div class="input-group">
+            <input type="text" id="elementInput" placeholder="예: 수소, 헬륨, 탄소..." onkeyup="if(event.key === 'Enter') showElement()">
+            <button class="action-btn" onclick="showElement()">변환하기</button>
+        </div>
+
+        <div id="cardDisplay" class="element-card">
+            <div id="elNameKr" class="details">한국어 이름</div>
+            <div id="elSymbol" class="symbol">Sym</div>
+            <div id="elNameEn" class="details">English Name</div>
+            <div id="elOrigin" class="origin-badge">유래 정보</div>
+            <div id="elFeedback" class="feedback"></div>
+        </div>
+    </div>
+
+    <div id="quiz" class="tab-content">
+        <h2>🎓 기호 마스터 퀴즈</h2>
+        <div class="quiz-area">
+            <div class="score-board">점수: <span id="score">0</span>점</div>
+            <div id="questionText" style="font-size: 1.5rem; margin: 20px 0;">다음 원소의 기호는 무엇일까요?</div>
+            <h3 id="quizTarget" style="color:var(--primary-color); font-size:2rem;">-</h3>
+            <div id="options" class="options">
+                </div>
+            <div id="quizFeedback" style="margin-top:20px; font-weight:bold; height: 20px;"></div>
+            <button class="action-btn" onclick="nextQuestion()" style="margin-top:20px; display:none;" id="nextBtn">다음 문제</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Database of Elements (Sample for MS level)
+    const elements = [
+        { kr: "수소", en: "Hydrogen", sym: "H", origin: "그리스어 'hydro'(물) 생성" },
+        { kr: "헬륨", en: "Helium", sym: "He", origin: "그리스어 'helios'(태양)" },
+        { kr: "리튬", en: "Lithium", sym: "Li", origin: "그리스어 'lithos'(돌)" },
+        { kr: "탄소", en: "Carbon", sym: "C", origin: "라틴어 'carbo'(숯)" },
+        { kr: "질소", en: "Nitrogen", sym: "N", origin: "그리스어 'nitron'(초석)" },
+        { kr: "산소", en: "Oxygen", sym: "O", origin: "그리스어 'oxys'(산) 생성" },
+        { kr: "플루오린", en: "Fluorine", sym: "F", origin: "라틴어 'fluere'(흐르다)" },
+        { kr: "네온", en: "Neon", sym: "Ne", origin: "그리스어 'neos'(새로운)" },
+        { kr: "나트륨", en: "Sodium", sym: "Na", origin: "라틴어 'Natrium' (영어명 Sodium과 다름!)" },
+        { kr: "마그네슘", en: "Magnesium", sym: "Mg", origin: "그리스 마그네시아 지방" },
+        { kr: "알루미늄", en: "Aluminium", sym: "Al", origin: "라틴어 'alumen'(백반)" },
+        { kr: "규소", en: "Silicon", sym: "Si", origin: "라틴어 'silex'(부싯돌)" },
+        { kr: "인", en: "Phosphorus", sym: "P", origin: "그리스어 '빛을 가져오는 것'" },
+        { kr: "황", en: "Sulfur", sym: "S", origin: "라틴어 'sulphurium'" },
+        { kr: "염소", en: "Chlorine", sym: "Cl", origin: "그리스어 'chloros'(황록색)" },
+        { kr: "칼륨", en: "Potassium", sym: "K", origin: "라틴어 'Kalium' (영어명 Potassium과 다름!)" },
+        { kr: "칼슘", en: "Calcium", sym: "Ca", origin: "라틴어 'calx'(석회석)" },
+        { kr: "철", en: "Iron", sym: "Fe", origin: "라틴어 'Ferrum'" },
+        { kr: "구리", en: "Copper", sym: "Cu", origin: "라틴어 'Cuprum'(키프로스 섬)" },
+        { kr: "은", en: "Silver", sym: "Ag", origin: "라틴어 'Argentum'" },
+        { kr: "금", en: "Gold", sym: "Au", origin: "라틴어 'Aurum'(빛나는 새벽)" }
+    ];
+
+    // --- Tab Logic ---
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById(tabId).classList.add('active');
+        document.querySelector(`button[onclick="switchTab('${tabId}')"]`).classList.add('active');
+
+        if(tabId === 'quiz') startQuiz();
+    }
+
+    // --- Experiment Logic ---
+    function showElement() {
+        const input = document.getElementById('elementInput').value.trim();
+        const card = document.getElementById('cardDisplay');
+        const feedback = document.getElementById('elFeedback');
+        
+        // Find element (loose matching)
+        const target = elements.find(e => e.kr === input || e.en.toLowerCase() === input.toLowerCase() || e.sym.toLowerCase() === input.toLowerCase());
+
+        card.style.display = 'block';
+
+        if (target) {
+            document.getElementById('elNameKr').innerText = target.kr;
+            document.getElementById('elSymbol').innerText = target.sym;
+            document.getElementById('elNameEn').innerText = target.en;
+            document.getElementById('elOrigin').innerText = `유래: ${target.origin}`;
+            document.getElementById('elOrigin').style.display = 'inline-block';
+            
+            // Educational Feedback based on rules
+            let msg = "";
+            if (target.sym.length === 1) {
+                msg = "💡 첫 글자만 사용했네요! 대문자인 것을 확인하세요.";
+            } else {
+                msg = "💡 두 글자 기호네요! 첫 글자는 대문자, 두 번째는 소문자입니다.";
+            }
+
+            if (target.sym === 'Na' || target.sym === 'K' || target.sym === 'Fe' || target.sym === 'Cu' || target.sym === 'Ag' || target.sym === 'Au') {
+                msg += "<br>😲 영어 이름과 기호가 다르죠? 라틴어 이름에서 왔기 때문이에요!";
+            }
+            
+            feedback.innerHTML = msg;
+            feedback.style.display = 'block';
+        } else {
+            document.getElementById('elNameKr').innerText = "???";
+            document.getElementById('elSymbol').innerText = "?";
+            document.getElementById('elNameEn').innerText = "";
+            document.getElementById('elOrigin').style.display = 'none';
+            feedback.innerHTML = "🤔 아직 우리 데이터베이스에 없는 원소이거나 오타일 수 있어요.<br>수소, 탄소, 나트륨, 구리 등을 입력해보세요!";
+            feedback.style.display = 'block';
+        }
+    }
+
+    // --- Quiz Logic ---
+    let currentScore = 0;
+    let currentQuestion = null;
+
+    function startQuiz() {
+        nextQuestion();
+    }
+
+    function nextQuestion() {
+        document.getElementById('nextBtn').style.display = 'none';
+        document.getElementById('quizFeedback').innerText = "";
+        
+        // Randomly pick an element
+        const target = elements[Math.floor(Math.random() * elements.length)];
+        currentQuestion = target;
+
+        // Randomly decide question type: Name -> Symbol OR Symbol -> Name
+        const type = Math.random() > 0.5 ? 'toSymbol' : 'toName';
+
+        if (type === 'toSymbol') {
+            document.getElementById('questionText').innerText = `다음 원소의 기호는?`;
+            document.getElementById('quizTarget').innerText = target.kr;
+        } else {
+            document.getElementById('questionText').innerText = `이 기호의 원소 이름은?`;
+            document.getElementById('quizTarget').innerText = target.sym;
+        }
+
+        // Generate options (1 correct + 3 wrong)
+        let options = [target];
+        while (options.length < 4) {
+            let wrong = elements[Math.floor(Math.random() * elements.length)];
+            if (!options.includes(wrong)) options.push(wrong);
+        }
+        
+        // Shuffle options
+        options.sort(() => Math.random() - 0.5);
+
+        const optionsDiv = document.getElementById('options');
+        optionsDiv.innerHTML = '';
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'option-btn';
+            btn.innerText = type === 'toSymbol' ? opt.sym : opt.kr;
+            btn.onclick = () => checkAnswer(opt, btn);
+            optionsDiv.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected, btnElement) {
+        const feedback = document.getElementById('quizFeedback');
+        const nextBtn = document.getElementById('nextBtn');
+        
+        // Disable all buttons
+        const allBtns = document.querySelectorAll('.option-btn');
+        allBtns.forEach(b => b.disabled = true);
+
+        if (selected === currentQuestion) {
+            btnElement.style.backgroundColor = '#d4edda';
+            btnElement.style.borderColor = '#c3e6cb';
+            feedback.innerText = "정답입니다! 🎉";
+            feedback.style.color = "green";
+            currentScore += 10;
+        } else {
+            btnElement.style.backgroundColor = '#f8d7da';
+            btnElement.style.borderColor = '#f5c6cb';
+            feedback.innerText = `아쉽네요. 정답은 [ ${currentQuestion.kr} : ${currentQuestion.sym} ] 입니다.`;
+            feedback.style.color = "red";
+            // Highlight correct one
+            allBtns.forEach(b => {
+                if(b.innerText === currentQuestion.sym || b.innerText === currentQuestion.kr) {
+                    b.style.backgroundColor = '#d4edda';
+                }
+            });
+        }
+        
+        document.getElementById('score').innerText = currentScore;
+        nextBtn.style.display = 'inline-block';
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,544 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 질량 보존 법칙의 비밀</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --warning: #F1C40F;
+            --danger: #E74C3C;
+            --bg: #F5F7FA;
+            --panel: #FFFFFF;
+            --text: #2C3E50;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1, h2, h3 { margin: 0 0 10px 0; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1400px;
+            width: 100%;
+            height: 85vh;
+        }
+
+        /* 패널 공통 스타일 */
+        .panel {
+            background: var(--panel);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            overflow-y: auto;
+        }
+
+        /* 제어 패널 (왼쪽) */
+        .control-group {
+            margin-bottom: 25px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+            font-size: 1rem;
+            cursor: pointer;
+        }
+
+        button.primary {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        button.primary:hover { background-color: #357ABD; }
+        
+        button.reset { background-color: var(--warning); color: #333; border: none; }
+
+        /* 실험대 패널 (중앙) */
+        .lab-bench {
+            position: relative;
+            background: #E8EEF2;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 50px;
+            overflow: hidden;
+        }
+
+        .system-container {
+            width: 300px;
+            height: 350px;
+            border: 4px solid #BDC3C7;
+            border-radius: 10px;
+            background: rgba(255,255,255,0.8);
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            margin-bottom: 20px;
+            transition: 0.3s;
+        }
+
+        .system-container.closed { border-color: var(--text); border-top: 10px solid var(--text); }
+        .system-container.open { border-top: none; }
+
+        .beaker {
+            width: 120px;
+            height: 150px;
+            background: rgba(200, 230, 255, 0.4);
+            border: 2px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            margin-bottom: 20px;
+        }
+
+        .chemical {
+            width: 100%;
+            height: 50%;
+            position: absolute;
+            bottom: 0;
+            transition: 1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+        }
+
+        .precipitate { background-color: #fff; opacity: 0.9; height: 30%; bottom: 0; }
+        
+        /* 입자 애니메이션용 */
+        .particle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 1s ease-in-out;
+            z-index: 10;
+        }
+
+        /* 디지털 저울 */
+        .scale {
+            width: 200px;
+            height: 60px;
+            background: #34495E;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #2ECC71;
+            font-family: 'Courier New', Courier, monospace;
+            font-size: 2.5rem;
+            font-weight: bold;
+            box-shadow: 0 4px 0 #2C3E50;
+        }
+
+        /* 분석 패널 (오른쪽) */
+        .particle-view {
+            height: 200px;
+            background: #222;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .info-box {
+            background: #eef;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .hidden { display: none; }
+        
+        .feedback {
+            font-weight: bold;
+            color: var(--primary);
+            margin-top: 10px;
+            padding: 10px;
+            background: #EAF2F8;
+            border-radius: 5px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header style="text-align: center; margin-bottom: 20px;">
+        <h1>🧪 중3 가상 화학 실험실</h1>
+        <p>단원: 화학 변화와 법칙 > 질량 보존 법칙 ([9과17-03])</p>
+    </header>
+
+    <div class="container">
+        <div class="panel">
+            <h2>⚙️ 실험 설계</h2>
+            
+            <div class="control-group">
+                <label>1단계: 반응 선택</label>
+                <select id="reactionType">
+                    <option value="precipitate">앙금 생성 (염화 칼슘 + 탄산 나트륨)</option>
+                    <option value="gas">기체 발생 (탄산 칼슘 + 묽은 염산)</option>
+                    <option value="combustion">연소 반응 (강철솜 + 산소)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>2단계: 계(System) 설정</label>
+                <select id="systemType">
+                    <option value="open">열린계 (뚜껑 없음)</option>
+                    <option value="closed">닫힌계 (뚜껑 있음)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>3단계: 실험 수행</label>
+                <button class="primary" onclick="startExperiment()">반응 시작!</button>
+                <button class="reset" onclick="resetExperiment()">초기화</button>
+            </div>
+
+            <div class="info-box">
+                <strong>💡 실험 팁:</strong><br>
+                반응 전과 후, 저울의 눈금이 어떻게 변하는지 주목하세요.
+            </div>
+        </div>
+
+        <div class="panel" style="background: white; padding: 0;">
+            <div class="lab-bench">
+                <div id="gasZone" style="position:absolute; top: 50px; width: 100%; height: 200px; pointer-events: none;"></div>
+                
+                <div id="systemContainer" class="system-container open">
+                    <div class="beaker">
+                        <div id="reactantA" class="chemical" style="background: rgba(100,149,237,0.5); bottom: 0;">A</div>
+                        <div id="reactantB" class="chemical" style="background: rgba(255,218,185,0.5); bottom: 50%;">B</div>
+                        <div id="product" class="chemical hidden" style="height: 100%; bottom: 0;"></div>
+                    </div>
+                </div>
+                
+                <div class="scale">
+                    <span id="scaleValue">0.0</span> g
+                </div>
+            </div>
+            <div style="padding: 20px;">
+                <h3>📢 실험 현황</h3>
+                <div id="statusText">실험 조건을 선택하고 '반응 시작'을 눌러주세요.</div>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📊 분석 및 입자 모형</h2>
+            
+            <p><strong>입자 모형 (미시적 관점)</strong></p>
+            <div class="particle-view" id="particleView">
+                <div style="color: white; text-align: center; padding-top: 80px;">반응 대기 중...</div>
+            </div>
+
+            <p><strong>질량 변화 그래프</strong></p>
+            <canvas id="massChart" height="150"></canvas>
+
+            <div id="resultFeedback" class="feedback hidden"></div>
+
+            <div class="control-group" style="margin-top: 20px; border: none;">
+                <h3>📝 이해도 확인</h3>
+                <p id="quizQuestion" style="font-size: 0.9rem;">반응이 끝난 후 문제가 표시됩니다.</p>
+                <button id="showAnswerBtn" class="hidden" onclick="showAnswer()">정답 확인</button>
+                <p id="quizAnswer" class="hidden" style="color: blue;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let currentMass = 0;
+        let isReacted = false;
+        let massChart = null;
+
+        // 초기화
+        window.onload = () => {
+            initChart();
+            resetExperiment();
+        };
+
+        function initChart() {
+            const ctx = document.getElementById('massChart').getContext('2d');
+            massChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['반응 전', '반응 후'],
+                    datasets: [{
+                        label: '질량 (g)',
+                        data: [0, 0],
+                        backgroundColor: ['#3498DB', '#E74C3C']
+                    }]
+                },
+                options: {
+                    scales: { y: { beginAtZero: true, max: 250 } },
+                    plugins: { legend: { display: false } }
+                }
+            });
+        }
+
+        function resetExperiment() {
+            isReacted = false;
+            document.getElementById('product').classList.add('hidden');
+            document.getElementById('reactantA').classList.remove('hidden');
+            document.getElementById('reactantB').classList.remove('hidden');
+            document.getElementById('gasZone').innerHTML = '';
+            document.getElementById('resultFeedback').classList.add('hidden');
+            document.getElementById('showAnswerBtn').classList.add('hidden');
+            document.getElementById('quizAnswer').classList.add('hidden');
+            document.getElementById('quizQuestion').innerText = "반응이 끝난 후 문제가 표시됩니다.";
+            
+            // 시스템 모양 업데이트
+            const sysType = document.getElementById('systemType').value;
+            const container = document.getElementById('systemContainer');
+            if(sysType === 'closed') {
+                container.classList.add('closed');
+                container.classList.remove('open');
+            } else {
+                container.classList.add('open');
+                container.classList.remove('closed');
+            }
+
+            // 시약 이름 업데이트 및 초기 질량 설정
+            const reaction = document.getElementById('reactionType').value;
+            updateLabels(reaction);
+            
+            // 파티클 뷰 초기화
+            document.getElementById('particleView').innerHTML = '<div style="color: white; text-align: center; padding-top: 80px;">준비 완료</div>';
+            
+            updateScale(currentMass);
+            updateChart(currentMass, 0);
+            document.getElementById('statusText').innerText = "준비 완료! [반응 시작] 버튼을 누르세요.";
+        }
+
+        function updateLabels(reaction) {
+            const rA = document.getElementById('reactantA');
+            const rB = document.getElementById('reactantB');
+
+            if (reaction === 'precipitate') {
+                rA.innerText = "탄산 나트륨";
+                rB.innerText = "염화 칼슘";
+                currentMass = 200.0;
+            } else if (reaction === 'gas') {
+                rA.innerText = "탄산 칼슘";
+                rB.innerText = "묽은 염산";
+                currentMass = 150.0;
+            } else {
+                rA.innerText = "강철솜";
+                rB.innerText = "산소(공기)";
+                currentMass = 100.0;
+            }
+        }
+
+        function startExperiment() {
+            if (isReacted) return;
+            isReacted = true;
+
+            const reaction = document.getElementById('reactionType').value;
+            const system = document.getElementById('systemType').value;
+            let finalMass = currentMass;
+            let explanation = "";
+            let visualEffect = "";
+
+            // 반응 로직
+            if (reaction === 'precipitate') {
+                // 앙금 생성: 질량 변화 없음
+                finalMass = currentMass;
+                visualEffect = "white-cloud";
+                explanation = "앙금 생성 반응에서는 기체가 발생하거나 들어오지 않으므로, 열린계/닫힌계 모두 질량이 보존됩니다.";
+            } else if (reaction === 'gas') {
+                // 기체 발생: 열린계에서 감소
+                if (system === 'open') {
+                    finalMass = currentMass - 5.5; // 이산화탄소 탈출
+                    explanation = "발생한 이산화탄소 기체가 공기 중으로 날아갔기 때문에 질량이 감소한 것처럼 보입니다.";
+                } else {
+                    finalMass = currentMass;
+                    explanation = "기체가 발생했지만 닫힌 용기 안에 갇혀 있으므로 전체 질량은 변하지 않았습니다.";
+                }
+            } else if (reaction === 'combustion') {
+                // 연소: 열린계에서 증가 (산소 결합)
+                if (system === 'open') {
+                    finalMass = currentMass + 8.0; // 산소 결합
+                    explanation = "공기 중의 산소와 결합하여 산화 철이 되었기 때문에 질량이 증가했습니다.";
+                } else {
+                    finalMass = currentMass; // 용기 내 산소만 사용 (이상적인 상황 가정)
+                    explanation = "용기 내부의 산소와 반응했으므로, 용기 전체의 질량은 변하지 않습니다.";
+                }
+            }
+
+            // 1. 거시적 애니메이션 (비커 변화)
+            document.getElementById('statusText').innerText = "반응 진행 중...";
+            setTimeout(() => {
+                document.getElementById('reactantA').classList.add('hidden');
+                document.getElementById('reactantB').classList.add('hidden');
+                const prod = document.getElementById('product');
+                prod.classList.remove('hidden');
+                
+                if (reaction === 'precipitate') {
+                    prod.style.background = "#ddd"; 
+                    prod.innerText = "탄산 칼슘(앙금) + 소금물";
+                } else if (reaction === 'gas') {
+                    prod.style.background = "rgba(200, 230, 255, 0.4)";
+                    prod.innerText = "염화 칼슘 수용액";
+                    createBubbles(system);
+                } else {
+                    prod.style.background = "#555";
+                    prod.style.color = "#fff";
+                    prod.innerText = "산화 철";
+                }
+
+                // 2. 질량 업데이트
+                updateScale(finalMass);
+                updateChart(currentMass, finalMass);
+                
+                // 3. 피드백 및 입자 시뮬레이션
+                document.getElementById('statusText').innerText = "반응 완료!";
+                document.getElementById('resultFeedback').innerText = explanation;
+                document.getElementById('resultFeedback').classList.remove('hidden');
+                
+                visualizeParticles(reaction, system);
+                setupQuiz(reaction, system, currentMass, finalMass);
+
+            }, 1000);
+        }
+
+        function createBubbles(system) {
+            const zone = document.getElementById('gasZone');
+            for(let i=0; i<20; i++) {
+                const bubble = document.createElement('div');
+                bubble.innerText = "○";
+                bubble.style.position = "absolute";
+                bubble.style.left = (50 + Math.random()*100) + "px";
+                bubble.style.bottom = "0px";
+                bubble.style.color = "#777";
+                bubble.style.transition = "all 2s";
+                zone.appendChild(bubble);
+
+                setTimeout(() => {
+                    bubble.style.bottom = "250px";
+                    if(system === 'open') {
+                        bubble.style.opacity = 0; // 날아감
+                    } else {
+                        bubble.style.top = "10px"; // 천장에 막힘
+                    }
+                }, 100);
+            }
+        }
+
+        function visualizeParticles(reaction, system) {
+            const view = document.getElementById('particleView');
+            view.innerHTML = ''; // 초기화
+            
+            // 간단한 입자 시각화 (DOM 이용)
+            const particleCount = 20;
+            const colors = reaction === 'combustion' ? ['red', 'gray'] : ['blue', 'orange'];
+            
+            for(let i=0; i<particleCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.backgroundColor = colors[i % colors.length];
+                p.style.left = Math.random() * 90 + "%";
+                p.style.top = Math.random() * 90 + "%";
+                view.appendChild(p);
+                
+                // 간단한 움직임
+                setInterval(() => {
+                    if (reaction === 'gas' && system === 'open' && i % 3 === 0) {
+                        p.style.top = "-20px"; // 기체 탈출
+                        p.style.opacity = 0;
+                    } else {
+                        p.style.left = Math.random() * 90 + "%";
+                        p.style.top = Math.random() * 90 + "%";
+                    }
+                }, 1000);
+            }
+            
+            const caption = document.createElement('div');
+            caption.style.position = 'absolute';
+            caption.style.bottom = '10px';
+            caption.style.width = '100%';
+            caption.style.textAlign = 'center';
+            caption.style.color = 'white';
+            caption.style.fontSize = '0.8rem';
+            
+            if (reaction === 'gas' && system === 'open') {
+                caption.innerText = "일부 원자(기체)가 시스템 밖으로 나갑니다.";
+            } else if (reaction === 'combustion' && system === 'open') {
+                // 연소 열린계 시각화 추가 필요 (외부 산소 유입) - 단순화하여 텍스트 처리
+                 caption.innerText = "외부 산소 원자가 결합하여 질량이 증가합니다.";
+            } else {
+                 caption.innerText = "원자의 종류와 개수는 변하지 않고 배열만 바뀝니다.";
+            }
+            view.appendChild(caption);
+        }
+
+        function updateScale(val) {
+            document.getElementById('scaleValue').innerText = val.toFixed(1);
+        }
+
+        function updateChart(before, after) {
+            massChart.data.datasets[0].data = [before, after];
+            massChart.update();
+        }
+
+        function setupQuiz(reaction, system, before, after) {
+            const quizQ = document.getElementById('quizQuestion');
+            const quizA = document.getElementById('quizAnswer');
+            const btn = document.getElementById('showAnswerBtn');
+            
+            btn.classList.remove('hidden');
+            quizA.classList.add('hidden');
+
+            let q = "";
+            let a = "";
+
+            if (Math.abs(before - after) < 0.1) {
+                q = "Q. 반응 전후 질량이 변하지 않은 이유는 무엇일까요?";
+                a = "A. 화학 반응이 일어나도 원자는 새로 생기거나 없어지지 않고, 그 배열만 바뀌기 때문입니다. (질량 보존 법칙)";
+            } else if (after < before) {
+                q = "Q. 질량이 감소했습니다. 질량 보존 법칙이 성립하지 않은 것일까요?";
+                a = "A. 아닙니다! 법칙은 항상 성립합니다. 다만 '열린계'라서 발생한 기체가 밖으로 나갔기 때문에 측정된 질량만 줄어든 것입니다.";
+            } else {
+                q = "Q. 강철솜을 태웠더니 질량이 늘었습니다. 그 이유는?";
+                a = "A. 공기 중의 산소(O₂)가 강철솜(Fe)과 결합했기 때문입니다. 늘어난 질량은 결합한 산소의 질량입니다.";
+            }
+
+            quizQ.innerText = q;
+            quizA.innerText = a;
+        }
+
+        function showAnswer() {
+            document.getElementById('quizAnswer').classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>

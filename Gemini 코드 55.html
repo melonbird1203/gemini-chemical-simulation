@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 크로마토그래피</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #333; margin-bottom: 10px; }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        /* 제어 패널 스타일 */
+        .control-panel, .result-panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 300px;
+            flex-shrink: 0;
+        }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; color: #555; }
+        select, button, input[type="range"] {
+            width: 100%;
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            margin-bottom: 5px;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: #e74c3c; margin-top: 10px;}
+        
+        /* 실험 영역 스타일 */
+        .lab-area {
+            position: relative;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            background: #f9f9f9; /* 배경색 */
+            cursor: crosshair;
+        }
+        .info-box {
+            margin-top: 10px;
+            padding: 10px;
+            background: #eef;
+            border-left: 4px solid var(--primary-color);
+            font-size: 0.9rem;
+            width: 100%;
+            box-sizing: border-box;
+        }
+
+        /* 결과 테이블 */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th { background-color: #f2f2f2; }
+        
+        .feedback {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #2c3e50;
+            white-space: pre-line;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 크로마토그래피 혼합물 분리 실험</h1>
+    <p>용매와 거름종이를 선택하고 색소가 어떻게 분리되는지 관찰하며 Rf 값을 계산해봅시다.</p>
+
+    <div class="container">
+        <div class="control-panel">
+            <h3>🧪 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label for="solvent">용매 종류</label>
+                <select id="solvent">
+                    <option value="water">물 (극성 용매)</option>
+                    <option value="ethanol">에탄올 (유기 용매)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="ink">사인펜 종류</label>
+                <select id="ink">
+                    <option value="water_black">수성 사인펜 (검정)</option>
+                    <option value="perm_black">유성 사인펜 (검정)</option>
+                    <option value="water_red">수성 사인펜 (빨강)</option>
+                    <option value="mix_green">식용 색소 (초록 혼합)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="paper">종이 종류</label>
+                <select id="paper">
+                    <option value="filter">거름종이 (표준)</option>
+                    <option value="chalk">분필 (흡수 빠름)</option>
+                </select>
+            </div>
+
+            <button onclick="startExperiment()">실험 시작 ▶</button>
+            <button class="reset" onclick="resetExperiment()">초기화 ↺</button>
+            
+            <div class="info-box">
+                <strong>💡 Tip:</strong> 유성 사인펜은 물에 녹을까요? 용매를 바꿔가며 실험해보세요!
+            </div>
+        </div>
+
+        <div class="lab-area">
+            <canvas id="simCanvas" width="300" height="500"></canvas>
+            <div id="statusMessage" style="margin-top:10px; color:#666;">준비 완료</div>
+        </div>
+
+        <div class="result-panel">
+            <h3>📊 실험 결과 데이터</h3>
+            <p><strong>Rf 값(전개율) 계산식:</strong><br>
+            $$Rf = \frac{\text{색소 이동 거리}}{\text{용매 이동 거리}}$$</p>
+            
+            <table>
+                <thead>
+                    <tr>
+                        <th>성분 색소</th>
+                        <th>이동 거리</th>
+                        <th>Rf 값</th>
+                    </tr>
+                </thead>
+                <tbody id="resultBody">
+                    <tr><td colspan="3">실험을 시작하세요</td></tr>
+                </tbody>
+            </table>
+
+            <div class="feedback" id="feedbackArea"></div>
+            
+            <div style="margin-top:20px; border-top:1px solid #eee; padding-top:10px;">
+                <h4>📝 확인 퀴즈</h4>
+                <div id="quizSection">
+                    <p id="quizQuestion">실험 후 퀴즈가 나타납니다.</p>
+                    <button onclick="checkAnswer()" id="quizBtn" style="display:none; margin-top:5px;">정답 확인</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const resultBody = document.getElementById('resultBody');
+        const feedbackArea = document.getElementById('feedbackArea');
+        const statusMsg = document.getElementById('statusMessage');
+
+        let isRunning = false;
+        let animationId;
+        let solventY = 450; // 용매 시작 높이 (캔버스 바닥 근처)
+        const baselineY = 400; // 원점 라인
+        const maxSolventHeight = 50; // 용매가 올라갈 최대 높이
+        
+        let components = [];
+        let solventSpeed = 0.5;
+        let solventFront = baselineY; // 현재 용매 전선 위치
+
+        // 잉크 데이터베이스
+        const inkData = {
+            'water_black': {
+                name: '수성 검정',
+                components: [
+                    { color: 'cyan', speedRatio: 0.9, name: '파랑(Cyan)' },
+                    { color: 'magenta', speedRatio: 0.6, name: '분홍(Magenta)' },
+                    { color: 'yellow', speedRatio: 0.3, name: '노랑(Yellow)' }
+                ],
+                isSolubleInWater: true
+            },
+            'perm_black': {
+                name: '유성 검정',
+                components: [
+                    { color: 'black', speedRatio: 0.95, name: '검정 성분' },
+                    { color: 'purple', speedRatio: 0.7, name: '보라 성분' }
+                ],
+                isSolubleInWater: false // 물에 안 녹음
+            },
+            'water_red': {
+                name: '수성 빨강',
+                components: [
+                    { color: 'red', speedRatio: 0.8, name: '빨강(Red)' },
+                    { color: 'orange', speedRatio: 0.4, name: '주황(Orange)' }
+                ],
+                isSolubleInWater: true
+            },
+            'mix_green': {
+                name: '혼합 초록',
+                components: [
+                    { color: 'blue', speedRatio: 0.85, name: '파랑(Blue)' },
+                    { color: 'yellow', speedRatio: 0.4, name: '노랑(Yellow)' }
+                ],
+                isSolubleInWater: true
+            }
+        };
+
+        function drawSetup() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 거름종이 그리기
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(50, 20, 200, 460);
+            ctx.strokeStyle = '#ddd';
+            ctx.strokeRect(50, 20, 200, 460);
+
+            // 원점 라인 (연필 선)
+            ctx.beginPath();
+            ctx.moveTo(70, baselineY);
+            ctx.lineTo(230, baselineY);
+            ctx.strokeStyle = '#aaa';
+            ctx.setLineDash([5, 5]);
+            ctx.stroke();
+            ctx.setLineDash([]);
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText("시작선", 235, baselineY + 5);
+
+            // 비커 속 용매
+            ctx.fillStyle = document.getElementById('solvent').value === 'water' ? 'rgba(173, 216, 230, 0.5)' : 'rgba(200, 200, 200, 0.5)';
+            ctx.fillRect(50, 450, 200, 50);
+            
+            // 현재 잉크 점 (시작 전)
+            if (!isRunning && components.length === 0) {
+                ctx.beginPath();
+                ctx.arc(150, baselineY, 6, 0, Math.PI * 2);
+                ctx.fillStyle = 'black';
+                ctx.fill();
+            }
+        }
+
+        function startExperiment() {
+            if (isRunning) return;
+            
+            const solventType = document.getElementById('solvent').value;
+            const inkType = document.getElementById('ink').value;
+            const paperType = document.getElementById('paper').value;
+
+            // 실험 조건 초기화
+            solventFront = baselineY;
+            solventSpeed = paperType === 'chalk' ? 1.0 : 0.5; // 분필이 더 빠름
+            
+            const selectedInk = inkData[inkType];
+            
+            // 용해성 체크 로직
+            let willSeparate = true;
+            if (solventType === 'water' && !selectedInk.isSolubleInWater) {
+                willSeparate = false;
+            }
+
+            // 성분 생성
+            components = [];
+            if (willSeparate) {
+                selectedInk.components.forEach(c => {
+                    components.push({
+                        y: baselineY,
+                        color: c.color,
+                        speed: solventSpeed * c.speedRatio, // 용매 속도 대비 비율
+                        name: c.name,
+                        finalRf: c.speedRatio
+                    });
+                });
+            } else {
+                // 분리 안됨 (그대로 있음)
+                components.push({
+                    y: baselineY,
+                    color: 'black',
+                    speed: 0,
+                    name: '분리되지 않음',
+                    finalRf: 0
+                });
+            }
+
+            isRunning = true;
+            statusMsg.innerText = "용매가 거름종이를 타고 올라가는 중...";
+            animate();
+        }
+
+        function animate() {
+            if (!isRunning) return;
+
+            // 용매 이동
+            if (solventFront > maxSolventHeight) {
+                solventFront -= solventSpeed;
+                
+                // 각 성분 이동
+                components.forEach(comp => {
+                    comp.y -= comp.speed;
+                });
+                
+                renderFrame();
+                updateTable(false);
+                animationId = requestAnimationFrame(animate);
+            } else {
+                finishExperiment();
+            }
+        }
+
+        function renderFrame() {
+            drawSetup();
+
+            // 용매 전선 표시
+            ctx.beginPath();
+            ctx.moveTo(50, solventFront);
+            ctx.lineTo(250, solventFront);
+            ctx.strokeStyle = 'blue';
+            ctx.stroke();
+            ctx.fillStyle = 'blue';
+            ctx.fillText("용매 전선", 255, solventFront + 5);
+
+            // 젖은 종이 영역 표시
+            ctx.fillStyle = 'rgba(200, 230, 255, 0.2)';
+            ctx.fillRect(50, solventFront, 200, 450 - solventFront);
+
+            // 성분 점 그리기
+            components.forEach(comp => {
+                ctx.beginPath();
+                ctx.arc(150, comp.y, 8, 0, Math.PI * 2); // 점 크기
+                ctx.fillStyle = comp.color;
+                ctx.globalAlpha = 0.7; // 겹칠 때 색 혼합 효과 흉내
+                ctx.fill();
+                ctx.globalAlpha = 1.0;
+            });
+        }
+
+        function updateTable(isFinal) {
+            let html = '';
+            const solventDist = baselineY - solventFront;
+
+            components.forEach(comp => {
+                const compDist = baselineY - comp.y;
+                let rf = 0;
+                if (solventDist > 0) {
+                    rf = (compDist / solventDist).toFixed(2);
+                }
+                
+                html += `<tr>
+                    <td><span style="color:${comp.color}">●</span> ${comp.name}</td>
+                    <td>${compDist.toFixed(1)} mm</td> <td><strong>${rf}</strong></td>
+                </tr>`;
+            });
+            
+            // 용매 거리 추가
+            html += `<tr style="background:#f9f9f9">
+                <td>용매 전선</td>
+                <td>${solventDist.toFixed(1)} mm</td>
+                <td>-</td>
+            </tr>`;
+
+            resultBody.innerHTML = html;
+        }
+
+        function finishExperiment() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            statusMsg.innerText = "실험 완료! 결과를 분석하세요.";
+            
+            // 피드백 생성
+            const solventType = document.getElementById('solvent').value;
+            const inkType = document.getElementById('ink').value;
+            
+            let msg = "";
+            if (solventType === 'water' && inkType === 'perm_black') {
+                msg = "❌ 분리 실패!\n이유: 유성 사인펜의 잉크는 물(극성 용매)에 녹지 않아서 이동하지 않습니다.\n💡 제안: 용매를 '에탄올'로 바꾸어 다시 시도해보세요.";
+            } else {
+                msg = "✅ 분리 성공!\n각 색소가 서로 다른 속도로 이동했습니다.\n이는 각 성분이 용매에 녹는 정도와 종이에 흡착되는 정도가 다르기 때문입니다.";
+            }
+            feedbackArea.innerText = msg;
+
+            // 퀴즈 활성화
+            document.getElementById('quizBtn').style.display = 'block';
+            generateQuiz();
+        }
+
+        function resetExperiment() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            components = [];
+            solventFront = baselineY;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawSetup();
+            resultBody.innerHTML = '<tr><td colspan="3">실험을 시작하세요</td></tr>';
+            feedbackArea.innerText = '';
+            statusMsg.innerText = "준비 완료";
+            document.getElementById('quizBtn').style.display = 'none';
+            document.getElementById('quizSection').innerHTML = '<p id="quizQuestion">실험 후 퀴즈가 나타납니다.</p><button onclick="checkAnswer()" id="quizBtn" style="display:none; margin-top:5px;">정답 확인</button>';
+        }
+
+        function generateQuiz() {
+            const solventType = document.getElementById('solvent').value;
+            const qSection = document.getElementById('quizQuestion');
+            
+            if (solventType === 'water' && components[0].speed === 0) {
+                qSection.innerText = "Q. 유성 사인펜이 분리되지 않은 이유는 무엇인가요?";
+                // 답: 용매(물)에 녹지 않아서
+            } else {
+                // 가장 멀리 간 성분 찾기
+                let fastest = components.reduce((prev, current) => (prev.y < current.y) ? prev : current);
+                qSection.innerHTML = `Q. 가장 멀리 이동한 <strong>${fastest.name}</strong>의 특징으로 옳은 것은?<br>
+                1. 용매에 대한 용해도가 가장 작다.<br>
+                2. 거름종이에 대한 흡착력이 가장 크다.<br>
+                3. 용매와 함께 이동하는 속도가 가장 빠르다.`;
+                
+                window.correctAnswer = 3;
+            }
+        }
+
+        function checkAnswer() {
+            const solventType = document.getElementById('solvent').value;
+            const inkType = document.getElementById('ink').value;
+             if (solventType === 'water' && inkType === 'perm_black') {
+                 alert("정답: 유성 성분은 극성 용매인 물에 녹지 않기 때문입니다.");
+             } else {
+                 alert("정답: 3번. Rf 값이 클수록(멀리 이동할수록) 용매에 대한 친화력이 크고 이동 속도가 빠릅니다.");
+             }
+        }
+
+        // 초기 화면 그리기
+        drawSetup();
+
+    </script>
+</body>
+</html>

@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 세상을 바꾸는 화학</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --bg: #f8fafc;
+            --text: #1e293b;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        aside {
+            width: 250px;
+            background-color: var(--card-bg);
+            border-right: 1px solid #e2e8f0;
+            padding: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+            overflow-y: auto;
+        }
+
+        h3 { margin: 0 0 10px 0; font-size: 1.1rem; color: #475569; }
+
+        .btn-topic {
+            width: 100%;
+            padding: 12px;
+            text-align: left;
+            border: 1px solid #e2e8f0;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: 600;
+        }
+
+        .btn-topic:hover { background-color: #eff6ff; border-color: var(--primary); }
+        .btn-topic.active { background-color: var(--primary); color: white; border-color: var(--primary); }
+
+        /* Main Content */
+        main {
+            flex: 1;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+            overflow-y: auto;
+        }
+
+        /* Step Navigation */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            border-bottom: 2px solid #e2e8f0;
+            padding-bottom: 10px;
+        }
+
+        .tab {
+            padding: 8px 16px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            color: #64748b;
+        }
+
+        .tab.active { background-color: var(--secondary); color: white; }
+
+        /* Simulation Area */
+        .sim-container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+            display: flex;
+            gap: 20px;
+            min-height: 400px;
+        }
+
+        .canvas-area {
+            flex: 2;
+            background: #1e293b;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        
+        canvas { border-radius: 8px; }
+
+        .info-area {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .info-card {
+            background: #f1f5f9;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 4px solid var(--accent);
+        }
+
+        .control-panel {
+            margin-top: auto;
+            border-top: 1px solid #cbd5e1;
+            padding-top: 15px;
+        }
+
+        button.action-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+        }
+        button.action-btn:hover { background-color: #1d4ed8; }
+
+        /* Report Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 2rem;
+            border-radius: 12px;
+            width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .report-header { border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-bottom: 20px; }
+        .score-badge { float: right; background: var(--accent); color: white; padding: 5px 10px; border-radius: 15px; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="logo">🧪 CHEM-LAB: 세상을 바꾸는 화학</div>
+    <div style="font-size: 0.9rem;">고등학교 화학Ⅰ > 1. 화학의 첫걸음</div>
+</header>
+
+<div class="container">
+    <aside>
+        <h3>1. 탐구 주제 선택</h3>
+        <button class="btn-topic active" onclick="selectTopic('can')">🥫 통조림 (금속 산화)</button>
+        <button class="btn-topic" onclick="selectTopic('diaper')">👶 아기 기저귀 (고분자)</button>
+        <button class="btn-topic" onclick="selectTopic('sunscreen')">☀️ 선크림 (자외선 차단)</button>
+        <button class="btn-topic" onclick="selectTopic('postit')">📝 포스트잇 (접착제)</button>
+        <button class="btn-topic" onclick="selectTopic('foil')">🥘 알루미늄 포일 (금속박)</button>
+        
+        <div style="margin-top: auto; border-top: 1px solid #e2e8f0; padding-top: 1rem;">
+            <h3>📊 나의 탐구 현황</h3>
+            <div id="progress-text" style="font-size: 0.9rem; color: #64748b;">진행률: 0%</div>
+            <button onclick="showReport()" style="margin-top:10px; width:100%; background:#475569; color:white; border:none; padding:8px; border-radius:4px; cursor:pointer;">📑 탐구 보고서 생성</button>
+        </div>
+    </aside>
+
+    <main>
+        <div class="tabs">
+            <div class="tab active" onclick="setTab('history')">1. 역사와 배경</div>
+            <div class="tab" onclick="setTab('principle')">2. 화학 원리 (시뮬레이션)</div>
+            <div class="tab" onclick="setTab('social')">3. 사회적 영향</div>
+            <div class="tab" onclick="setTab('quiz')">4. 개념 확인</div>
+        </div>
+
+        <h2 id="section-title">통조림: 식량 보존의 혁명</h2>
+        
+        <div class="sim-container">
+            <div class="canvas-area" id="canvas-wrapper">
+                <canvas id="mainCanvas" width="500" height="350"></canvas>
+                </div>
+
+            <div class="info-area">
+                <div id="info-content">
+                    </div>
+                <div class="control-panel" id="control-panel">
+                    </div>
+            </div>
+        </div>
+
+        <div id="feedback-area" style="background:#dbeafe; padding:1rem; border-radius:8px; display:none;">
+            🤖 <span id="ai-feedback"></span>
+        </div>
+    </main>
+</div>
+
+<div id="reportModal" class="modal">
+    <div class="modal-content">
+        <div class="report-header">
+            <h2>🧪 과학 탐구 보고서</h2>
+            <span style="font-size: 0.9rem; color: #666;">2015 개정 교육과정 화학Ⅰ</span>
+        </div>
+        <div id="report-body">
+            </div>
+        <button onclick="document.getElementById('reportModal').style.display='none'" style="margin-top:20px; padding:10px 20px; background:#e2e8f0; border:none; border-radius:4px; cursor:pointer;">닫기</button>
+        <button onclick="window.print()" style="margin-top:20px; padding:10px 20px; background:var(--primary); color:white; border:none; border-radius:4px; cursor:pointer; margin-left:10px;">PDF 저장/인쇄</button>
+    </div>
+</div>
+
+<script>
+    // --- Data Source ---
+    const db = {
+        can: {
+            title: "통조림: 식량 보존의 혁명",
+            history: "나폴레옹 전쟁 당시 식량 보급 문제를 해결하기 위해 고안되었습니다. 초기에는 병조림이었으나, 이후 주석으로 도금한 깡통이 개발되었습니다.",
+            principle: "철(Fe) 표면에 주석(Sn)을 얇게 입혀 철이 산소와 만나 녹스는(산화) 것을 방지합니다. 주석은 철보다 산화가 잘 되지 않는 금속입니다.",
+            social: "음식의 장기 보관과 이동을 가능하게 하여 식생활의 시공간적 제약을 극복하고, 잉여 농산물의 활용도를 높였습니다.",
+            simType: "coating", 
+            quiz: { q: "통조림 내부의 철이 녹슬지 않는 이유는 무엇인가요?", a: ["철보다 반응성이 큰 금속 도금", "철보다 반응성이 작은 주석 도금", "플라스틱 코팅"], answer: 1 }
+        },
+        diaper: {
+            title: "아기 기저귀: 고분자의 마법",
+            history: "과거 천 기저귀의 불편함을 해소하기 위해 1980년대 고흡수성 수지(SAP)를 이용한 일회용 기저귀가 대중화되었습니다.",
+            principle: "고흡수성 수지(SAP)는 그물 구조를 가진 고분자입니다. 물 분자가 들어오면 삼투압 현상 등으로 인해 그물 구조가 팽창하며 물을 가둡니다.",
+            social: "육아 노동 시간을 획기적으로 줄이고 위생 수준을 높였습니다. 다만, 폐기물 처리 문제는 새로운 환경 과제입니다.",
+            simType: "sap",
+            quiz: { q: "고흡수성 수지가 물을 흡수하면 구조가 어떻게 변하나요?", a: ["녹아서 사라진다", "그물 구조가 팽창한다", "딱딱하게 굳는다"], answer: 1 }
+        },
+        sunscreen: {
+            title: "선크림: 자외선으로부터의 보호",
+            history: "피부암과 화상을 예방하기 위해 개발되었습니다. 무기 자외선 차단제와 유기 자외선 차단제로 나뉩니다.",
+            principle: "이산화 타이타늄(TiO2)이나 산화 아연(ZnO) 같은 입자가 피부 표면에서 거울처럼 자외선을 반사하거나 산란시킵니다.",
+            social: "야외 활동 시 피부 건강을 지키고 피부암 발생률을 낮추는 데 기여했습니다.",
+            simType: "uv",
+            quiz: { q: "무기 자외선 차단제의 주된 원리는?", a: ["자외선 흡수 후 열 방출", "자외선 반사 및 산란", "피부 세포 강화"], answer: 1 }
+        },
+        postit: {
+            title: "포스트잇: 실패한 접착제의 부활",
+            history: "강력 접착제를 만들려다 실수로 만들어진 '잘 떨어지는 접착제'를 메모지에 적용하여 탄생했습니다.",
+            principle: "접착제 입자가 아주 작은 구(Sphere) 형태입니다. 접착 면적이 작아 쉽게 붙었다 떨어질 수 있으며 끈적임이 남지 않습니다.",
+            social: "정보의 기록과 공유 방식을 간편하게 만들어 사무 및 학습 효율을 높였습니다.",
+            simType: "sphere",
+            quiz: { q: "포스트잇이 쉽게 떨어지는 이유는?", a: ["접착제가 약해서", "미세한 구형 입자로 접착 면적이 적어서", "정전기를 이용하므로"], answer: 1 }
+        },
+        foil: {
+            title: "알루미늄 포일: 가볍고 강한 금속박",
+            history: "과거에는 금이나 은박을 사용했으나, 알루미늄 제련 기술의 발달(전기 분해)로 저렴하게 대량 생산되었습니다.",
+            principle: "알루미늄은 전성(펴지는 성질)이 매우 좋아 얇은 박으로 만들 수 있습니다. 표면에 치밀한 산화 피막이 형성되어 내부 부식을 막습니다.",
+            social: "조리 및 포장 용기로 널리 쓰이며, 열 전도율이 높아 조리 시간을 단축시킵니다.",
+            simType: "metal",
+            quiz: { q: "알루미늄이 녹슬지 않는 것처럼 보이는 이유는?", a: ["반응성이 전혀 없어서", "표면에 산화 피막이 보호해서", "매우 무거운 금속이라서"], answer: 1 }
+        }
+    };
+
+    // --- State ---
+    let currentTopic = 'can';
+    let currentTab = 'history';
+    let animationId = null;
+    let particles = [];
+    let progress = { can: false, diaper: false, sunscreen: false, postit: false, foil: false };
+
+    // --- Core Functions ---
+    function selectTopic(topic) {
+        currentTopic = topic;
+        // UI Update
+        document.querySelectorAll('.btn-topic').forEach(b => b.classList.remove('active'));
+        document.querySelector(`.btn-topic[onclick="selectTopic('${topic}')"]`).classList.add('active');
+        
+        // Reset View
+        setTab('history');
+        renderContent();
+    }
+
+    function setTab(tab) {
+        currentTab = tab;
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.tab')[['history', 'principle', 'social', 'quiz'].indexOf(tab)].classList.add('active');
+        
+        renderContent();
+        
+        if(tab === 'principle') {
+            startSimulation();
+        } else {
+            stopSimulation();
+        }
+    }
+
+    function renderContent() {
+        const data = db[currentTopic];
+        const infoDiv = document.getElementById('info-content');
+        const controlDiv = document.getElementById('control-panel');
+        const title = document.getElementById('section-title');
+        const feedback = document.getElementById('feedback-area');
+
+        title.textContent = data.title;
+        feedback.style.display = 'none';
+
+        if (currentTab === 'history') {
+            infoDiv.innerHTML = `<div class="info-card"><h3>📚 역사적 배경</h3><p>${data.history}</p></div>`;
+            controlDiv.innerHTML = `<button class="action-btn" onclick="setTab('principle')">화학 원리 알아보기 (실험 시작) 👉</button>`;
+        } else if (currentTab === 'principle') {
+            infoDiv.innerHTML = `<div class="info-card"><h3>🔬 화학 원리</h3><p>${data.principle}</p></div>`;
+            controlDiv.innerHTML = getSimulationControls(data.simType);
+        } else if (currentTab === 'social') {
+            infoDiv.innerHTML = `<div class="info-card"><h3>🌍 사회적 기여</h3><p>${data.social}</p></div>`;
+            controlDiv.innerHTML = `<button class="action-btn" onclick="setTab('quiz')">개념 확인 퀴즈 풀기 👉</button>`;
+        } else if (currentTab === 'quiz') {
+            infoDiv.innerHTML = `
+                <div class="info-card">
+                    <h3>✍️ 퀴즈</h3>
+                    <p>${data.quiz.q}</p>
+                    ${data.quiz.a.map((opt, i) => `<div style="margin:5px 0;"><input type="radio" name="q" id="o${i}" value="${i}"> <label for="o${i}">${opt}</label></div>`).join('')}
+                </div>`;
+            controlDiv.innerHTML = `<button class="action-btn" onclick="checkAnswer()">정답 확인</button>`;
+        }
+    }
+
+    // --- Simulation Logic (Canvas) ---
+    const canvas = document.getElementById('mainCanvas');
+    const ctx = canvas.getContext('2d');
+
+    function getSimulationControls(type) {
+        if(type === 'sap') return `<button class="action-btn" onclick="triggerSimAction('addWater')">💧 물 붓기 (변화 관찰)</button>`;
+        if(type === 'uv') return `<button class="action-btn" onclick="triggerSimAction('toggleUV')">☀️ 자외선 쏘기 ON/OFF</button>`;
+        if(type === 'coating') return `<button class="action-btn" onclick="triggerSimAction('oxidize')">💨 산소 노출 시키기</button>`;
+        return `<div style="text-align:center; color:#666;">자동 재생 중입니다.</div>`;
+    }
+
+    let simState = { waterLevel: 0, uvOn: false, oxidized: false };
+
+    function triggerSimAction(action) {
+        if(action === 'addWater') {
+            simState.waterLevel = Math.min(simState.waterLevel + 1, 5);
+            giveFeedback("수분이 고분자 사슬 사이로 들어가고 있습니다! 부피가 커지는 것을 관찰하세요.");
+        }
+        if(action === 'toggleUV') {
+            simState.uvOn = !simState.uvOn;
+            giveFeedback(simState.uvOn ? "자외선(노란 선)이 피부로 향합니다. 차단제 입자가 어떻게 막아내나요?" : "자외선 차단 실험 중지");
+        }
+        if(action === 'oxidize') {
+            simState.oxidized = true;
+            giveFeedback("산소가 접근합니다! 주석(Sn) 층이 철(Fe)을 어떻게 보호하는지 보세요.");
+        }
+    }
+
+    function giveFeedback(msg) {
+        const el = document.getElementById('feedback-area');
+        const txt = document.getElementById('ai-feedback');
+        el.style.display = 'block';
+        txt.textContent = msg;
+    }
+
+    function startSimulation() {
+        simState = { waterLevel: 0, uvOn: false, oxidized: false }; // Reset
+        particles = [];
+        
+        // Init particles based on topic
+        if (db[currentTopic].simType === 'uv') {
+            for(let i=0; i<20; i++) particles.push({x: Math.random()*500, y: Math.random()*-200, speed: 2+Math.random()});
+        }
+
+        if (animationId) cancelAnimationFrame(animationId);
+        animate();
+    }
+
+    function stopSimulation() {
+        if (animationId) cancelAnimationFrame(animationId);
+        ctx.clearRect(0,0,canvas.width, canvas.height);
+        
+        // Draw static placeholder
+        ctx.fillStyle = "#f1f5f9";
+        ctx.fillRect(0,0,500,350);
+        ctx.fillStyle = "#94a3b8";
+        ctx.font = "20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("화학 원리 시각화 영역", 250, 175);
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const type = db[currentTopic].simType;
+
+        if (type === 'sap') {
+            // Background
+            ctx.fillStyle = "#e2e8f0";
+            ctx.fillRect(0,0,500,350);
+            
+            // Polymer Chains (Mesh)
+            ctx.strokeStyle = "#475569";
+            ctx.lineWidth = 2;
+            const expansion = simState.waterLevel * 20;
+            const size = 30 + expansion;
+            
+            ctx.beginPath();
+            for(let x=100 - expansion; x<400+expansion; x+=size) {
+                for(let y=100 - expansion; y<250+expansion; y+=size) {
+                    ctx.rect(x, y, size, size);
+                    // Water molecules inside
+                    if(simState.waterLevel > 0) {
+                        ctx.fillStyle = "#3b82f6";
+                        ctx.beginPath();
+                        ctx.arc(x+size/2, y+size/2, 5 * simState.waterLevel, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
+            }
+            ctx.stroke();
+            
+            ctx.fillStyle = "#1e293b";
+            ctx.font = "16px sans-serif";
+            ctx.fillText(simState.waterLevel === 0 ? "건조한 고분자 그물 구조" : "물을 흡수하여 팽창한 구조 (겔화)", 250, 320);
+
+        } else if (type === 'uv') {
+            // Skin
+            ctx.fillStyle = "#fca5a5";
+            ctx.fillRect(0, 300, 500, 50);
+            ctx.fillStyle = "#000"; ctx.fillText("피부 표면", 250, 330);
+
+            // Sunscreen Layer
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.fillRect(0, 280, 500, 20);
+            
+            // Particles (TiO2)
+            ctx.fillStyle = "white";
+            for(let i=0; i<500; i+=25) {
+                ctx.beginPath(); ctx.arc(i, 290, 5, 0, Math.PI*2); ctx.fill();
+            }
+
+            // UV Rays
+            if(simState.uvOn) {
+                ctx.strokeStyle = "#facc15"; // Yellow UV
+                ctx.lineWidth = 2;
+                particles.forEach(p => {
+                    p.y += p.speed;
+                    
+                    // Draw Ray
+                    ctx.beginPath();
+                    ctx.moveTo(p.x, p.y - 20);
+                    ctx.lineTo(p.x, p.y);
+                    ctx.stroke();
+
+                    // Bounce logic
+                    if(p.y >= 280) {
+                        // Reset to top
+                        p.y = -20;
+                        p.x = Math.random() * 500;
+                    }
+                });
+            } else {
+                ctx.fillStyle = "#cbd5e1";
+                ctx.fillText("버튼을 눌러 자외선을 쏘세요", 250, 150);
+            }
+
+        } else if (type === 'coating') {
+            // Iron Base
+            ctx.fillStyle = "#94a3b8"; // Iron gray
+            ctx.fillRect(100, 150, 300, 100);
+            ctx.fillStyle = "white"; ctx.fillText("철 (Fe)", 250, 200);
+
+            // Tin Coating
+            ctx.fillStyle = "#e2e8f0"; // Tin light gray
+            ctx.fillRect(95, 145, 310, 110); // Surrounding
+            ctx.clearRect(100, 150, 300, 100); // Cut out iron
+            
+            // Re-draw iron to be behind? No, just frame it.
+            ctx.strokeStyle = "#38bdf8"; // Tin color
+            ctx.lineWidth = 5;
+            ctx.strokeRect(100, 150, 300, 100);
+            ctx.fillText("주석 (Sn) 도금층", 250, 130);
+
+            if(simState.oxidized) {
+                // Oxygen particles
+                ctx.fillStyle = "#ef4444"; // Red Oxygen
+                for(let i=0; i<10; i++) {
+                    ctx.beginPath();
+                    ctx.arc(100 + i*30, 140, 5, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillText("O₂", 100 + i*30, 120);
+                }
+                ctx.fillStyle = "#10b981";
+                ctx.fillText("주석이 산소를 막아 철이 안전합니다!", 250, 300);
+            }
+
+        } else if (type === 'sphere') {
+             // Paper
+             ctx.fillStyle = "#fef08a"; // Postit yellow
+             ctx.fillRect(100, 100, 300, 150);
+             
+             // Adhesive spheres
+             ctx.fillStyle = "rgba(0,0,0,0.2)";
+             for(let i=0; i<10; i++) {
+                 ctx.beginPath();
+                 ctx.arc(120 + i*30, 250, 10, 0, Math.PI*2); // Spheres at bottom
+                 ctx.fill();
+             }
+             
+             // Zoom view
+             ctx.fillStyle = "white";
+             ctx.strokeStyle = "#000";
+             ctx.beginPath(); ctx.arc(350, 80, 60, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+             ctx.fillStyle = "#000";
+             ctx.fillText("확대: 구형 입자", 350, 160);
+             
+             // Draw Single Sphere touching surface
+             ctx.beginPath(); ctx.arc(350, 80, 30, 0, Math.PI*2); 
+             ctx.fillStyle="rgba(0,0,0,0.5)"; ctx.fill();
+             
+             ctx.fillStyle = "#1e293b";
+             ctx.fillText("접촉 면적이 작아 잘 떨어짐", 250, 320);
+        } else {
+             ctx.fillStyle = "#64748b";
+             ctx.fillText("이 주제는 모식도만 제공됩니다.", 250, 175);
+        }
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // --- Quiz & Report ---
+    function checkAnswer() {
+        const selected = document.querySelector('input[name="q"]:checked');
+        if (!selected) {
+            alert("정답을 선택해주세요!");
+            return;
+        }
+        
+        const isCorrect = parseInt(selected.value) === db[currentTopic].quiz.answer;
+        const feedbackArea = document.getElementById('feedback-area');
+        
+        if (isCorrect) {
+            giveFeedback("정답입니다! 🎉 이 주제의 탐구를 완료했습니다.");
+            progress[currentTopic] = true;
+            updateProgress();
+        } else {
+            giveFeedback("아쉽네요. 다시 한번 원리를 생각해볼까요? 힌트: 시뮬레이션 탭을 다시 보세요.");
+        }
+    }
+
+    function updateProgress() {
+        const completed = Object.values(progress).filter(v => v).length;
+        const total = Object.keys(progress).length;
+        const percent = Math.round((completed / total) * 100);
+        document.getElementById('progress-text').textContent = `진행률: ${percent}% (${completed}/${total})`;
+    }
+
+    function showReport() {
+        const completedTopics = Object.keys(progress).filter(k => progress[k]);
+        if(completedTopics.length === 0) {
+            alert("아직 완료된 탐구가 없습니다. 퀴즈를 풀어 탐구를 완료해주세요!");
+            return;
+        }
+
+        let html = `<h3>✅ 완료한 탐구 목록</h3><ul>`;
+        completedTopics.forEach(topic => {
+            html += `<li><strong>${db[topic].title}</strong><br>
+            - 핵심 원리: ${db[topic].principle}<br>
+            - 사회적 가치: ${db[topic].social}</li><br>`;
+        });
+        html += `</ul>`;
+        
+        html += `<div style="background:#f8fafc; padding:15px; border-radius:8px; margin-top:20px;">
+            <h4>👩‍🏫 선생님의 코멘트</h4>
+            <p>화학이 우리 생활의 문제를 해결하는 데 얼마나 중요한 역할을 하는지 잘 이해했군요! 
+            특히 <strong>${db[completedTopics[0]].title}</strong> 사례를 통해 화학 반응과 소재의 특성을 연결한 점이 훌륭합니다.</p>
+        </div>`;
+
+        document.getElementById('report-body').innerHTML = html;
+        document.getElementById('reportModal').style.display = 'flex';
+    }
+</script>
+
+</body>
+</html>

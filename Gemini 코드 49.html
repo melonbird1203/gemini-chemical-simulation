@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물질의 특성으로 구별하기</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --danger: #FF6B6B;
+            --text: #333;
+            --bg: #F5F7FA;
+            --card-bg: #FFFFFF;
+        }
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .lab-bench {
+            position: relative;
+            height: 400px;
+            background: #e0e0e0;
+            border-bottom: 10px solid #a0a0a0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* 실험 도구 스타일 */
+        .beaker {
+            width: 80px;
+            height: 100px;
+            border: 2px solid #888;
+            border-top: none;
+            background: rgba(255,255,255,0.4);
+            border-radius: 0 0 10px 10px;
+            margin: 0 40px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .liquid {
+            width: 100%;
+            height: 60%;
+            background: rgba(100, 200, 255, 0.3);
+            border-radius: 0 0 8px 8px;
+            position: relative;
+            transition: height 1s;
+        }
+        .liquid.boiling::after {
+            content: '';
+            position: absolute;
+            bottom: 0; left: 0; right: 0; top: 0;
+            background-image: radial-gradient(white 20%, transparent 20%);
+            background-size: 10px 10px;
+            animation: bubbles 0.5s infinite linear;
+            opacity: 0.7;
+        }
+        @keyframes bubbles {
+            0% { transform: translateY(0); }
+            100% { transform: translateY(-20px); }
+        }
+        
+        .heater {
+            width: 100px;
+            height: 30px;
+            background: #333;
+            border-radius: 5px;
+            position: absolute;
+            bottom: -10px;
+            left: -10px;
+            display: none;
+        }
+        .heater.on { background: #d32f2f; box-shadow: 0 0 15px #ff5252; }
+
+        .thermometer {
+            width: 6px;
+            height: 120px;
+            background: #fff;
+            border: 1px solid #aaa;
+            position: absolute;
+            bottom: 10px;
+            right: 5px;
+            border-radius: 5px;
+        }
+        .mercury {
+            width: 100%;
+            height: 20%;
+            background: red;
+            position: absolute;
+            bottom: 0;
+            border-radius: 0 0 5px 5px;
+            transition: height 0.5s;
+        }
+
+        .label {
+            position: absolute;
+            top: -30px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            padding: 20px;
+            background: #fff;
+            border-top: 1px solid #eee;
+        }
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-bottom: 20px; }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary);
+            color: white;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: 0.3s;
+        }
+        button:hover { background: #357ABD; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.secondary { background: var(--secondary); color: #005f5f; }
+
+        .data-panel {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .data-box { text-align: center; }
+        .data-value { font-size: 1.5rem; font-weight: bold; color: var(--primary); }
+
+        .message-box {
+            padding: 15px;
+            background: #e3f2fd;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            font-size: 0.95rem;
+        }
+        .hidden { display: none; }
+
+        /* 그래프 영역 (간단 시각화) */
+        .graph-container {
+            width: 100%;
+            height: 150px;
+            border-left: 2px solid #333;
+            border-bottom: 2px solid #333;
+            position: relative;
+            margin-top: 20px;
+            display: none;
+        }
+        .graph-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 0;
+            height: 0;
+            border-top: 2px solid;
+            transition: width 0.2s, height 0.2s;
+        }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 물질의 특성: 범인은 누구?</h1>
+        <p>중학교 2학년 과학 VI. 물질의 구성</p>
+    </header>
+
+    <div class="controls">
+        <div id="step1" class="message-box">
+            <strong>👨‍🏫 선생님:</strong> 여기 겉모습이 똑같은 두 액체 A와 B가 있습니다. 하나는 <strong>물</strong>이고, 하나는 <strong>에탄올</strong>입니다.<br>
+            냄새를 맡거나 맛을 보는 것은 위험합니다! <strong>끓는점 실험</strong>을 통해 구별해볼까요?
+        </div>
+        
+        <div class="btn-group">
+            <button id="btnStart" onclick="startExperiment()">실험 시작하기 (가열)</button>
+            <button id="btnReset" onclick="resetExperiment()" class="secondary" style="display:none">다시 하기</button>
+        </div>
+
+        <div id="statusPanel" class="data-panel hidden">
+            <div class="data-box">
+                <div>액체 A 온도</div>
+                <div id="tempA" class="data-value">20°C</div>
+                <div id="stateA" style="font-size:0.8rem; color:#666;">액체 상태</div>
+            </div>
+            <div class="data-box">
+                <div>시간</div>
+                <div id="timer" class="data-value">0분</div>
+            </div>
+            <div class="data-box">
+                <div>액체 B 온도</div>
+                <div id="tempB" class="data-value">20°C</div>
+                <div id="stateB" style="font-size:0.8rem; color:#666;">액체 상태</div>
+            </div>
+        </div>
+        
+        <div id="resultSection" class="message-box hidden" style="background-color: #e8f5e9; border: 1px solid #c8e6c9;">
+            <strong>📊 결과 분석:</strong><br>
+            액체 A는 약 <strong>78°C</strong>에서 끓기 시작했고, 액체 B는 <strong>100°C</strong>에서 끓기 시작했습니다.<br>
+            자, 이제 정답을 맞혀볼까요?
+            <div style="margin-top:10px;">
+                <button onclick="checkAnswer('A')">A가 에탄올이다</button>
+                <button onclick="checkAnswer('B')">B가 에탄올이다</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="lab-bench">
+        <div class="beaker">
+            <div class="label">A</div>
+            <div class="liquid" id="liquidA"></div>
+            <div class="heater" id="heaterA"></div>
+            <div class="thermometer"><div class="mercury" id="mercuryA"></div></div>
+        </div>
+
+        <div class="beaker">
+            <div class="label">B</div>
+            <div class="liquid" id="liquidB"></div>
+            <div class="heater" id="heaterB"></div>
+            <div class="thermometer"><div class="mercury" id="mercuryB"></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 상태 변수
+    let time = 0;
+    let tempA = 20;
+    let tempB = 20;
+    let interval;
+    const MAX_TIME = 20; // 시뮬레이션 시간 단위
+
+    function startExperiment() {
+        document.getElementById('btnStart').style.display = 'none';
+        document.getElementById('btnReset').style.display = 'inline-block';
+        document.getElementById('statusPanel').classList.remove('hidden');
+        
+        // 히터 켜기 시각화
+        document.getElementById('heaterA').style.display = 'block';
+        document.getElementById('heaterA').classList.add('on');
+        document.getElementById('heaterB').style.display = 'block';
+        document.getElementById('heaterB').classList.add('on');
+
+        interval = setInterval(updateExperiment, 500); // 0.5초마다 업데이트
+    }
+
+    function updateExperiment() {
+        time += 1;
+        document.getElementById('timer').innerText = time + "분 경과";
+
+        // 가상 물리 엔진: 온도 상승 로직
+        // A: 에탄올 (끓는점 78도)
+        if (tempA < 78) {
+            tempA += 5; // 가열 중
+        } else {
+            tempA = 78 + (Math.random() * 1); // 끓는점 유지 (약간의 흔들림)
+            document.getElementById('liquidA').classList.add('boiling');
+            document.getElementById('stateA').innerText = "끓는 중 (기화)";
+            document.getElementById('stateA').style.color = "red";
+        }
+
+        // B: 물 (끓는점 100도)
+        if (tempB < 100) {
+            tempB += 4; // 물은 비열이 커서 천천히 오름 (간단 구현)
+        } else {
+            tempB = 100 + (Math.random() * 1);
+            document.getElementById('liquidB').classList.add('boiling');
+            document.getElementById('stateB').innerText = "끓는 중 (기화)";
+            document.getElementById('stateB').style.color = "red";
+        }
+
+        // UI 업데이트
+        updateUI();
+
+        // 실험 종료 조건
+        if (time >= 18) {
+            clearInterval(interval);
+            document.getElementById('heaterA').classList.remove('on');
+            document.getElementById('heaterB').classList.remove('on');
+            document.getElementById('resultSection').classList.remove('hidden');
+        }
+    }
+
+    function updateUI() {
+        document.getElementById('tempA').innerText = Math.round(tempA) + "°C";
+        document.getElementById('tempB').innerText = Math.round(tempB) + "°C";
+
+        // 온도계 높이 (20도~120도 기준 매핑)
+        let heightA = ((tempA - 20) / 100) * 80 + 20; 
+        let heightB = ((tempB - 20) / 100) * 80 + 20;
+        
+        document.getElementById('mercuryA').style.height = heightA + "%";
+        document.getElementById('mercuryB').style.height = heightB + "%";
+    }
+
+    function checkAnswer(choice) {
+        if (choice === 'A') {
+            alert("✅ 정답입니다!\n\n에탄올은 물보다 분자 간 인력이 약해 끓는점이 78℃로 더 낮습니다. 따라서 먼저 끓기 시작한 A가 에탄올입니다.");
+        } else {
+            alert("❌ 다시 생각해보세요.\n\n에탄올(78℃)이 물(100℃)보다 끓는점이 낮습니다. 온도가 더 낮은 상태에서 먼저 끓기 시작한 쪽을 찾아보세요!");
+        }
+    }
+
+    function resetExperiment() {
+        clearInterval(interval);
+        time = 0;
+        tempA = 20;
+        tempB = 20;
+        
+        document.getElementById('btnStart').style.display = 'inline-block';
+        document.getElementById('btnReset').style.display = 'none';
+        document.getElementById('statusPanel').classList.add('hidden');
+        document.getElementById('resultSection').classList.add('hidden');
+        
+        document.getElementById('heaterA').style.display = 'none';
+        document.getElementById('heaterB').style.display = 'none';
+        document.getElementById('liquidA').classList.remove('boiling');
+        document.getElementById('liquidB').classList.remove('boiling');
+        
+        document.getElementById('stateA').innerText = "액체 상태";
+        document.getElementById('stateA').style.color = "#666";
+        document.getElementById('stateB').innerText = "액체 상태";
+        document.getElementById('stateB').style.color = "#666";
+        
+        updateUI();
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>과학 뮤직비디오 감독: 상태 변화 편</title>
+    <style>
+        :root {
+            --primary: #6c5ce7;
+            --secondary: #a29bfe;
+            --accent: #fd79a8;
+            --bg: #dfe6e9;
+            --panel: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #2d3436; margin-bottom: 10px; }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+        }
+        .control-panel, .info-panel {
+            flex: 1;
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            min-width: 300px;
+        }
+        .stage-panel {
+            flex: 2;
+            background: #2d3436;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 400px;
+            position: relative;
+        }
+        canvas {
+            background: #000;
+            border-radius: 10px;
+            border: 2px solid #636e72;
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+            font-size: 1rem;
+            transition: 0.2s;
+        }
+        button:hover { background: var(--secondary); }
+        button.active { background: var(--accent); }
+        
+        .lyrics-box {
+            margin-top: 15px;
+            width: 100%;
+            background: rgba(255,255,255,0.1);
+            color: #fff;
+            padding: 15px;
+            border-radius: 10px;
+            min-height: 100px;
+            text-align: center;
+            font-size: 1.2rem;
+            line-height: 1.6;
+        }
+        .energy-indicator {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            width: 80%;
+        }
+        .heat-absorb { background: #ff7675; color: white; animation: pulse 2s infinite; }
+        .heat-release { background: #74b9ff; color: white; animation: pulse 2s infinite; }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.02); }
+            100% { transform: scale(1); }
+        }
+
+        .guide-text { font-size: 0.9rem; color: #636e72; margin-top: 10px; }
+        select, textarea {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border-radius: 5px;
+            border: 1px solid #b2bec3;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🎬 과학 뮤직비디오 감독: 물질의 상태 변화</h1>
+    <p>입자 모형을 연출하고, 열에너지의 흐름을 가사로 표현해보세요!</p>
+
+    <div class="container">
+        <div class="control-panel">
+            <h3>🎛️ 연출 설정 (Director Mode)</h3>
+            <p><strong>1. 상태 변화 시나리오 선택</strong></p>
+            <div id="buttons">
+                <button onclick="changeMode('melting')">융해 (고체➡액체)</button>
+                <button onclick="changeMode('freezing')">응고 (액체➡고체)</button>
+                <button onclick="changeMode('vaporization')">기화 (액체➡기체)</button>
+                <button onclick="changeMode('condensation')">액화 (기체➡액체)</button>
+                <button onclick="changeMode('sublimation_heat')">승화 (고체➡기체)</button>
+            </div>
+            
+            <p><strong>2. 배경 음악 (BGM)</strong></p>
+            <select id="bgmSelect">
+                <option>신나는 팝 (Pop)</option>
+                <option>차분한 발라드 (Ballad)</option>
+                <option>강렬한 락 (Rock)</option>
+            </select>
+
+            <div class="guide-text">
+                * 팁: 입자가 활발해지면(열 흡수) 신나는 음악이, 입자가 둔해지면(열 방출) 차분한 음악이 어울릴 수 있습니다.
+            </div>
+        </div>
+
+        <div class="stage-panel">
+            <h3 style="color:white; margin:0 0 10px 0;">📺 뮤직비디오 미리보기 (On Air)</h3>
+            <canvas id="particleCanvas" width="400" height="300"></canvas>
+            
+            <div id="energyDisplay" class="energy-indicator" style="display:none;"></div>
+            
+            <div class="lyrics-box" id="lyricsDisplay">
+                "버튼을 눌러 시나리오를 시작하세요."
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <h3>📝 가사 & 개념 노트</h3>
+            <p><strong>현재 상태 변화:</strong> <span id="statusName" style="color:var(--primary); font-weight:bold;">-</span></p>
+            
+            <p><strong>입자 감독의 코멘트:</strong></p>
+            <div id="feedback" style="background:#f1f2f6; padding:10px; border-radius:5px; font-size:0.9rem;">
+                대기 중...
+            </div>
+
+            <p><strong>✍️ 나만의 가사 쓰기:</strong></p>
+            <textarea id="userLyrics" rows="4" placeholder="예) 얼음이 녹아 물이 되네, 열을 받아서 춤을 추네~"></textarea>
+            <button onclick="applyLyrics()" style="width:100%; margin: 10px 0;">가사 적용하기</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationId;
+        let currentState = 'solid'; // solid, liquid, gas
+        let targetState = 'solid';
+        let transitionProgress = 0;
+        
+        // 입자 클래스
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                this.baseX = x;
+                this.baseY = y;
+                this.vx = 0;
+                this.vy = 0;
+                this.speed = 0.5;
+                this.range = 2; // 진동 범위
+                this.color = '#74b9ff'; // 차가운 색
+            }
+
+            update(state) {
+                if (state === 'solid') {
+                    // 고체: 제자리 진동, 규칙적 배열 유지
+                    this.x = this.baseX + (Math.random() - 0.5) * 2;
+                    this.y = this.baseY + (Math.random() - 0.5) * 2;
+                    this.color = '#74b9ff'; // 파랑 (저온)
+                } else if (state === 'liquid') {
+                    // 액체: 비교적 자유로운 움직임, 바닥에 깔림
+                    this.x += (Math.random() - 0.5) * 2;
+                    this.y += (Math.random() - 0.5) * 2;
+                    
+                    // 벽 충돌 (용기 모양 유지하려 노력)
+                    if(this.x < 10) this.x = 10;
+                    if(this.x > canvas.width - 10) this.x = canvas.width - 10;
+                    if(this.y < canvas.height / 2) this.y = canvas.height / 2; // 위쪽 제한 (중력)
+                    if(this.y > canvas.height - 10) this.y = canvas.height - 10;
+                    
+                    this.color = '#fdcb6e'; // 노랑 (중온)
+                } else if (state === 'gas') {
+                    // 기체: 매우 빠르고 자유로움, 공간 전체
+                    this.x += (Math.random() - 0.5) * 10;
+                    this.y += (Math.random() - 0.5) * 10;
+                    
+                    // 벽 튕기기
+                    if(this.x < 0) this.x = canvas.width;
+                    if(this.x > canvas.width) this.x = 0;
+                    if(this.y < 0) this.y = canvas.height;
+                    if(this.y > canvas.height) this.y = 0;
+                    
+                    this.color = '#ff7675'; // 빨강 (고온)
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // 입자 초기화 (고체 배열)
+        function initParticles() {
+            particles = [];
+            const cols = 10;
+            const rows = 8;
+            const spacing = 30;
+            const offsetX = (canvas.width - (cols * spacing)) / 2;
+            const offsetY = canvas.height - (rows * spacing) - 20;
+
+            for (let i = 0; i < cols; i++) {
+                for (let j = 0; j < rows; j++) {
+                    particles.push(new Particle(offsetX + i * spacing, offsetY + j * spacing));
+                }
+            }
+        }
+
+        function animate() {
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // 잔상 효과
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            particles.forEach(p => {
+                p.update(currentState);
+                p.draw();
+            });
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // 모드 변경 함수
+        function changeMode(mode) {
+            const statusName = document.getElementById('statusName');
+            const feedback = document.getElementById('feedback');
+            const energyDisplay = document.getElementById('energyDisplay');
+            const lyricsDisplay = document.getElementById('lyricsDisplay');
+            
+            let conceptText = "";
+            let lyricsText = "";
+            let energyClass = "";
+            let energyText = "";
+
+            if (mode === 'melting') {
+                currentState = 'liquid';
+                statusName.innerText = "융해 (Melting)";
+                conceptText = "고체가 열을 흡수하여 액체로 변합니다. 입자들의 운동이 활발해지고 규칙성이 무너집니다.";
+                lyricsText = "🎶 꽁꽁 얼어있던 내 마음(고체), 너의 따스함(열)에 녹아내려(융해)~ 자유롭게 흐르는 물결처럼(액체)!";
+                energyClass = "heat-absorb";
+                energyText = "🔥 열에너지 흡수 중 (주변 온도 낮아짐)";
+            } else if (mode === 'freezing') {
+                currentState = 'solid';
+                // 강제 위치 재정렬 (시각적 효과)
+                initParticles(); 
+                statusName.innerText = "응고 (Freezing)";
+                conceptText = "액체가 열을 잃어 고체로 변합니다. 입자들이 제자리에서 진동하며 규칙적으로 배열됩니다.";
+                lyricsText = "🎶 자유롭던 우리(액체), 차가운 바람에 굳어가네(응고). 서로 꽉 붙잡고(인력) 제자리에서 떨고 있어(고체).";
+                energyClass = "heat-release";
+                energyText = "❄️ 열에너지 방출 중 (주변 온도 높아짐)";
+            } else if (mode === 'vaporization') {
+                currentState = 'gas';
+                statusName.innerText = "기화 (Vaporization)";
+                conceptText = "액체가 열을 흡수해 기체가 됩니다. 입자 사이 거리가 매우 멀어지고 매우 빠르게 운동합니다.";
+                lyricsText = "🎶 더 뜨겁게(가열)! 난 날아갈 거야(기화). 저 넓은 세상 끝까지 퍼져나가는(확산) 자유로운 영혼(기체)!";
+                energyClass = "heat-absorb";
+                energyText = "🔥 열에너지 흡수 중 (주변 시원해짐)";
+            } else if (mode === 'condensation') {
+                currentState = 'liquid';
+                statusName.innerText = "액화 (Condensation)";
+                conceptText = "기체가 열을 잃어 액체가 됩니다. 입자 운동이 둔해지고 서로 가까워집니다.";
+                lyricsText = "🎶 차가운 유리창에 부딪혀, 흩어진 마음(기체)이 다시 모여 눈물(액체)이 되네.";
+                energyClass = "heat-release";
+                energyText = "❄️ 열에너지 방출 중 (주변 따뜻해짐)";
+            } else if (mode === 'sublimation_heat') {
+                currentState = 'gas';
+                statusName.innerText = "승화 (Sublimation)";
+                conceptText = "고체에서 바로 기체로 변합니다. 드라이아이스처럼 중간 과정 없이 급격히 변합니다.";
+                lyricsText = "🎶 사라진 줄 알았지? 난 순식간에 연기가 되어(승화) 너를 감싸안아.";
+                energyClass = "heat-absorb";
+                energyText = "🔥 열에너지 다량 흡수";
+            }
+
+            feedback.innerHTML = conceptText;
+            lyricsDisplay.innerText = lyricsText;
+            
+            energyDisplay.style.display = 'block';
+            energyDisplay.className = 'energy-indicator ' + energyClass;
+            energyDisplay.innerText = energyText;
+        }
+
+        function applyLyrics() {
+            const userText = document.getElementById('userLyrics').value;
+            if(userText.trim() === "") {
+                alert("가사를 입력해주세요!");
+                return;
+            }
+            document.getElementById('lyricsDisplay').innerText = "🎤 User Lyrics: " + userText;
+            alert("가사가 적용되었습니다! 시각적 패턴과 잘 어울리는지 확인해보세요.");
+        }
+
+        // 초기 실행
+        initParticles();
+        animate();
+
+    </script>
+</body>
+</html>

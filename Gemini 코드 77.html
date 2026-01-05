@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>기체 반응 법칙 가상 실험실</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --secondary: #10B981;
+            --danger: #EF4444;
+            --bg: #F3F4F6;
+            --glass: rgba(255, 255, 255, 0.9);
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            color: #1F2937;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* 카드 스타일 */
+        .card {
+            background: white;
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h1, h2, h3 { margin-top: 0; }
+        h1 { color: var(--primary); text-align: center; width: 100%; margin-bottom: 30px; }
+
+        /* 제어 패널 */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .slider-group {
+            background: #F9FAFB;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #E5E7EB;
+        }
+
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        
+        input[type=range] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .value-display {
+            float: right;
+            color: var(--primary);
+            font-weight: bold;
+        }
+
+        button#ignite-btn {
+            background-color: var(--danger);
+            color: white;
+            border: none;
+            padding: 15px;
+            font-size: 1.1rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+
+        button#ignite-btn:active { transform: scale(0.98); }
+        button#reset-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        /* 시각화 영역 */
+        .chamber-container {
+            position: relative;
+            height: 300px;
+            background: linear-gradient(to bottom, #E0F2FE, #FFFFFF);
+            border: 2px solid #9CA3AF;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+        }
+
+        .piston {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 20px;
+            background: #6B7280;
+            transition: top 1s ease-in-out;
+            z-index: 10;
+        }
+        .piston::after {
+            content: "피스톤";
+            color: white;
+            font-size: 12px;
+            display: block;
+            text-align: center;
+        }
+
+        .gas-particles {
+            position: absolute;
+            top: 20px;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            pointer-events: none;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            transition: all 1s;
+        }
+        .h2-particle { width: 10px; height: 10px; background: #EF4444; } /* 수소: 빨강 */
+        .o2-particle { width: 14px; height: 14px; background: #3B82F6; } /* 산소: 파랑 */
+        .water-drop { 
+            width: 16px; height: 16px; 
+            background: #3B82F6; 
+            border: 2px solid #EF4444; 
+            border-radius: 50%;
+            position: absolute;
+            bottom: 5px;
+        }
+
+        /* 결과 그래프 */
+        .graph-container {
+            display: flex;
+            align-items: flex-end;
+            height: 150px;
+            gap: 20px;
+            padding-top: 20px;
+            border-bottom: 1px solid #E5E7EB;
+        }
+
+        .bar {
+            width: 50px;
+            background: var(--primary);
+            transition: height 1s;
+            position: relative;
+            border-radius: 4px 4px 0 0;
+            min-height: 2px;
+        }
+        .bar span {
+            position: absolute;
+            top: -25px;
+            width: 100%;
+            text-align: center;
+            font-size: 0.9rem;
+            font-weight: bold;
+        }
+        .bar-label {
+            text-align: center;
+            margin-top: 5px;
+            font-size: 0.9rem;
+        }
+
+        .feedback-box {
+            background: #FFFBEB;
+            border-left: 4px solid #F59E0B;
+            padding: 15px;
+            margin-top: 15px;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .safety-note {
+            font-size: 0.8rem;
+            color: #6B7280;
+            margin-top: 10px;
+            text-align: center;
+        }
+
+        /* 퀴즈 영역 */
+        .quiz-section {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px dashed #E5E7EB;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85rem;
+            margin-bottom: 10px;
+            justify-content: center;
+        }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+    <h1>🧪 가상 실험실: 기체 반응 법칙</h1>
+
+    <div class="container">
+        <div class="card">
+            <h2>1. 실험 설정</h2>
+            <p>수소와 산소 기체를 주사기에 넣고 전기 불꽃으로 반응시킵니다. (최대 30mL)</p>
+            
+            <div class="control-panel">
+                <div class="slider-group">
+                    <label>수소 ($H_2$) 부피 <span id="val-h2" class="value-display">10 mL</span></label>
+                    <input type="range" id="input-h2" min="0" max="30" value="10" step="2">
+                </div>
+                
+                <div class="slider-group">
+                    <label>산소 ($O_2$) 부피 <span id="val-o2" class="value-display">10 mL</span></label>
+                    <input type="range" id="input-o2" min="0" max="30" value="10" step="2">
+                </div>
+
+                <div class="legend">
+                    <span><span class="dot" style="background:#EF4444;"></span>수소</span>
+                    <span><span class="dot" style="background:#3B82F6;"></span>산소</span>
+                    <span><span class="dot" style="background:#3B82F6; border:1px solid red;"></span>물(액체)</span>
+                </div>
+
+                <button id="ignite-btn">🔥 전기 점화 (반응 시작)</button>
+                <button id="reset-btn">🔄 실험 초기화</button>
+            </div>
+
+            <div class="quiz-section">
+                <h3>💡 생각해보기</h3>
+                <p id="quiz-question">수소 10mL와 산소 10mL가 반응하면 남는 기체는 무엇일까요?</p>
+                <div id="quiz-feedback" style="font-weight: bold; color: var(--primary);"></div>
+            </div>
+            
+            <p class="safety-note">⚠️ 주의: 실제 실험실에서 수소 폭발 실험은 반드시 안전 장비와 보호막 안에서 교사의 지도하에 수행해야 합니다.</p>
+        </div>
+
+        <div class="card">
+            <h2>2. 실험 관찰</h2>
+            
+            <div class="chamber-container" id="chamber">
+                <div class="piston" id="piston"></div>
+                <div class="gas-particles" id="particles"></div>
+                <div id="explosion" style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); font-size:4rem; opacity:0; pointer-events:none;">💥</div>
+            </div>
+
+            <div style="margin-top:20px;">
+                <h3>📊 결과 분석</h3>
+                <div class="graph-container">
+                    <div>
+                        <div class="bar" id="bar-h2" style="background: #EF4444; height: 33%;"><span>10</span></div>
+                        <div class="bar-label">남은 수소</div>
+                    </div>
+                    <div>
+                        <div class="bar" id="bar-o2" style="background: #3B82F6; height: 33%;"><span>10</span></div>
+                        <div class="bar-label">남은 산소</div>
+                    </div>
+                    <div>
+                        <div class="bar" id="bar-water" style="background: #10B981; height: 0%;"><span>0</span></div>
+                        <div class="bar-label">생성된 물<br>(분자수 비례)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="feedback-box" id="feedback">
+                <strong id="feedback-title">실험 결과</strong>
+                <p id="feedback-text"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소
+        const inputH2 = document.getElementById('input-h2');
+        const inputO2 = document.getElementById('input-o2');
+        const valH2 = document.getElementById('val-h2');
+        const valO2 = document.getElementById('val-o2');
+        const piston = document.getElementById('piston');
+        const particlesContainer = document.getElementById('particles');
+        const feedbackBox = document.getElementById('feedback');
+        const feedbackText = document.getElementById('feedback-text');
+        const barH2 = document.getElementById('bar-h2');
+        const barO2 = document.getElementById('bar-o2');
+        const barWater = document.getElementById('bar-water');
+        const quizQ = document.getElementById('quiz-question');
+        const explosion = document.getElementById('explosion');
+
+        let isReacted = false;
+
+        // 초기화 및 이벤트 리스너
+        function init() {
+            updateValues();
+            renderParticles(inputH2.value, inputO2.value, 0);
+            updateGraph(inputH2.value, inputO2.value, 0);
+            updatePiston(parseInt(inputH2.value) + parseInt(inputO2.value));
+            
+            inputH2.addEventListener('input', () => { if(!isReacted) updateValues(); });
+            inputO2.addEventListener('input', () => { if(!isReacted) updateValues(); });
+            
+            document.getElementById('ignite-btn').addEventListener('click', runReaction);
+            document.getElementById('reset-btn').addEventListener('click', resetExperiment);
+        }
+
+        function updateValues() {
+            if(isReacted) return;
+            const h2 = parseInt(inputH2.value);
+            const o2 = parseInt(inputO2.value);
+            valH2.textContent = `${h2} mL`;
+            valO2.textContent = `${o2} mL`;
+            
+            // 퀴즈 업데이트
+            quizQ.innerText = `수소 ${h2}mL와 산소 ${o2}mL가 반응하면 어떤 기체가 얼마나 남을까요?`;
+            
+            renderParticles(h2, o2, 0);
+            updatePiston(h2 + o2);
+            updateGraph(h2, o2, 0);
+            
+            feedbackBox.style.display = 'none';
+        }
+
+        function renderParticles(h2Vol, o2Vol, waterCount) {
+            particlesContainer.innerHTML = '';
+            
+            // 시각화를 위해 부피를 입자 수로 스케일링 (1mL = 1개 입자로 단순화하여 표현)
+            // 반응 후에는 물방울이 바닥에 고이게 표현
+            
+            const areaWidth = particlesContainer.clientWidth;
+            const areaHeight = particlesContainer.clientHeight;
+
+            // 기체 상태 (무작위 위치)
+            const addGas = (count, type) => {
+                for(let i=0; i<count; i++) {
+                    const p = document.createElement('div');
+                    p.className = `particle ${type}`;
+                    p.style.left = Math.random() * 90 + '%';
+                    
+                    // 피스톤 아래 공간에만 기체 존재
+                    const pistonTop = parseInt(piston.style.top || 0);
+                    // 대략적인 기체 공간 시뮬레이션
+                    p.style.top = (Math.random() * 60 + 20) + '%'; 
+                    
+                    particlesContainer.appendChild(p);
+                }
+            };
+
+            addGas(h2Vol, 'h2-particle');
+            addGas(o2Vol, 'o2-particle');
+
+            // 생성된 물 (바닥에 고임)
+            for(let i=0; i<waterCount; i++) {
+                const w = document.createElement('div');
+                w.className = 'water-drop';
+                w.style.left = Math.random() * 90 + '%';
+                w.style.bottom = (Math.random() * 5) + '%'; // 바닥에 깔림
+                particlesContainer.appendChild(w);
+            }
+        }
+
+        function updatePiston(totalGasVol) {
+            // 최대 60mL 기준으로 높이 계산 (30+30)
+            const maxVol = 60; 
+            const containerHeight = 300;
+            
+            // 부피가 클수록 피스톤은 위로(top 값 작음), 작을수록 아래로(top 값 큼)
+            // totalGasVol 60 -> top 0
+            // totalGasVol 0 -> top 280
+            
+            const percent = 1 - (totalGasVol / maxVol);
+            // 최소한의 공간은 남겨둠
+            const topPos = percent * (containerHeight - 40); 
+            piston.style.top = `${topPos}px`;
+        }
+
+        function updateGraph(h2, o2, water) {
+            const maxScale = 40; // 그래프 최대 높이 기준
+            
+            barH2.style.height = `${(h2 / maxScale) * 100}%`;
+            barH2.querySelector('span').innerText = h2;
+            
+            barO2.style.height = `${(o2 / maxScale) * 100}%`;
+            barO2.querySelector('span').innerText = o2;
+            
+            barWater.style.height = `${(water / maxScale) * 100}%`;
+            barWater.querySelector('span').innerText = water; // 분자 수 기준
+        }
+
+        function runReaction() {
+            if(isReacted) return;
+            isReacted = true;
+
+            const startH2 = parseInt(inputH2.value);
+            const startO2 = parseInt(inputO2.value);
+
+            // 반응 논리: 2 H2 + 1 O2 -> 2 H2O
+            // 수소 2 : 산소 1 비율로 소모
+            
+            let usedH2, usedO2;
+            
+            if (startH2 >= startO2 * 2) {
+                // 수소가 충분하거나 남음 (산소가 한계 반응물)
+                usedO2 = startO2;
+                usedH2 = startO2 * 2;
+            } else {
+                // 산소가 충분하거나 남음 (수소가 한계 반응물)
+                usedH2 = startH2;
+                usedO2 = startH2 / 2;
+            }
+
+            const remainH2 = startH2 - usedH2;
+            const remainO2 = startO2 - usedO2;
+            const producedWater = usedH2; // 생성된 물 분자 수는 반응한 수소 부피와 비례 (부피비=분자수비)
+
+            // 1. 폭발 애니메이션
+            explosion.style.opacity = 1;
+            explosion.style.transition = "opacity 0.2s";
+            setTimeout(() => { explosion.style.opacity = 0; }, 500);
+
+            // 2. 결과 적용 (1초 뒤)
+            setTimeout(() => {
+                // 입자 다시 그리기 (남은 기체 + 물)
+                renderParticles(remainH2, remainO2, producedWater);
+                
+                // 피스톤 이동 (남은 기체 부피만큼만 공간 차지, 물은 액체가 되어 부피 무시)
+                updatePiston(remainH2 + remainO2);
+                
+                // 그래프 업데이트
+                updateGraph(remainH2, remainO2, producedWater);
+
+                // 피드백 생성
+                provideFeedback(startH2, startO2, remainH2, remainO2, producedWater);
+                
+                // 입력 비활성화 시각적 처리
+                inputH2.disabled = true;
+                inputO2.disabled = true;
+            }, 600);
+        }
+
+        function provideFeedback(startH2, startO2, rH2, rO2, water) {
+            feedbackBox.style.display = 'block';
+            
+            let message = `<ul style="padding-left:20px; margin:5px 0;">`;
+            message += `<li>반응한 수소: <b>${startH2 - rH2} mL</b></li>`;
+            message += `<li>반응한 산소: <b>${startO2 - rO2} mL</b></li>`;
+            
+            // 비율 계산 및 설명
+            const ratioCheck = (startH2 - rH2) / (startO2 - rO2);
+            if (!isNaN(ratioCheck)) {
+                message += `<li>반응 부피비 = <b>2 : 1</b> (수소 : 산소)</li>`;
+            }
+
+            message += `</ul><br>`;
+
+            if (rH2 === 0 && rO2 === 0) {
+                message += "🌟 <b>완벽한 반응!</b> 남은 기체가 없습니다. 수소와 산소를 정확히 2:1 비율로 섞으셨네요.";
+            } else if (rH2 > 0) {
+                message += `🧐 <b>수소가 ${rH2}mL 남았습니다.</b> 산소가 부족하여 더 이상 반응하지 못했습니다.`;
+            } else if (rO2 > 0) {
+                message += `🧐 <b>산소가 ${rO2}mL 남았습니다.</b> 수소가 부족하여 더 이상 반응하지 못했습니다.`;
+            }
+
+            message += `<br><small>💡 Tip: 생성된 물은 액체 상태가 되어 부피가 급격히 줄어들기 때문에, 피스톤이 내려갑니다.</small>`;
+            
+            feedbackText.innerHTML = message;
+        }
+
+        function resetExperiment() {
+            isReacted = false;
+            inputH2.disabled = false;
+            inputO2.disabled = false;
+            updateValues();
+        }
+
+        // 시작
+        init();
+    </script>
+</body>
+</html>

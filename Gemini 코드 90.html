@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 반응식 양적 관계 시뮬레이션</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-color: #e74c3c;
+            --text-color: #2c3e50;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        h1 { text-align: center; color: var(--primary-color); margin-bottom: 10px; }
+        .description { text-align: center; margin-bottom: 20px; color: #666; }
+        
+        /* Control Panel */
+        .controls {
+            background: #eef2f7;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        .control-group { margin-bottom: 15px; display: flex; align-items: center; justify-content: space-between; }
+        .control-group label { font-weight: bold; width: 150px;}
+        input[type="range"] { flex-grow: 1; margin: 0 15px; }
+        .value-display { font-family: monospace; font-weight: bold; width: 60px; text-align: right; }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            transition: 0.2s;
+            width: 100%;
+        }
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        .reset-btn { background-color: #95a5a6; margin-top: 10px; }
+        .reset-btn:hover { background-color: #7f8c8d; }
+
+        /* Visualization Area */
+        .visualization-area {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 20px;
+            height: 250px;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            position: relative;
+            background: #fff;
+            overflow: hidden;
+        }
+        .chamber {
+            width: 45%;
+            padding: 10px;
+            display: flex;
+            flex-wrap: wrap;
+            align-content: flex-start;
+            position: relative;
+        }
+        .chamber h3 { width: 100%; text-align: center; margin-top: 0; font-size: 14px; color: #7f8c8d; }
+        
+        /* Particle Styles */
+        .particle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            margin: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: white;
+            font-weight: bold;
+            box-shadow: 1px 1px 3px rgba(0,0,0,0.2);
+            transition: all 0.5s ease;
+        }
+        /* H2 */
+        .p-H2 { background: #bdc3c7; border: 1px solid #7f8c8d; } 
+        /* O2 */
+        .p-O2 { background: #e74c3c; border: 1px solid #c0392b; }
+        /* N2 */
+        .p-N2 { background: #3498db; border: 1px solid #2980b9; }
+        /* H2O */
+        .p-H2O { background: #34495e; border: 2px solid #3498db; } /* Blue/Dark mix */
+        /* NH3 */
+        .p-NH3 { background: #9b59b6; border: 2px solid #8e44ad; }
+
+        .arrow { align-self: center; font-size: 30px; color: #7f8c8d; }
+
+        /* Results Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; font-size: 14px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        .highlight { background-color: #fff3cd; font-weight: bold; }
+        
+        .feedback {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e8f8f5;
+            border-left: 5px solid #2ecc71;
+            border-radius: 4px;
+            font-size: 15px;
+            line-height: 1.5;
+        }
+        .feedback.warning { background-color: #fef9e7; border-left-color: #f1c40f; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 화학 반응식 실험실</h1>
+    <p class="description">반응물의 양을 조절하여 한계 반응물과 생성물의 양을 예측해보세요.</p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label>반응식 선택</label>
+            <select id="reactionSelect" onchange="initExperiment()">
+                <option value="water">수소(H₂) + 산소(O₂) → 물(H₂O)</option>
+                <option value="ammonia">질소(N₂) + 수소(H₂) → 암모니아(NH₃)</option>
+            </select>
+        </div>
+        
+        <div class="control-group">
+            <label id="labelA">수소 (H₂) (mol)</label>
+            <input type="range" id="inputA" min="0" max="10" value="2" step="1" oninput="updateValues()">
+            <span id="valA" class="value-display">2</span>
+        </div>
+
+        <div class="control-group">
+            <label id="labelB">산소 (O₂) (mol)</label>
+            <input type="range" id="inputB" min="0" max="10" value="1" step="1" oninput="updateValues()">
+            <span id="valB" class="value-display">1</span>
+        </div>
+
+        <button onclick="runReaction()" id="runBtn">반응 시작 (Start Reaction)</button>
+        <button onclick="initExperiment()" class="reset-btn">초기화 (Reset)</button>
+    </div>
+
+    <div class="visualization-area">
+        <div class="chamber" id="reactantsBox">
+            <h3>반응 전 (Reactants)</h3>
+            </div>
+        <div class="arrow">➡</div>
+        <div class="chamber" id="productsBox">
+            <h3>반응 후 (Products)</h3>
+            </div>
+    </div>
+
+    <div id="feedbackBox" class="feedback" style="display:none;"></div>
+
+    <h3>📊 실험 데이터 (표준 상태 기준)</h3>
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>구분</th>
+                <th id="thA">수소 (H₂)</th>
+                <th id="thB">산소 (O₂)</th>
+                <th id="thP">물 (H₂O)</th>
+                <th>총 질량 (g)</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>반응 전 (mol)</td>
+                <td id="tdA_init">-</td>
+                <td id="tdB_init">-</td>
+                <td id="tdP_init">0</td>
+                <td id="mass_init">-</td>
+            </tr>
+            <tr>
+                <td>반응 후 (mol)</td>
+                <td id="tdA_final">-</td>
+                <td id="tdB_final">-</td>
+                <td id="tdP_final">-</td>
+                <td id="mass_final">-</td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    // Constants for Molar Mass (g/mol)
+    const MM = { H: 1, O: 16, N: 14 };
+
+    // Reaction Definitions
+    const reactions = {
+        water: {
+            eq: "2H₂ + O₂ → 2H₂O",
+            A: { name: "수소", formula: "H₂", coeff: 2, mm: MM.H * 2, colorClass: "p-H2" },
+            B: { name: "산소", formula: "O₂", coeff: 1, mm: MM.O * 2, colorClass: "p-O2" },
+            P: { name: "물", formula: "H₂O", coeff: 2, mm: MM.H * 2 + MM.O, colorClass: "p-H2O" }
+        },
+        ammonia: {
+            eq: "N₂ + 3H₂ → 2NH₃",
+            A: { name: "질소", formula: "N₂", coeff: 1, mm: MM.N * 2, colorClass: "p-N2" },
+            B: { name: "수소", formula: "H₂", coeff: 3, mm: MM.H * 2, colorClass: "p-H2" },
+            P: { name: "암모니아", formula: "NH₃", coeff: 2, mm: MM.N + MM.H * 3, colorClass: "p-NH3" }
+        }
+    };
+
+    let currentRxn = reactions.water;
+
+    function initExperiment() {
+        const type = document.getElementById('reactionSelect').value;
+        currentRxn = reactions[type];
+
+        // Update Labels
+        document.getElementById('labelA').innerText = `${currentRxn.A.name} (${currentRxn.A.formula}) (mol)`;
+        document.getElementById('labelB').innerText = `${currentRxn.B.name} (${currentRxn.B.formula}) (mol)`;
+        document.getElementById('thA').innerText = `${currentRxn.A.name} (${currentRxn.A.formula})`;
+        document.getElementById('thB').innerText = `${currentRxn.B.name} (${currentRxn.B.formula})`;
+        document.getElementById('thP').innerText = `${currentRxn.P.name} (${currentRxn.P.formula})`;
+
+        // Reset Inputs
+        document.getElementById('inputA').value = currentRxn.A.coeff;
+        document.getElementById('inputB').value = currentRxn.B.coeff;
+        
+        // Clear UI
+        document.getElementById('feedbackBox').style.display = 'none';
+        document.getElementById('productsBox').innerHTML = '<h3>반응 후 (Products)</h3>';
+        document.getElementById('runBtn').disabled = false;
+        
+        updateValues();
+    }
+
+    function updateValues() {
+        const molA = parseInt(document.getElementById('inputA').value);
+        const molB = parseInt(document.getElementById('inputB').value);
+
+        document.getElementById('valA').innerText = molA;
+        document.getElementById('valB').innerText = molB;
+
+        renderParticles(molA, molB, 'reactantsBox');
+        clearTable();
+    }
+
+    function renderParticles(molA, molB, containerId) {
+        const container = document.getElementById(containerId);
+        // Keep header
+        const header = container.querySelector('h3');
+        container.innerHTML = '';
+        container.appendChild(header);
+
+        for(let i=0; i<molA; i++) {
+            let p = document.createElement('div');
+            p.className = `particle ${currentRxn.A.colorClass}`;
+            p.innerText = currentRxn.A.formula;
+            container.appendChild(p);
+        }
+        for(let i=0; i<molB; i++) {
+            let p = document.createElement('div');
+            p.className = `particle ${currentRxn.B.colorClass}`;
+            p.innerText = currentRxn.B.formula;
+            container.appendChild(p);
+        }
+    }
+
+    function renderProductParticles(remA, remB, prod, containerId) {
+        const container = document.getElementById(containerId);
+        const header = container.querySelector('h3');
+        container.innerHTML = '';
+        container.appendChild(header);
+
+        // Render Product
+        for(let i=0; i<prod; i++) {
+            let p = document.createElement('div');
+            p.className = `particle ${currentRxn.P.colorClass}`;
+            p.innerText = currentRxn.P.formula;
+            container.appendChild(p);
+        }
+        // Render Remaining A
+        for(let i=0; i<remA; i++) {
+            let p = document.createElement('div');
+            p.className = `particle ${currentRxn.A.colorClass}`;
+            p.innerText = currentRxn.A.formula;
+            p.style.opacity = '0.6'; // Dim remaining
+            container.appendChild(p);
+        }
+        // Render Remaining B
+        for(let i=0; i<remB; i++) {
+            let p = document.createElement('div');
+            p.className = `particle ${currentRxn.B.colorClass}`;
+            p.innerText = currentRxn.B.formula;
+            p.style.opacity = '0.6';
+            container.appendChild(p);
+        }
+    }
+
+    function clearTable() {
+        // Reset table values to '-'
+        ['tdA_init', 'tdB_init', 'mass_init', 'tdA_final', 'tdB_final', 'tdP_final', 'mass_final'].forEach(id => {
+            document.getElementById(id).innerText = '-';
+        });
+        document.getElementById('tdP_init').innerText = '0';
+    }
+
+    function runReaction() {
+        const inputA = parseInt(document.getElementById('inputA').value);
+        const inputB = parseInt(document.getElementById('inputB').value);
+
+        // Stoichiometry Logic
+        const ratioA = inputA / currentRxn.A.coeff;
+        const ratioB = inputB / currentRxn.B.coeff;
+
+        let limitingReagent = "";
+        let usedA = 0, usedB = 0, producedP = 0;
+
+        if (ratioA < ratioB) {
+            // A is limiting
+            limitingReagent = currentRxn.A.name;
+            producedP = ratioA * currentRxn.P.coeff;
+            usedA = inputA;
+            usedB = ratioA * currentRxn.B.coeff;
+        } else if (ratioB < ratioA) {
+            // B is limiting
+            limitingReagent = currentRxn.B.name;
+            producedP = ratioB * currentRxn.P.coeff;
+            usedA = ratioB * currentRxn.A.coeff;
+            usedB = inputB;
+        } else {
+            // Perfect ratio
+            limitingReagent = "없음 (완전 반응)";
+            producedP = ratioA * currentRxn.P.coeff;
+            usedA = inputA;
+            usedB = inputB;
+        }
+
+        const remainA = inputA - usedA;
+        const remainB = inputB - usedB;
+
+        // Visual Update
+        renderProductParticles(remainA, remainB, producedP, 'productsBox');
+
+        // Table Update
+        const massA_init = inputA * currentRxn.A.mm;
+        const massB_init = inputB * currentRxn.B.mm;
+        const totalMassInit = massA_init + massB_init;
+
+        const massA_final = remainA * currentRxn.A.mm;
+        const massB_final = remainB * currentRxn.B.mm;
+        const massP_final = producedP * currentRxn.P.mm;
+        const totalMassFinal = massA_final + massB_final + massP_final;
+
+        document.getElementById('tdA_init').innerText = inputA;
+        document.getElementById('tdB_init').innerText = inputB;
+        document.getElementById('mass_init').innerText = totalMassInit.toFixed(1);
+
+        document.getElementById('tdA_final').innerText = remainA;
+        document.getElementById('tdB_final').innerText = remainB;
+        document.getElementById('tdP_final').innerText = producedP;
+        document.getElementById('mass_final').innerText = totalMassFinal.toFixed(1);
+
+        // Feedback
+        const feedbackBox = document.getElementById('feedbackBox');
+        feedbackBox.style.display = 'block';
+        
+        let msg = `<strong>🧪 반응 분석 결과:</strong><br>`;
+        if (limitingReagent.includes("없음")) {
+            msg += `완벽한 비율입니다! 모든 반응물이 남김없이 반응하여 <strong>${producedP}몰</strong>의 ${currentRxn.P.name}이 생성되었습니다.`;
+            feedbackBox.className = "feedback";
+        } else {
+            msg += `<strong>${limitingReagent}</strong>이(가) 모두 소진되어 반응이 멈췄습니다 (한계 반응물).<br>`;
+            msg += `따라서 생성물은 ${limitingReagent}의 양에 의해 결정되어 <strong>${producedP}몰</strong>만 생성됩니다.`;
+            feedbackBox.className = "feedback warning";
+        }
+        msg += `<br>⚖️ 질량 보존: 반응 전 ${totalMassInit}g → 반응 후 ${totalMassFinal}g (일치함)`;
+        
+        feedbackBox.innerHTML = msg;
+        document.getElementById('runBtn').disabled = true;
+    }
+
+    // Initialize on load
+    window.onload = initExperiment;
+</script>
+
+</body>
+</html>

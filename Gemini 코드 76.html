@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 기체 반응 법칙 (암모니아 합성)</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --n2-color: #3498db; /* 질소: 파랑 */
+            --h2-color: #e74c3c; /* 수소: 빨강 (시각적 구분을 위해) */
+            --nh3-color: #9b59b6; /* 암모니아: 보라 */
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        h1, h2 { text-align: center; color: #2c3e50; }
+        
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        /* Controls */
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .control-group { text-align: center; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        button {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            font-size: 1.1em;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: #95a5a6; margin-top: 10px;}
+
+        /* Visualization Area */
+        .experiment-area {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 350px;
+            border-bottom: 3px solid #7f8c8d;
+            padding-bottom: 10px;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        
+        .cylinder-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 30%;
+        }
+
+        .cylinder {
+            width: 80%;
+            border: 2px solid #333;
+            border-top: none;
+            background: rgba(255,255,255,0.8);
+            position: relative;
+            transition: height 1s ease-in-out;
+            overflow: hidden;
+            border-radius: 0 0 10px 10px;
+        }
+
+        /* Particles */
+        .particle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 1s ease;
+        }
+        .p-n2 { background-color: var(--n2-color); border: 1px solid #2980b9; }
+        .p-h2 { background-color: var(--h2-color); border: 1px solid #c0392b; }
+        .p-nh3 { 
+            width: 18px; height: 18px;
+            background-color: var(--nh3-color); 
+            border: 1px solid #8e44ad;
+            display: flex; justify-content: center; align-items: center;
+            color: white; font-size: 10px;
+        }
+
+        /* Result Panel */
+        .result-panel {
+            background-color: #e8f6f3;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+
+        .highlight { font-weight: bold; color: var(--primary-color); }
+        .equation { font-size: 1.2em; text-align: center; margin: 10px 0; font-family: "Times New Roman", serif; }
+        
+        /* Quiz Section */
+        .quiz-section { margin-top: 20px; border-top: 2px dashed #bdc3c7; padding-top: 20px; }
+        .feedback { margin-top: 10px; font-weight: bold; padding: 10px; border-radius: 5px; display: none;}
+        .feedback.correct { background-color: #d4edda; color: #155724; }
+        .feedback.wrong { background-color: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 암모니아 합성</h1>
+    <p style="text-align: center;">기체 반응 법칙: 온도와 압력이 일정할 때, 반응하는 기체와 생성되는 기체의 부피 사이에는 간단한 정수비가 성립한다.</p>
+
+    <div class="container">
+        <div class="equation">
+            <span style="color:var(--n2-color)">N₂ (1부피)</span> + 
+            <span style="color:var(--h2-color)">3H₂ (3부피)</span> 
+            → 
+            <span style="color:var(--nh3-color)">2NH₃ (2부피)</span>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>🔵 질소(N₂) 부피: <span id="val-n2" class="highlight">1</span> L</label>
+                <input type="range" id="input-n2" min="0" max="5" value="1" step="1">
+            </div>
+            <div class="control-group">
+                <label>🔴 수소(H₂) 부피: <span id="val-h2" class="highlight">3</span> L</label>
+                <input type="range" id="input-h2" min="0" max="9" value="3" step="1">
+            </div>
+        </div>
+
+        <button onclick="runSimulation()">🧪 반응 시키기 (실험 시작)</button>
+        <button class="reset" onclick="resetSimulation()">🔄 초기화</button>
+
+        <div class="experiment-area">
+            <div class="cylinder-group">
+                <h3>반응 전</h3>
+                <div id="cyl-before" class="cylinder" style="height: 200px;"></div>
+                <div id="vol-before-text">0 L</div>
+            </div>
+
+            <div style="font-size: 2em; align-self: center;">➡</div>
+
+            <div class="cylinder-group">
+                <h3>반응 후</h3>
+                <div id="cyl-after" class="cylinder" style="height: 0px;"></div>
+                <div id="vol-after-text">0 L</div>
+            </div>
+        </div>
+
+        <div class="result-panel">
+            <h3>📊 실험 결과 분석</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>구분</th>
+                        <th style="color:var(--n2-color)">질소 (N₂)</th>
+                        <th style="color:var(--h2-color)">수소 (H₂)</th>
+                        <th style="color:var(--nh3-color)">암모니아 (NH₃)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>반응 전 부피</td>
+                        <td id="res-n2-before">-</td>
+                        <td id="res-h2-before">-</td>
+                        <td>0 L</td>
+                    </tr>
+                    <tr>
+                        <td>반응한 부피</td>
+                        <td id="res-n2-used">-</td>
+                        <td id="res-h2-used">-</td>
+                        <td>-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>반응 후 남은 부피</strong></td>
+                        <td id="res-n2-after">-</td>
+                        <td id="res-h2-after">-</td>
+                        <td id="res-nh3-prod" class="highlight">-</td>
+                    </tr>
+                </tbody>
+            </table>
+            <p id="teacher-feedback" style="margin-top: 10px; font-style: italic; color: #555;"></p>
+        </div>
+
+        <div class="quiz-section">
+            <h3>🧠 개념 확인 퀴즈</h3>
+            <p>질소 2L와 수소 6L가 모두 반응하면, 생성되는 암모니아의 부피는 얼마일까요?</p>
+            <input type="number" id="quiz-answer" placeholder="숫자만 입력 (예: 2)" style="padding: 5px; width: 100px;">
+            <button style="width: auto; display: inline-block;" onclick="checkQuiz()">정답 확인</button>
+            <div id="quiz-feedback" class="feedback"></div>
+        </div>
+    </div>
+
+    <script>
+        // Constants
+        const N2_RATIO = 1;
+        const H2_RATIO = 3;
+        const NH3_RATIO = 2;
+        const MAX_HEIGHT_PX = 300; // Max cylinder height
+        const VOL_TO_PX = 30; // 1L = 30px height
+        
+        // DOM Elements
+        const inputN2 = document.getElementById('input-n2');
+        const inputH2 = document.getElementById('input-h2');
+        const valN2 = document.getElementById('val-n2');
+        const valH2 = document.getElementById('val-h2');
+        
+        // Update labels on input
+        inputN2.addEventListener('input', () => { valN2.innerText = inputN2.value; updateVisualsBefore(); });
+        inputH2.addEventListener('input', () => { valH2.innerText = inputH2.value; updateVisualsBefore(); });
+
+        function updateVisualsBefore() {
+            const n2 = parseInt(inputN2.value);
+            const h2 = parseInt(inputH2.value);
+            const totalVol = n2 + h2;
+            
+            const cylBefore = document.getElementById('cyl-before');
+            cylBefore.style.height = (totalVol * VOL_TO_PX) + 'px';
+            document.getElementById('vol-before-text').innerText = `총 ${totalVol} L`;
+            
+            // Clear and redraw particles (simplified)
+            cylBefore.innerHTML = '';
+            // Draw N2 particles
+            for(let i=0; i<n2; i++) {
+                createParticle(cylBefore, 'p-n2', i, totalVol);
+            }
+            // Draw H2 particles
+            for(let i=0; i<h2; i++) {
+                createParticle(cylBefore, 'p-h2', i + n2, totalVol);
+            }
+        }
+
+        function createParticle(container, className, index, totalVol) {
+            const p = document.createElement('div');
+            p.className = `particle ${className}`;
+            // Random positioning logic
+            const maxTop = (totalVol * VOL_TO_PX) - 20;
+            p.style.top = Math.random() * maxTop + 'px';
+            p.style.left = Math.random() * 80 + '%';
+            container.appendChild(p);
+        }
+
+        function runSimulation() {
+            const initN2 = parseInt(inputN2.value);
+            const initH2 = parseInt(inputH2.value);
+
+            // Calculation Logic (Limiting Reagent)
+            // Reaction: 1 N2 + 3 H2 -> 2 NH3
+            // Possible reactions based on ingredients:
+            const possibleReactionsN2 = initN2 / N2_RATIO;
+            const possibleReactionsH2 = initH2 / H2_RATIO;
+            
+            const reactionCount = Math.min(possibleReactionsN2, possibleReactionsH2);
+            
+            const usedN2 = reactionCount * N2_RATIO;
+            const usedH2 = reactionCount * H2_RATIO;
+            const prodNH3 = reactionCount * NH3_RATIO;
+            
+            const leftN2 = initN2 - usedN2;
+            const leftH2 = initH2 - usedH2;
+            const totalFinalVol = leftN2 + leftH2 + prodNH3;
+
+            // Update Table
+            document.getElementById('res-n2-before').innerText = initN2 + ' L';
+            document.getElementById('res-h2-before').innerText = initH2 + ' L';
+            document.getElementById('res-n2-used').innerText = '-' + usedN2 + ' L';
+            document.getElementById('res-h2-used').innerText = '-' + usedH2 + ' L';
+            document.getElementById('res-n2-after').innerText = leftN2 + ' L';
+            document.getElementById('res-h2-after').innerText = leftH2 + ' L';
+            document.getElementById('res-nh3-prod').innerText = prodNH3 + ' L';
+
+            // Animation & Visuals After
+            const cylAfter = document.getElementById('cyl-after');
+            cylAfter.style.height = (totalFinalVol * VOL_TO_PX) + 'px';
+            document.getElementById('vol-after-text').innerText = `총 ${totalFinalVol} L`;
+            
+            cylAfter.innerHTML = '';
+            
+            // Draw Leftover N2
+            for(let i=0; i<leftN2; i++) createParticle(cylAfter, 'p-n2', 0, totalFinalVol);
+            // Draw Leftover H2
+            for(let i=0; i<leftH2; i++) createParticle(cylAfter, 'p-h2', 0, totalFinalVol);
+            // Draw Product NH3
+            for(let i=0; i<prodNH3; i++) createParticle(cylAfter, 'p-nh3', 0, totalFinalVol);
+
+            // AI Feedback
+            generateFeedback(initN2, initH2, usedN2, usedH2, prodNH3, leftN2, leftH2);
+        }
+
+        function generateFeedback(initN2, initH2, usedN2, usedH2, prodNH3, leftN2, leftH2) {
+            const feedbackEl = document.getElementById('teacher-feedback');
+            let msg = `💡 <strong>결과 분석:</strong> 반응한 질소와 수소의 부피비는 <strong>${usedN2} : ${usedH2} (= 1 : 3)</strong>이며, `;
+            msg += `생성된 암모니아는 <strong>${prodNH3}</strong>L 입니다. `;
+            
+            if (leftN2 > 0) {
+                msg += `<br>수소가 부족하여 반응하지 못한 <strong>질소가 ${leftN2}L</strong> 남았습니다.`;
+            } else if (leftH2 > 0) {
+                msg += `<br>질소가 부족하여 반응하지 못한 <strong>수소가 ${leftH2}L</strong> 남았습니다.`;
+            } else {
+                msg += `<br>두 기체가 <strong>남김없이 모두 반응</strong>하였습니다! (완전 반응)`;
+            }
+            feedbackEl.innerHTML = msg;
+        }
+
+        function resetSimulation() {
+            inputN2.value = 1;
+            inputH2.value = 3;
+            valN2.innerText = 1;
+            valH2.innerText = 3;
+            updateVisualsBefore();
+            document.getElementById('cyl-after').style.height = '0px';
+            document.getElementById('cyl-after').innerHTML = '';
+            document.getElementById('vol-after-text').innerText = '0 L';
+            document.getElementById('teacher-feedback').innerHTML = '';
+            // Reset table text
+            const cells = document.querySelectorAll('tbody td');
+            cells.forEach(c => c.innerText = c.cellIndex === 0 ? c.innerText : '-');
+        }
+
+        function checkQuiz() {
+            const ans = parseFloat(document.getElementById('quiz-answer').value);
+            const fb = document.getElementById('quiz-feedback');
+            fb.style.display = 'block';
+            
+            // N2(2L) needs H2(6L) -> Ratio 1:3 matches perfectly.
+            // Products = 2 * N2 volume = 4L.
+            if (ans === 4) {
+                fb.className = 'feedback correct';
+                fb.innerHTML = "🎉 정답입니다! 질소 1 : 수소 3 : 암모니아 2 의 비율이므로, <br> 2L : 6L : 4L 가 성립합니다.";
+            } else {
+                fb.className = 'feedback wrong';
+                fb.innerHTML = "아쉬워요! 다시 생각해볼까요? <br> 화학 반응식의 계수비(1:3:2)를 2배로 늘려보세요.";
+            }
+        }
+
+        // Initialize on load
+        updateVisualsBefore();
+    </script>
+</body>
+</html>

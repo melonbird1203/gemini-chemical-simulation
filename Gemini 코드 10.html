@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>기체 입자 운동 가상 실험</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; text-align: center; background-color: #f0f4f8; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        canvas { background-color: #eef; border: 2px solid #333; border-radius: 5px; margin-top: 10px; }
+        .controls { margin: 20px 0; padding: 15px; background: #e0e7ff; border-radius: 10px; }
+        .slider-label { font-weight: bold; font-size: 1.2em; color: #2c3e50; }
+        .info-panel { display: flex; justify-content: space-around; margin-top: 15px; font-weight: bold; }
+        .mode-btn { padding: 10px 20px; background: #4a90e2; color: white; border: none; border-radius: 5px; cursor: pointer; margin: 5px; }
+        .mode-btn.active { background: #2c3e50; }
+        .piston { width: 600px; height: 10px; background: #555; margin: 0 auto; transition: margin-top 0.5s; }
+        .feedback { margin-top: 10px; color: #d32f2f; font-weight: bold; height: 20px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2>🧪 기체 입자 운동과 샤를의 법칙</h2>
+    
+    <div class="controls">
+        <label class="slider-label">온도 조절: <span id="tempDisplay">25</span>°C</label><br>
+        <input type="range" id="tempSlider" min="-196" max="100" value="25" style="width: 80%">
+        <br><br>
+        <button class="mode-btn active" onclick="setMode('fixed')">🔒 부피 고정 (압력 관찰)</button>
+        <button class="mode-btn" onclick="setMode('flexible')">🎈 자유 팽창 (샤를의 법칙)</button>
+    </div>
+
+    <div class="feedback" id="feedbackMsg">실험을 시작해봅시다!</div>
+    
+    <canvas id="simCanvas" width="600" height="400"></canvas>
+
+    <div class="info-panel">
+        <span>평균 운동 속도: <span id="speedDisplay">0</span> m/s (상대값)</span>
+        <span>부피(높이): <span id="volDisplay">400</span> px</span>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let temperature = 25; // 섭씨
+    let mode = 'fixed'; // fixed or flexible
+    let particles = [];
+    const numParticles = 40;
+    let pistonHeight = 400; // 캔버스 높이와 동일
+    
+    // 입자 클래스
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * pistonHeight;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.radius = 6;
+            this.color = '#ff6b6b';
+        }
+
+        update(speedFactor) {
+            // 온도에 따른 속도 보정
+            this.x += this.vx * speedFactor;
+            this.y += this.vy * speedFactor;
+
+            // 벽 충돌 (좌우)
+            if (this.x < this.radius || this.x > canvas.width - this.radius) this.vx *= -1;
+
+            // 벽 충돌 (상하 - 피스톤 높이 고려)
+            if (this.y < this.radius) this.vy *= -1; // 천장(혹은 피스톤)은 별도 계산 필요하지만 단순화
+            if (this.y > pistonHeight - this.radius) { // 바닥
+                this.y = pistonHeight - this.radius;
+                this.vy *= -1;
+            }
+            // 피스톤(상단) 충돌
+            if (mode === 'flexible') {
+                if (this.y < canvas.height - pistonHeight + this.radius) {
+                    this.vy *= -1; 
+                }
+            } else {
+                if (this.y < this.radius) this.vy *= -1;
+            }
+        }
+
+        draw(speedFactor) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.closePath();
+
+            // 운동 방향 화살표 (속도에 비례)
+            ctx.beginPath();
+            ctx.moveTo(this.x, this.y);
+            ctx.lineTo(this.x + this.vx * speedFactor * 8, this.y + this.vy * speedFactor * 8);
+            ctx.strokeStyle = "rgba(0,0,0,0.5)";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+    }
+
+    // 초기화
+    function init() {
+        for(let i=0; i<numParticles; i++) {
+            particles.push(new Particle());
+        }
+        animate();
+    }
+
+    // 모드 설정
+    function setMode(newMode) {
+        mode = newMode;
+        document.querySelectorAll('.mode-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        updateSimulation();
+    }
+
+    // 시뮬레이션 업데이트
+    function updateSimulation() {
+        const slider = document.getElementById('tempSlider');
+        temperature = parseInt(slider.value);
+        document.getElementById('tempDisplay').innerText = temperature;
+
+        // 절대온도(K)에 비례하는 속도 계수 계산 (간략화)
+        // 섭씨 -196도(77K) ~ 100도(373K)
+        const kelvin = temperature + 273;
+        const speedFactor = Math.sqrt(kelvin) * 0.15; // 운동에너지는 v^2에 비례하므로 v는 sqrt(T)
+
+        // 피드백 메시지
+        const feedback = document.getElementById('feedbackMsg');
+        if (temperature < -100) feedback.innerText = "입자들이 추워서 둔해졌네요! 화살표가 짧아졌죠?";
+        else if (temperature > 50) feedback.innerText = "입자들이 에너지를 얻어 매우 빠릅니다! 조심하세요!";
+        else feedback.innerText = "평온한 상태입니다.";
+
+        // 샤를의 법칙 (부피 변화) 구현
+        if (mode === 'flexible') {
+            // 부피는 절대온도에 비례 V ∝ T
+            // 기준 25도(298K)일 때 300px이라고 가정
+            let targetHeight = (kelvin / 298) * 300; 
+            if (targetHeight > 400) targetHeight = 400; // 최대치 제한
+            if (targetHeight < 100) targetHeight = 100; // 최소치 제한
+            
+            // 시각적으로 바닥부터 차오르는 것이 아니라 피스톤이 움직이는 개념
+            // 편의상 캔버스 전체를 사용하되 바닥 경계를 조절
+            // 여기서는 간단히 '활동 영역'을 제한
+             pistonHeight = targetHeight;
+        } else {
+            pistonHeight = 400; // 고정 부피
+        }
+
+        document.getElementById('speedDisplay').innerText = (speedFactor * 10).toFixed(1);
+        document.getElementById('volDisplay').innerText = parseInt(pistonHeight);
+
+        return speedFactor;
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        const speedFactor = updateSimulation();
+
+        // 피스톤 그리기 (flexible 모드일 때만)
+        if (mode === 'flexible') {
+            ctx.fillStyle = "#ddd";
+            ctx.fillRect(0, 0, canvas.width, canvas.height - pistonHeight);
+            ctx.fillStyle = "#333"; // 피스톤 헤드
+            ctx.fillRect(0, canvas.height - pistonHeight, canvas.width, 5);
+        }
+
+        // 입자 그리기
+        particles.forEach(p => {
+            // Flexible 모드일 때 입자가 피스톤 밖으로 나갔다면 강제로 안으로 이동
+            if (mode === 'flexible' && p.y < canvas.height - pistonHeight) {
+                p.y = canvas.height - pistonHeight + 10;
+            }
+            
+            p.update(speedFactor);
+            p.draw(speedFactor);
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    init();
+</script>
+
+</body>
+</html>

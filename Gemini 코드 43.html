@@ -1,0 +1,638 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 물질의 끓는점</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f39c12;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+        .subtitle { font-size: 1.1em; color: #7f8c8d; margin-bottom: 30px; }
+
+        /* 레이아웃 */
+        .lab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+
+        /* 제어 패널 */
+        .control-panel {
+            width: 100%;
+            max-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label { font-weight: bold; font-size: 0.9em; }
+        select, button {
+            padding: 10px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 1em;
+        }
+        
+        button {
+            cursor: pointer;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
+        .btn-reset { background-color: #e74c3c; }
+        .btn-reset:hover { background-color: #c0392b; }
+
+        .safety-box {
+            background-color: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.85em;
+            margin-top: 10px;
+        }
+
+        /* 시각화 영역 */
+        .visual-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            background: linear-gradient(to top, #e0e0e0 0%, #fdfdfd 100%);
+            height: 400px;
+            position: relative;
+            border-bottom: 4px solid #7f8c8d; /* 실험대 */
+        }
+
+        /* 비커와 내용물 */
+        .beaker {
+            width: 120px;
+            height: 160px;
+            border-left: 3px solid #aaa;
+            border-right: 3px solid #aaa;
+            border-bottom: 3px solid #aaa;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.4);
+            margin-bottom: 60px; /* 삼발이 공간 */
+            z-index: 2;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            background-color: rgba(100, 149, 237, 0.6);
+            transition: height 0.5s, background-color 0.5s;
+            border-radius: 0 0 8px 8px;
+            z-index: 1;
+        }
+
+        /* 기포 애니메이션 */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            bottom: 0;
+            animation: rise 2s infinite ease-in;
+            z-index: 2;
+        }
+
+        @keyframes rise {
+            0% { bottom: 0; transform: scale(0.5); opacity: 0; }
+            50% { opacity: 1; }
+            100% { bottom: 100%; transform: scale(1.2); opacity: 0; }
+        }
+
+        /* 가열 장치 */
+        .burner {
+            width: 60px;
+            height: 40px;
+            background: #555;
+            position: absolute;
+            bottom: 0;
+            border-radius: 4px;
+        }
+        .flame {
+            width: 30px;
+            height: 40px;
+            background: radial-gradient(ellipse at center, #ffff00 0%, #ff0000 100%);
+            position: absolute;
+            bottom: 40px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 50% 50% 20% 20%;
+            filter: blur(2px);
+            opacity: 0;
+            transition: opacity 0.3s;
+            animation: flicker 0.1s infinite alternate;
+        }
+        .flame.active { opacity: 0.8; }
+        
+        @keyframes flicker {
+            from { height: 40px; width: 30px; }
+            to { height: 45px; width: 32px; }
+        }
+
+        /* 온도계 */
+        .thermometer-wrapper {
+            position: absolute;
+            right: 20px;
+            top: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 5px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+            text-align: center;
+        }
+        .temp-display { font-size: 1.5em; font-weight: bold; color: #e74c3c; }
+
+        /* 그래프 영역 */
+        .graph-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            width: 100%;
+            height: 300px;
+        }
+
+        /* 결과 및 퀴즈 */
+        .feedback-panel {
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 20px;
+            display: none; /* 결과 나오면 표시 */
+        }
+        .feedback-content {
+            background-color: #e8f6f3;
+            border-left: 5px solid #1abc9c;
+            padding: 15px;
+            margin-bottom: 10px;
+        }
+        .quiz-section {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fdf2e9;
+            border-radius: 8px;
+        }
+        .quiz-options button {
+            background-color: #fff;
+            color: #333;
+            border: 1px solid #d35400;
+            margin: 5px;
+            font-size: 0.9em;
+        }
+        .quiz-options button:hover { background-color: #ffe0b2; }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 물질의 특성: 끓는점 실험실</h1>
+    <div class="subtitle">중학교 2학년 과학 | 9-13-02 성취기준</div>
+
+    <div class="lab-container">
+        <div class="panel control-panel">
+            <h3>🔬 실험 조건 설정</h3>
+            <div class="control-group">
+                <label for="substance">물질 선택</label>
+                <select id="substance">
+                    <option value="water">물 (H₂O)</option>
+                    <option value="acetone">아세톤 (CH₃COCH₃)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label for="amount">물질의 양</label>
+                <select id="amount">
+                    <option value="10">10 mL</option>
+                    <option value="20">20 mL</option>
+                </select>
+            </div>
+
+            <div class="safety-box" id="safety-msg">
+                ⚠️ 물은 안전하지만, 뜨거우니 조심하세요.
+            </div>
+
+            <button id="btn-start" onclick="startExperiment()">🔥 가열 시작</button>
+            <button id="btn-reset" class="btn-reset" onclick="resetExperiment()">🔄 초기화</button>
+
+            <div style="margin-top: 20px; font-size: 0.9em; color: #666;">
+                <strong>💡 실험 팁:</strong><br>
+                물질을 바꾸거나 양을 다르게 해서<br>
+                결과 그래프가 어떻게 변하는지<br>
+                비교해보세요!
+            </div>
+        </div>
+
+        <div class="panel visual-panel">
+            <div class="thermometer-wrapper">
+                <div>현재 온도</div>
+                <div class="temp-display"><span id="temp-val">20.0</span>℃</div>
+            </div>
+
+            <div class="beaker">
+                <div class="liquid" id="liquid-visual" style="height: 30%;"></div>
+                </div>
+            
+            <div class="flame" id="flame"></div>
+            <div class="burner"></div>
+        </div>
+
+        <div class="panel graph-panel">
+            <h3>📈 온도 변화 그래프</h3>
+            <canvas id="graphCanvas"></canvas>
+            <div id="graph-legend" style="margin-top: 10px; font-size: 0.8em; display: flex; gap: 10px;">
+                <span style="color: blue;">● 현재 실험</span>
+                <span style="color: #999;">● 이전 실험 (비교용)</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel feedback-panel" id="result-area">
+        <h3>📢 실험 결과 분석</h3>
+        <div class="feedback-content" id="analysis-text">
+            실험이 완료되었습니다. 그래프의 기울기와 평평한 구간을 확인해보세요.
+        </div>
+
+        <div class="quiz-section">
+            <h4>🤔 개념 확인 퀴즈</h4>
+            <p id="quiz-question">Q. 가열을 계속해도 온도가 더 이상 올라가지 않는 이유는 무엇인가요?</p>
+            <div class="quiz-options" id="quiz-options">
+                </div>
+            <p id="quiz-feedback" style="font-weight: bold; margin-top: 10px;"></p>
+        </div>
+    </div>
+
+    <script>
+        // --- 상수 및 상태 변수 ---
+        const substances = {
+            water: { name: '물', bp: 100, color: 'rgba(100, 149, 237, 0.6)', heatRate: 1.0, safety: '⚠️ 물은 안전하지만 화상에 주의하세요.' },
+            acetone: { name: '아세톤', bp: 56, color: 'rgba(200, 200, 200, 0.5)', heatRate: 2.2, safety: '⛔ [위험] 아세톤은 인화성이 강합니다! 실제 실험 시 환기에 주의하세요.' }
+        };
+
+        let state = {
+            running: false,
+            time: 0,
+            temp: 20,
+            substance: 'water',
+            amount: 10,
+            history: [] // 이전 실험 데이터 저장 (비교용)
+        };
+
+        let animationFrame;
+        let lastTimestamp = 0;
+        const SIMULATION_SPEED = 5; // 속도 조절
+
+        // --- DOM 요소 ---
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const tempDisplay = document.getElementById('temp-val');
+        const liquidVisual = document.getElementById('liquid-visual');
+        const flame = document.getElementById('flame');
+        const safetyMsg = document.getElementById('safety-msg');
+        const resultArea = document.getElementById('result-area');
+        const analysisText = document.getElementById('analysis-text');
+
+        // 캔버스 크기 설정
+        canvas.width = 400;
+        canvas.height = 300;
+
+        // --- 이벤트 리스너 ---
+        document.getElementById('substance').addEventListener('change', (e) => {
+            state.substance = e.target.value;
+            liquidVisual.style.backgroundColor = substances[state.substance].color;
+            safetyMsg.textContent = substances[state.substance].safety;
+            safetyMsg.style.borderColor = state.substance === 'acetone' ? 'red' : '#ffeeba';
+        });
+
+        document.getElementById('amount').addEventListener('change', (e) => {
+            state.amount = parseInt(e.target.value);
+            // 양에 따른 비커 높이 조절 (10ml=30%, 20ml=60%)
+            liquidVisual.style.height = state.amount === 10 ? '30%' : '60%';
+        });
+
+        // --- 핵심 로직 ---
+
+        function startExperiment() {
+            if (state.running) return;
+            state.running = true;
+            state.time = 0;
+            state.temp = 20;
+            
+            // 현재 설정 잠금
+            document.getElementById('substance').disabled = true;
+            document.getElementById('amount').disabled = true;
+            document.getElementById('btn-start').disabled = true;
+            
+            flame.classList.add('active');
+            resultArea.style.display = 'none';
+
+            // 애니메이션 시작
+            lastTimestamp = performance.now();
+            requestAnimationFrame(loop);
+        }
+
+        function loop(timestamp) {
+            if (!state.running) return;
+
+            const deltaTime = (timestamp - lastTimestamp) / 1000;
+            lastTimestamp = timestamp;
+
+            // 물리 계산
+            updatePhysics(deltaTime);
+            
+            // 화면 그리기
+            draw();
+            drawGraph();
+
+            if (state.time < 60) { // 최대 60초(시뮬레이션 시간) 실험
+                animationFrame = requestAnimationFrame(loop);
+            } else {
+                finishExperiment();
+            }
+        }
+
+        function updatePhysics(dt) {
+            const currentSub = substances[state.substance];
+            state.time += dt * SIMULATION_SPEED;
+
+            // 온도 상승 로직: (기본 가열 속도 * 물질별 비열상수) / 양
+            // 양이 많으면(20ml) 10ml보다 2배 느리게 끓음
+            let rate = (currentSub.heatRate * 5) / (state.amount / 10);
+            
+            if (state.temp < currentSub.bp) {
+                state.temp += rate * dt * SIMULATION_SPEED;
+                // 끓는점 초과 방지
+                if (state.temp >= currentSub.bp) state.temp = currentSub.bp;
+            } else {
+                // 끓는점 도달 후 온도 유지 (상태 변화 에너지 소비)
+                state.temp = currentSub.bp + (Math.random() * 0.5 - 0.25); // 약간의 변동
+                createBubbles(); // 기포 생성
+            }
+        }
+
+        function createBubbles() {
+            if (Math.random() > 0.7) return; // 너무 많이 생성되지 않게
+
+            const bubble = document.createElement('div');
+            bubble.classList.add('bubble');
+            const size = Math.random() * 10 + 5;
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            bubble.style.left = `${Math.random() * 80 + 10}%`; // 비커 내부 랜덤 위치
+            
+            liquidVisual.parentElement.appendChild(bubble);
+
+            // 애니메이션 끝나면 제거
+            setTimeout(() => {
+                if (bubble.parentElement) bubble.parentElement.removeChild(bubble);
+            }, 1900);
+        }
+
+        function draw() {
+            tempDisplay.innerText = state.temp.toFixed(1);
+        }
+
+        function drawGraph() {
+            // 배경 초기화
+            ctx.fillStyle = '#fff';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 축 그리기
+            drawAxes();
+
+            // 이전 기록 그리기 (회색)
+            if (state.history.length > 0) {
+                drawPath(state.history, '#ccc', 2);
+            }
+
+            // 현재 기록 그리기 (파란색)
+            // 실제 구현에서는 배열에 데이터를 쌓아서 그려야 하지만, 
+            // 여기서는 실시간으로 궤적을 그리는 방식을 시뮬레이션 하기 위해
+            // 현재까지의 데이터를 저장하는 로직이 필요함.
+            // 간소화를 위해 전역 history 배열이 아닌, 현재 실행용 배열 사용 필요.
+            // *이 코드에서는 단순화를 위해 매 프레임 그리는 방식이 아닌, 
+            // 데이터를 축적하여 다시 그리는 방식을 사용합니다.*
+        }
+        
+        // 현재 실행 데이터 저장소
+        let currentRunData = [];
+
+        // updatePhysics에서 데이터 push
+        function updatePhysics(dt) {
+            const currentSub = substances[state.substance];
+            state.time += dt * SIMULATION_SPEED;
+            let rate = (currentSub.heatRate * 3) / (state.amount / 10); // 속도 조정
+
+            if (state.temp < currentSub.bp) {
+                state.temp += rate * dt;
+                if (state.temp > currentSub.bp) state.temp = currentSub.bp;
+            } else {
+                state.temp = currentSub.bp;
+                createBubbles();
+            }
+
+            // 데이터 저장 (그래프용)
+            currentRunData.push({t: state.time, temp: state.temp});
+        }
+
+        function drawGraph() {
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            drawAxes();
+
+            // 이전 데이터 (비교군)
+            if (state.history.length > 0) {
+                drawPath(state.history, '#bdc3c7', 2);
+            }
+            
+            // 현재 데이터
+            drawPath(currentRunData, '#3498db', 3);
+        }
+
+        function drawAxes() {
+            ctx.beginPath();
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 1;
+            // X축 (시간)
+            ctx.moveTo(40, 260);
+            ctx.lineTo(380, 260);
+            // Y축 (온도)
+            ctx.moveTo(40, 260);
+            ctx.lineTo(40, 20);
+            ctx.stroke();
+
+            // 텍스트
+            ctx.fillStyle = '#333';
+            ctx.font = '12px Arial';
+            ctx.fillText("시간 (초)", 350, 280);
+            ctx.fillText("온도 (℃)", 10, 20);
+
+            // 눈금 (Y축: 0~120도)
+            for(let i=0; i<=120; i+=20) {
+                const y = 260 - (i * 2);
+                ctx.fillText(i, 15, y + 5);
+                ctx.beginPath();
+                ctx.strokeStyle = '#eee';
+                ctx.moveTo(40, y);
+                ctx.lineTo(380, y);
+                ctx.stroke();
+            }
+        }
+
+        function drawPath(data, color, width) {
+            if (data.length === 0) return;
+            ctx.beginPath();
+            ctx.strokeStyle = color;
+            ctx.lineWidth = width;
+            
+            // 데이터 매핑: x(0~60초 -> 40~380px), y(0~120도 -> 260~20px)
+            const mapX = (t) => 40 + (t * (340/60));
+            const mapY = (temp) => 260 - (temp * 2);
+
+            ctx.moveTo(mapX(data[0].t), mapY(data[0].temp));
+            for (let i = 1; i < data.length; i++) {
+                ctx.lineTo(mapX(data[i].t), mapY(data[i].temp));
+            }
+            ctx.stroke();
+        }
+
+        function finishExperiment() {
+            state.running = false;
+            flame.classList.remove('active');
+            
+            // 결과 분석 텍스트 생성
+            const subName = substances[state.substance].name;
+            const bp = substances[state.substance].bp;
+            const amt = state.amount;
+            
+            let resultMsg = `<strong>[실험 종료]</strong> ${subName} ${amt}mL 실험 결과:<br>`;
+            resultMsg += `약 ${bp}℃ 에서 온도가 일정하게 유지되었습니다.<br>`;
+            resultMsg += `이 온도가 바로 ${subName}의 <strong>끓는점</strong>입니다.`;
+            
+            analysisText.innerHTML = resultMsg;
+            resultArea.style.display = 'block';
+            
+            setupQuiz();
+            
+            // 현재 데이터를 history로 저장 (다음 실험 때 배경으로 보여줌)
+            state.history = [...currentRunData];
+        }
+
+        function resetExperiment() {
+            state.running = false;
+            cancelAnimationFrame(animationFrame);
+            
+            flame.classList.remove('active');
+            
+            // UI 초기화
+            document.getElementById('substance').disabled = false;
+            document.getElementById('amount').disabled = false;
+            document.getElementById('btn-start').disabled = false;
+            
+            // 데이터 초기화 (history는 유지)
+            state.temp = 20;
+            state.time = 0;
+            currentRunData = [];
+            
+            // 화면 갱신
+            tempDisplay.innerText = "20.0";
+            ctx.clearRect(0,0, canvas.width, canvas.height);
+            drawAxes();
+            
+            // 비커 내 기포 제거
+            const bubbles = document.querySelectorAll('.bubble');
+            bubbles.forEach(b => b.remove());
+            
+            resultArea.style.display = 'none';
+        }
+
+        // --- 퀴즈 로직 ---
+        function setupQuiz() {
+            const quizContainer = document.getElementById('quiz-options');
+            const quizFeedback = document.getElementById('quiz-feedback');
+            quizContainer.innerHTML = '';
+            quizFeedback.innerText = '';
+            
+            // 물질에 따라 다른 질문 가능, 여기서는 공통 질문
+            const q = {
+                text: "이 실험을 통해 알 수 있는 사실로 옳은 것은?",
+                options: [
+                    { text: "물질의 양이 많을수록 끓는점도 높아진다.", correct: false },
+                    { text: "끓는점은 물질의 종류에 관계없이 항상 100℃이다.", correct: false },
+                    { text: "끓는점은 물질을 구별할 수 있는 고유한 특성이다.", correct: true }
+                ]
+            };
+            
+            document.getElementById('quiz-question').innerText = "Q. " + q.text;
+            
+            q.options.forEach(opt => {
+                const btn = document.createElement('button');
+                btn.innerText = opt.text;
+                btn.onclick = () => {
+                    if (opt.correct) {
+                        quizFeedback.style.color = 'green';
+                        quizFeedback.innerText = "⭕ 정답입니다! 물질의 종류가 같으면 양이 달라도 끓는점은 같습니다.";
+                    } else {
+                        quizFeedback.style.color = 'red';
+                        quizFeedback.innerText = "❌ 다시 생각해보세요. 그래프의 평평한 구간(끓는점) 온도가 양에 따라 변했나요?";
+                    }
+                };
+                quizContainer.appendChild(btn);
+            });
+        }
+
+        // 초기 화면 그리기
+        drawAxes();
+    </script>
+</body>
+</html>

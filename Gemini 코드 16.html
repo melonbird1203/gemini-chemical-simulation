@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 상태 변화와 금속 활자</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --warning: #F1C40F;
+            --danger: #E74C3C;
+            --text: #333;
+            --bg: #F5F7FA;
+            --panel-bg: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 0;
+            color: var(--text);
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        .step-indicator { font-weight: bold; background: rgba(255,255,255,0.2); padding: 0.5rem 1rem; border-radius: 20px; }
+
+        /* Main Layout */
+        main {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            height: calc(100vh - 80px);
+            box-sizing: border-box;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Left: Controls */
+        #control-panel {
+            flex: 1;
+            min-width: 250px;
+            max-width: 300px;
+            justify-content: space-between;
+        }
+
+        .guide-box {
+            background: #eef2f7;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 5px;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357ABD; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* Center: Simulation Canvas */
+        #sim-panel {
+            flex: 2;
+            position: relative;
+            background: #fff;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        canvas {
+            border: 2px solid #eee;
+            border-radius: 10px;
+            background: #fdfdfd;
+        }
+
+        /* Right: Particle View & Data */
+        #data-panel {
+            flex: 1;
+            min-width: 250px;
+            max-width: 300px;
+        }
+
+        #particle-view {
+            width: 100%;
+            height: 200px;
+            background: #222;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .data-display {
+            font-size: 0.9rem;
+            line-height: 1.6;
+        }
+
+        .status-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            color: white;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .status-solid { background-color: var(--primary); }
+        .status-liquid { background-color: var(--danger); }
+        .status-mixed { background-color: var(--warning); color: #333; }
+
+        /* Overlay for Result */
+        #result-overlay {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(255,255,255,0.95);
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+        }
+        .result-img { width: 150px; height: 150px; background: #ddd; margin: 20px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 3rem; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 가상 실험실: 금속 활자(비누) 만들기</h1>
+    <div class="step-indicator" id="step-display">단계 1: 융해 (녹이기)</div>
+</header>
+
+<main>
+    <section class="panel" id="control-panel">
+        <div>
+            <h2>실험 제어</h2>
+            <div class="guide-box" id="guide-text">
+                비커에 고체 비누가 담겨 있습니다.<br>
+                <b>온도 슬라이더</b>를 올려 비누를 녹여보세요.
+            </div>
+
+            <div class="control-group" id="heat-controls">
+                <label for="temp-slider">온도 조절 (<span id="temp-val">20</span>°C)</label>
+                <input type="range" id="temp-slider" min="20" max="100" value="20">
+            </div>
+
+            <div class="control-group" id="cool-controls" style="display:none;">
+                <label>냉각 진행도: <span id="cool-val">0</span>%</label>
+                <progress id="cool-progress" value="0" max="100" style="width:100%"></progress>
+            </div>
+        </div>
+
+        <button id="action-btn" disabled>다음 단계: 거푸집에 붓기</button>
+    </section>
+
+    <section class="panel" id="sim-panel">
+        <canvas id="mainCanvas" width="500" height="400"></canvas>
+        
+        <div id="result-overlay">
+            <h2>✨ 활자 제작 성공!</h2>
+            <div class="result-img">字</div>
+            <p id="result-desc">완벽하게 응고되었습니다.</p>
+            <button onclick="location.reload()" style="width:auto; padding: 10px 30px;">다시 실험하기</button>
+        </div>
+    </section>
+
+    <section class="panel" id="data-panel">
+        <h2>🔬 입자 현미경</h2>
+        <div id="particle-view">
+            <canvas id="particleCanvas" width="260" height="200"></canvas>
+        </div>
+        
+        <div class="data-display">
+            <p>현재 상태: <span id="state-badge" class="status-tag status-solid">고체 (Solid)</span></p>
+            <p>입자 운동: <span id="kinetic-energy">매우 약함 (진동)</span></p>
+            <hr>
+            <p style="font-size: 0.85rem; color: #666;">
+                💡 <b>Tip:</b> <br>
+                고체는 입자가 규칙적으로 배열되어 있고, 액체는 불규칙하게 흐트러집니다.
+            </p>
+        </div>
+    </section>
+</main>
+
+<script>
+    /**
+     * Simulation State Management
+     */
+    const state = {
+        step: 0, // 0: Heating, 1: Pouring, 2: Cooling, 3: Result
+        temp: 20,
+        isMelting: false,
+        isLiquid: false,
+        coolingProgress: 0,
+        particles: []
+    };
+
+    const CONSTANTS = {
+        MELTING_POINT: 60,
+        SOLID_COLOR: "#E0F7FA",
+        LIQUID_COLOR: "#81D4FA",
+        MOLD_COLOR: "#D7CCC8"
+    };
+
+    // DOM Elements
+    const els = {
+        tempSlider: document.getElementById('temp-slider'),
+        tempVal: document.getElementById('temp-val'),
+        actionBtn: document.getElementById('action-btn'),
+        guideText: document.getElementById('guide-text'),
+        stepDisplay: document.getElementById('step-display'),
+        heatControls: document.getElementById('heat-controls'),
+        coolControls: document.getElementById('cool-controls'),
+        coolVal: document.getElementById('cool-val'),
+        coolProgress: document.getElementById('cool-progress'),
+        stateBadge: document.getElementById('state-badge'),
+        kineticText: document.getElementById('kinetic-energy'),
+        resultOverlay: document.getElementById('result-overlay')
+    };
+
+    // Canvas Setup
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mainCtx = mainCanvas.getContext('2d');
+    const pCanvas = document.getElementById('particleCanvas');
+    const pCtx = pCanvas.getContext('2d');
+
+    /**
+     * Particle System Logic
+     */
+    class Particle {
+        constructor(x, y) {
+            this.originX = x;
+            this.originY = y;
+            this.x = x;
+            this.y = y;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+        }
+
+        update(temp, isConfined) {
+            const energy = (temp - 20) / 80; // 0.0 to 1.0
+
+            if (temp < CONSTANTS.MELTING_POINT) {
+                // Solid Mode: Vibrate around origin
+                const vibration = energy * 2; 
+                this.x = this.originX + (Math.random() - 0.5) * vibration;
+                this.y = this.originY + (Math.random() - 0.5) * vibration;
+            } else {
+                // Liquid Mode: Move freely
+                const speed = energy * 3;
+                this.x += this.vx * speed;
+                this.y += this.vy * speed;
+
+                // Bounds checking
+                if (this.x < 0 || this.x > pCanvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > pCanvas.height) this.vy *= -1;
+
+                // Return to grid if cooling down drastically (simplified)
+                if(isConfined) {
+                     this.x += (this.originX - this.x) * 0.1;
+                     this.y += (this.originY - this.y) * 0.1;
+                }
+            }
+        }
+
+        draw(ctx) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 4, 0, Math.PI * 2);
+            ctx.fillStyle = state.temp < CONSTANTS.MELTING_POINT ? "#4A90E2" : "#E74C3C";
+            ctx.fill();
+        }
+    }
+
+    // Initialize Particles
+    function initParticles() {
+        state.particles = [];
+        const rows = 6;
+        const cols = 8;
+        const spacingX = pCanvas.width / (cols + 1);
+        const spacingY = pCanvas.height / (rows + 1);
+
+        for(let i=0; i<rows; i++) {
+            for(let j=0; j<cols; j++) {
+                state.particles.push(new Particle(spacingX * (j+1), spacingY * (i+1)));
+            }
+        }
+    }
+
+    /**
+     * Main Simulation Loop
+     */
+    function drawSimulation() {
+        mainCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+        
+        // Draw Heater
+        mainCtx.fillStyle = "#333";
+        mainCtx.fillRect(150, 300, 200, 50);
+        if(state.temp > 30 && state.step === 0) {
+            mainCtx.fillStyle = `rgba(231, 76, 60, ${(state.temp-20)/100})`;
+            mainCtx.font = "20px Arial";
+            mainCtx.fillText("♨️", 240, 335);
+        }
+
+        if (state.step === 0) { // Heating Stage
+            // Beaker
+            mainCtx.strokeStyle = "#aaa";
+            mainCtx.lineWidth = 4;
+            mainCtx.strokeRect(200, 150, 100, 150);
+            
+            // Soap Content
+            const isLiq = state.temp >= CONSTANTS.MELTING_POINT;
+            mainCtx.fillStyle = isLiq ? CONSTANTS.LIQUID_COLOR : CONSTANTS.SOLID_COLOR;
+            
+            if(isLiq) {
+                // Liquid level
+                mainCtx.fillRect(205, 200, 90, 95);
+                // Bubbles
+                if(state.temp > 80) {
+                     mainCtx.beginPath();
+                     mainCtx.arc(230 + Math.random()*40, 220 + Math.random()*50, 3, 0, Math.PI*2);
+                     mainCtx.fillStyle = "white";
+                     mainCtx.fill();
+                }
+            } else {
+                // Solid Block
+                mainCtx.fillRect(210, 220, 80, 75);
+            }
+
+        } else if (state.step === 2) { // Cooling Stage (In Mold)
+            // Mold
+            mainCtx.fillStyle = CONSTANTS.MOLD_COLOR;
+            mainCtx.fillRect(180, 200, 140, 80); // Outside
+            mainCtx.fillStyle = "#fff"; // Cavity background (not visible if filled)
+            
+            // Soap in Mold
+            const solidity = state.coolingProgress / 100; // 0(Liquid) -> 1(Solid)
+            // Interpolate color from Liquid Blue to Solid Blue
+            mainCtx.fillStyle = solidity > 0.8 ? CONSTANTS.SOLID_COLOR : CONSTANTS.LIQUID_COLOR;
+            mainCtx.fillRect(190, 210, 120, 60);
+
+            // Label
+            mainCtx.fillStyle = "#333";
+            mainCtx.font = "14px Noto Sans KR";
+            mainCtx.fillText("거푸집(Mold)", 210, 300);
+        }
+
+        // Particle View Draw
+        pCtx.fillStyle = "rgba(0,0,0,0.3)";
+        pCtx.fillRect(0,0, pCanvas.width, pCanvas.height);
+        
+        state.particles.forEach(p => {
+            // If cooling, confine particles back to grid
+            const isConfined = (state.step === 2);
+            // Simulate temp drop during cooling
+            let currentTemp = state.step === 2 ? (100 - state.coolingProgress) : state.temp;
+            
+            p.update(currentTemp, isConfined);
+            p.draw(pCtx);
+        });
+
+        requestAnimationFrame(drawSimulation);
+    }
+
+    /**
+     * Interaction Handlers
+     */
+    els.tempSlider.addEventListener('input', (e) => {
+        state.temp = parseInt(e.target.value);
+        els.tempVal.textContent = state.temp;
+        updateStateInfo();
+    });
+
+    els.actionBtn.addEventListener('click', () => {
+        if (state.step === 0) {
+            // Transition to Cooling (Skip pouring anim for brevity in this code)
+            state.step = 2; 
+            setupCooling();
+        } else if (state.step === 2) {
+            // Finish
+            state.step = 3;
+            els.resultOverlay.style.display = "flex";
+        }
+    });
+
+    function updateStateInfo() {
+        if (state.step === 0) {
+            if (state.temp >= CONSTANTS.MELTING_POINT) {
+                state.isLiquid = true;
+                els.stateBadge.className = "status-tag status-liquid";
+                els.stateBadge.textContent = "액체 (Liquid) - 융해됨";
+                els.kineticText.textContent = "활발함 (유동성 있음)";
+                els.guideText.innerHTML = "비누가 녹았습니다! 이제 <b>'다음 단계'</b>를 눌러 거푸집에 부으세요.";
+                els.actionBtn.disabled = false;
+            } else {
+                state.isLiquid = false;
+                els.stateBadge.className = "status-tag status-solid";
+                els.stateBadge.textContent = "고체 (Solid)";
+                els.kineticText.textContent = "약함 (제자리 진동)";
+                els.guideText.innerHTML = "온도를 더 높여서 비누를 완전히 녹여야 합니다. (녹는점: 60°C)";
+                els.actionBtn.disabled = true;
+            }
+        }
+    }
+
+    function setupCooling() {
+        // UI Change
+        els.heatControls.style.display = 'none';
+        els.coolControls.style.display = 'block';
+        els.stepDisplay.textContent = "단계 2: 응고 (굳히기)";
+        els.guideText.innerHTML = "뜨거운 비누액을 거푸집에 부었습니다.<br>시간이 지나면 열을 방출하며 굳습니다.";
+        els.actionBtn.textContent = "활자 꺼내기 (완성)";
+        els.actionBtn.disabled = true;
+
+        // Auto Cooling Logic
+        let coolInterval = setInterval(() => {
+            if (state.coolingProgress < 100) {
+                state.coolingProgress += 1;
+                els.coolVal.textContent = state.coolingProgress;
+                els.coolProgress.value = state.coolingProgress;
+                
+                // Update Badge
+                if (state.coolingProgress > 50) {
+                    els.stateBadge.className = "status-tag status-solid";
+                    els.stateBadge.textContent = "고체 (Solid) - 응고됨";
+                    els.kineticText.textContent = "다시 규칙적으로 배열됨";
+                }
+            } else {
+                clearInterval(coolInterval);
+                els.guideText.innerHTML = "완전히 굳었습니다! 이제 활자를 꺼내보세요.";
+                els.actionBtn.disabled = false;
+            }
+        }, 100); // Cooling Speed
+    }
+
+    // Init
+    initParticles();
+    drawSimulation();
+
+</script>
+
+</body>
+</html>

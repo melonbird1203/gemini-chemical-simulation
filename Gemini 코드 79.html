@@ -1,0 +1,301 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 실험: 열을 흡수하는 반응</title>
+    <style>
+        body { font-family: 'Malgun Gothic', sans-serif; background-color: #f0f4f8; color: #333; margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #2c3e50; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; justify-content: center; max-width: 1000px; width: 100%; }
+        .lab-bench { background: #fff; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); flex: 2; min-width: 300px; text-align: center; position: relative; }
+        .controls { background: #eef2f5; padding: 20px; border-radius: 15px; flex: 1; min-width: 250px; display: flex; flex-direction: column; gap: 15px; }
+        .graph-area { background: #fff; border: 1px solid #ddd; border-radius: 10px; margin-top: 10px; }
+        
+        /* Experiment Visuals */
+        #visual-canvas { border-bottom: 5px solid #8d6e63; /* Wooden block */ background: #e0f7fa; border-radius: 5px; cursor: pointer; }
+        .btn { padding: 10px 20px; border: none; border-radius: 5px; font-weight: bold; cursor: pointer; transition: 0.3s; }
+        .btn-start { background-color: #3498db; color: white; }
+        .btn-start:hover { background-color: #2980b9; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+        
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; }
+        .value-display { font-size: 0.9em; color: #666; text-align: right; }
+        
+        .status-box { margin-top: 20px; padding: 15px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 5px; }
+        .particle-view { border: 1px solid #ccc; background: #222; border-radius: 50%; width: 100px; height: 100px; margin: 10px auto; overflow: hidden; position: relative; }
+        .particle { position: absolute; background: cyan; border-radius: 50%; width: 6px; height: 6px; }
+
+        /* Ice effect overlay */
+        #ice-overlay { position: absolute; bottom: 5px; left: 50%; transform: translateX(-50%); width: 120px; height: 10px; background: rgba(255, 255, 255, 0.8); border-radius: 5px; opacity: 0; transition: opacity 1s; box-shadow: 0 0 10px white; }
+    </style>
+</head>
+<body>
+
+    <h1>❄️ 가상 실험실: 물을 얼리는 화학 반응</h1>
+
+    <div class="container">
+        <div class="lab-bench">
+            <h3>실험 장치 관찰</h3>
+            <canvas id="visual-canvas" width="300" height="300"></canvas>
+            <div id="ice-overlay"></div> <div style="margin-top: 10px;">
+                <strong>현재 온도: </strong> <span id="temp-display" style="color: red; font-size: 1.5em;">25.0</span> °C
+            </div>
+            
+            <div class="particle-view" id="particle-container">
+                </div>
+            <p style="font-size: 0.8em; color: #888;">▲ 플라스크 내부 입자 운동 확대</p>
+        </div>
+
+        <div class="controls">
+            <h3>🔬 실험 조건 설정</h3>
+            
+            <div>
+                <label>수산화 바륨 질량 (g)</label>
+                <input type="range" id="mass-a" min="5" max="30" value="10">
+                <div class="value-display"><span id="val-a">10</span> g</div>
+            </div>
+
+            <div>
+                <label>염화 암모늄 질량 (g)</label>
+                <input type="range" id="mass-b" min="5" max="30" value="10">
+                <div class="value-display"><span id="val-b">10</span> g</div>
+            </div>
+
+            <button class="btn btn-start" onclick="startExperiment()">⚗️ 반응 시작 (섞기)</button>
+            <button class="btn btn-reset" onclick="resetExperiment()">🔄 초기화</button>
+
+            <div class="status-box" id="feedback">
+                준비됨: 시약의 양을 조절하고 '반응 시작'을 누르세요.
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="lab-bench" style="text-align: left;">
+            <h3>📊 시간 - 온도 변화 그래프</h3>
+            <canvas id="graph-canvas" width="600" height="200" class="graph-area"></canvas>
+        </div>
+    </div>
+
+<script>
+    // 변수 설정
+    const canvas = document.getElementById('visual-canvas');
+    const ctx = canvas.getContext('2d');
+    const graphCanvas = document.getElementById('graph-canvas');
+    const graphCtx = graphCanvas.getContext('2d');
+    
+    let temp = 25.0;
+    let targetTemp = 25.0;
+    let isRunning = false;
+    let time = 0;
+    let particles = [];
+    const particleCount = 15;
+    let history = []; // 그래프용 데이터
+
+    // 초기화
+    function init() {
+        // 입자 생성
+        const pContainer = document.getElementById('particle-container');
+        pContainer.innerHTML = '';
+        particles = [];
+        for(let i=0; i<particleCount; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 90 + 'px';
+            p.style.top = Math.random() * 90 + 'px';
+            pContainer.appendChild(p);
+            particles.push({el: p, x: Math.random()*90, y: Math.random()*90, vx: Math.random()-0.5, vy: Math.random()-0.5});
+        }
+
+        drawFlask();
+        drawGraphFrame();
+        updateDisplay();
+    }
+
+    // 슬라이더 이벤트
+    document.getElementById('mass-a').addEventListener('input', (e) => document.getElementById('val-a').innerText = e.target.value);
+    document.getElementById('mass-b').addEventListener('input', (e) => document.getElementById('val-b').innerText = e.target.value);
+
+    // 실험 시작 로직
+    function startExperiment() {
+        if (isRunning) return;
+        
+        const massA = parseFloat(document.getElementById('mass-a').value);
+        const massB = parseFloat(document.getElementById('mass-b').value);
+        
+        // 간단한 화학 반응 시뮬레이션 로직
+        // 최적 비율 근처일 때 온도가 가장 많이 떨어짐 (대략 1:1 ~ 2:1 가정)
+        // 총 질량이 많을수록 반응열 용량이 커지지만, 여기선 단순화하여 온도 하강폭 계산
+        
+        let dropFactor = (massA + massB) * 1.5; 
+        // 비율 패널티: 비율이 안 맞으면 효율 감소
+        let ratio = massA / massB;
+        let efficiency = 1 - Math.abs(ratio - 2) * 0.3; // 2:1 비율이 최적이라고 가정
+        if (efficiency < 0.2) efficiency = 0.2;
+
+        let tempDrop = dropFactor * efficiency;
+        targetTemp = 25.0 - tempDrop;
+        if(targetTemp < -25) targetTemp = -25; // 최저 온도 제한
+
+        isRunning = true;
+        document.getElementById('feedback').innerHTML = "⏳ <strong>반응 중...</strong><br>플라스크 내부에서 열을 흡수하고 있습니다.<br>온도계와 입자의 움직임을 관찰하세요!";
+        
+        animate();
+    }
+
+    function resetExperiment() {
+        isRunning = false;
+        temp = 25.0;
+        time = 0;
+        history = [];
+        document.getElementById('ice-overlay').style.opacity = 0;
+        document.getElementById('feedback').innerText = "준비됨: 시약의 양을 조절하고 '반응 시작'을 누르세요.";
+        drawGraphFrame();
+        updateDisplay();
+    }
+
+    // 애니메이션 루프
+    function animate() {
+        if (!isRunning) return;
+
+        // 온도 변화 (서서히 목표 온도까지 이동)
+        if (Math.abs(temp - targetTemp) > 0.1) {
+            temp += (targetTemp - temp) * 0.05;
+        } else {
+            // 반응 종료 판단
+            isRunning = false;
+            analyzeResult();
+        }
+
+        time += 0.5;
+        history.push({t: time, T: temp});
+        
+        updateDisplay();
+        drawFlask();
+        drawGraph();
+        updateParticles();
+        
+        if (isRunning) requestAnimationFrame(animate);
+    }
+
+    function updateDisplay() {
+        document.getElementById('temp-display').innerText = temp.toFixed(1);
+        
+        // 얼음 효과 (0도 이하일 때)
+        if (temp <= 0) {
+            document.getElementById('ice-overlay').style.opacity = Math.min(1, (0 - temp) / 10);
+        } else {
+            document.getElementById('ice-overlay').style.opacity = 0;
+        }
+    }
+
+    function updateParticles() {
+        // 온도가 낮을수록 속도 감소 (운동 에너지 감소 시각화)
+        // 절대온도(K) 느낌으로 속도 계수 조정
+        let speedFactor = (temp + 50) / 100; // -20도면 0.3, 25도면 0.75
+        if (speedFactor < 0.1) speedFactor = 0.1;
+
+        particles.forEach(p => {
+            p.x += p.vx * speedFactor * 5;
+            p.y += p.vy * speedFactor * 5;
+
+            // 벽 튕기기
+            if(p.x < 0 || p.x > 90) p.vx *= -1;
+            if(p.y < 0 || p.y > 90) p.vy *= -1;
+
+            p.el.style.left = p.x + 'px';
+            p.el.style.top = p.y + 'px';
+        });
+    }
+
+    // 캔버스 그리기 (플라스크)
+    function drawFlask() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 플라스크 본체
+        ctx.fillStyle = "rgba(200, 240, 255, 0.6)";
+        ctx.beginPath();
+        ctx.moveTo(120, 100);
+        ctx.lineTo(180, 100);
+        ctx.lineTo(220, 250);
+        ctx.quadraticCurveTo(150, 270, 80, 250);
+        ctx.lineTo(120, 100);
+        ctx.fill();
+        ctx.stroke();
+
+        // 내부 액체 (반응물)
+        ctx.fillStyle = "#eee";
+        ctx.beginPath();
+        ctx.moveTo(100, 250); // 수위
+        ctx.lineTo(200, 250);
+        ctx.lineTo(210, 220);
+        ctx.lineTo(90, 220);
+        ctx.fill();
+
+        // 온도계
+        ctx.fillStyle = "#ddd";
+        ctx.fillRect(145, 50, 10, 200);
+        
+        // 온도계 눈금 (빨간 액체)
+        let liquidHeight = (temp + 30) * 2; // 높이 매핑
+        ctx.fillStyle = "red";
+        ctx.fillRect(147, 240 - liquidHeight, 6, liquidHeight);
+    }
+
+    function drawGraphFrame() {
+        graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+        graphCtx.strokeStyle = "#888";
+        graphCtx.beginPath();
+        graphCtx.moveTo(50, 10);
+        graphCtx.lineTo(50, 180); // Y축
+        graphCtx.lineTo(580, 180); // X축
+        graphCtx.stroke();
+        
+        graphCtx.fillStyle = "#333";
+        graphCtx.fillText("온도 (°C)", 10, 20);
+        graphCtx.fillText("시간", 550, 195);
+        
+        // 0도 기준선
+        let zeroY = 180 - ((0 + 30) * 2.5); // Y축 스케일링
+        graphCtx.strokeStyle = "#aaa";
+        graphCtx.setLineDash([5, 5]);
+        graphCtx.beginPath();
+        graphCtx.moveTo(50, zeroY);
+        graphCtx.lineTo(580, zeroY);
+        graphCtx.stroke();
+        graphCtx.setLineDash([]);
+        graphCtx.fillText("0°C (어는점)", 55, zeroY - 5);
+    }
+
+    function drawGraph() {
+        drawGraphFrame();
+        graphCtx.strokeStyle = "blue";
+        graphCtx.lineWidth = 2;
+        graphCtx.beginPath();
+        
+        history.forEach((point, index) => {
+            let x = 50 + point.t * 3;
+            let y = 180 - ((point.T + 30) * 2.5); // -30도 ~ +40도 범위 표현 가정
+            if (index === 0) graphCtx.moveTo(x, y);
+            else graphCtx.lineTo(x, y);
+        });
+        graphCtx.stroke();
+    }
+
+    function analyzeResult() {
+        let msg = "";
+        if (temp <= 0) {
+            msg = "❄️ <strong>성공! 물이 얼었습니다.</strong><br>플라스크 바닥의 물이 얼어 나무판이 붙었습니다.<br>이 반응은 주변의 열을 강력하게 흡수합니다.";
+        } else {
+            msg = "📉 <strong>온도가 내려갔습니다.</strong><br>하지만 물을 얼리기에는 시약의 양이나 비율이 부족했군요.<br>시약의 양을 늘려 다시 도전해보세요!";
+        }
+        document.getElementById('feedback').innerHTML = msg;
+    }
+
+    // 최초 실행
+    init();
+</script>
+
+</body>
+</html>

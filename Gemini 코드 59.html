@@ -1,0 +1,601 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 열의 이동 가상 실험실</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --bg-color: #f8f9fa;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 800px;
+        }
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9rem; color: #666; margin-top: 5px; }
+        
+        .main-container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Control Panel */
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            flex: 1;
+            min-width: 250px;
+        }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: 0.2s;
+            margin-top: 5px;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: #999; margin-top: 10px; }
+
+        /* Simulation Area */
+        .simulation-view {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 2px solid #eee;
+            border-radius: 10px;
+            background: #fff;
+            cursor: crosshair;
+        }
+        .status-bar {
+            margin-top: 10px;
+            font-weight: bold;
+            color: var(--secondary-color);
+            min-height: 24px;
+        }
+
+        /* Educational Guide */
+        .guide-box {
+            background: #e3f2fd;
+            border-left: 5px solid var(--primary-color);
+            padding: 15px;
+            margin-top: 20px;
+            border-radius: 5px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        /* Quiz Section */
+        .quiz-section {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            display: none; /* Hidden initially */
+        }
+        .quiz-option {
+            display: block;
+            padding: 10px;
+            margin: 5px 0;
+            background: #f0f0f0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .quiz-option:hover { background: #e0e0e0; }
+        .correct { background: #d4edda !important; color: #155724; }
+        .wrong { background: #f8d7da !important; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🔥 열의 이동 실험실</h1>
+    <p class="subtitle">중학교 2학년 8단원 | 전도, 대류, 복사의 원리를 입자 모형으로 알아보아요.</p>
+</header>
+
+<div class="main-container">
+    <aside class="controls">
+        <h3>🎛️ 실험 조건 설정</h3>
+        
+        <div class="control-group">
+            <label for="modeSelect">1. 열의 이동 방식 선택</label>
+            <select id="modeSelect" onchange="resetSim()">
+                <option value="conduction">전도 (고체)</option>
+                <option value="convection">대류 (액체/기체)</option>
+                <option value="radiation">복사 (진공/공기)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="materialSelect">2. 물질(매질) 종류</label>
+            <select id="materialSelect" onchange="resetSim()">
+                </select>
+        </div>
+
+        <div class="control-group">
+            <label for="tempSlider">3. 열원 온도 조절 (<span id="tempVal">50</span>℃)</label>
+            <input type="range" id="tempSlider" min="0" max="100" value="50" oninput="updateTemp(this.value)">
+        </div>
+
+        <button onclick="toggleSim()" id="actionBtn">실험 시작 ▶</button>
+        <button class="reset" onclick="resetSim()">초기화 ↺</button>
+    </aside>
+
+    <div class="simulation-view">
+        <canvas id="simCanvas" width="500" height="300"></canvas>
+        <div class="status-bar" id="statusText">설정을 마치고 '실험 시작'을 눌러보세요.</div>
+    </div>
+</div>
+
+<div class="guide-box" id="guideText">
+    <strong>💡 선생님의 팁:</strong><br>
+    전도 실험에서는 <strong>입자가 직접 이동하는지, 제자리에서 진동만 하는지</strong> 유심히 관찰해보세요.
+</div>
+
+<div class="quiz-section" id="quizSection">
+    <h3>📝 개념 확인 퀴즈</h3>
+    <p id="quizQuestion">질문이 여기에 표시됩니다.</p>
+    <div id="quizOptions"></div>
+    <p id="quizFeedback" style="font-weight: bold; margin-top:10px;"></p>
+</div>
+
+<script>
+    // --- Configuration & State ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    let animationId;
+    let isRunning = false;
+    let time = 0;
+
+    // Simulation State
+    const state = {
+        mode: 'conduction', // conduction, convection, radiation
+        material: 'copper', // copper, wood, water, air, vacuum
+        temp: 50,           // 0 ~ 100
+        particles: []
+    };
+
+    // Material Properties (Simplified for Education)
+    const materials = {
+        conduction: {
+            copper: { name: '구리 막대', color: '#B87333', k: 0.8 }, // k: conductivity speed
+            wood: { name: '나무 막대', color: '#DEB887', k: 0.1 },
+            vacuum: { name: '진공 상태', color: '#EEE', k: 0 }
+        },
+        convection: {
+            water: { name: '물 (액체)', color: '#A0D8EF', density: 1 },
+            air: { name: '공기 (기체)', color: '#E0F7FA', density: 0.5 },
+            vacuum: { name: '진공 상태', color: '#EEE', density: 0 }
+        },
+        radiation: {
+            vacuum: { name: '진공', color: '#222', loss: 0 },
+            air: { name: '공기', color: '#E0F7FA', loss: 0.2 },
+            wood: { name: '나무 판 (막힘)', color: '#DEB887', loss: 1 } // Blocks radiation
+        }
+    };
+
+    // --- Initialization ---
+    function init() {
+        populateMaterials();
+        resetSim();
+    }
+
+    function populateMaterials() {
+        const select = document.getElementById('materialSelect');
+        select.innerHTML = '';
+        const options = materials[state.mode];
+        for (const key in options) {
+            const opt = document.createElement('option');
+            opt.value = key;
+            opt.innerText = options[key].name;
+            select.appendChild(opt);
+        }
+        state.material = select.value;
+    }
+
+    function updateTemp(val) {
+        state.temp = parseInt(val);
+        document.getElementById('tempVal').innerText = val;
+    }
+
+    function toggleSim() {
+        if (isRunning) {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            document.getElementById('actionBtn').innerText = "실험 재개 ▶";
+        } else {
+            isRunning = true;
+            document.getElementById('actionBtn').innerText = "일시 정지 ⏸";
+            animate();
+            provideFeedback();
+        }
+    }
+
+    function resetSim() {
+        isRunning = false;
+        cancelAnimationFrame(animationId);
+        document.getElementById('actionBtn').innerText = "실험 시작 ▶";
+        
+        state.mode = document.getElementById('modeSelect').value;
+        if(materials[state.mode][document.getElementById('materialSelect').value]) {
+             state.material = document.getElementById('materialSelect').value;
+        } else {
+            populateMaterials(); // Refill if mode changed
+        }
+        
+        time = 0;
+        initParticles();
+        draw();
+        updateGuide();
+        document.getElementById('quizSection').style.display = 'none';
+        document.getElementById('statusText').innerText = "준비 완료.";
+    }
+
+    // --- Physics & Particle Logic ---
+    function initParticles() {
+        state.particles = [];
+        const w = canvas.width;
+        const h = canvas.height;
+
+        if (state.mode === 'conduction') {
+            // 1D Chain of particles
+            const count = 20;
+            for(let i=0; i<count; i++) {
+                state.particles.push({
+                    x: 50 + i * 20, y: h/2,
+                    baseX: 50 + i * 20,
+                    temp: 20, // Initial ambient temp
+                    vib: 0
+                });
+            }
+        } else if (state.mode === 'convection') {
+            // Random particles in a box
+            const count = 50;
+            for(let i=0; i<count; i++) {
+                state.particles.push({
+                    x: Math.random() * w,
+                    y: Math.random() * h,
+                    vx: 0, vy: 0,
+                    temp: 20
+                });
+            }
+        } else if (state.mode === 'radiation') {
+            // No persistent particles needed for basic visualization, handled in draw
+        }
+    }
+
+    function updatePhysics() {
+        const matProps = materials[state.mode][state.material];
+        
+        // Safety Check: Vacuum
+        if (state.material === 'vacuum' && (state.mode === 'conduction' || state.mode === 'convection')) {
+            return; // No transfer
+        }
+
+        if (state.mode === 'conduction') {
+            // Heat Source at left
+            state.particles[0].temp = state.temp;
+            
+            // Heat Propagation
+            const k = matProps.k;
+            for(let i=1; i<state.particles.length; i++) {
+                const prev = state.particles[i-1];
+                const curr = state.particles[i];
+                // Simple heat diffusion: T_new = T_curr + k * (T_prev - T_curr)
+                curr.temp += k * (prev.temp - curr.temp) * 0.05; 
+            }
+
+            // Vibration Amplitude based on Temp
+            state.particles.forEach(p => {
+                p.vib = p.temp / 10;
+                p.x = p.baseX + (Math.random() - 0.5) * p.vib;
+                p.y = canvas.height/2 + (Math.random() - 0.5) * p.vib;
+            });
+        } 
+        else if (state.mode === 'convection') {
+            // Heater at bottom center
+            state.particles.forEach(p => {
+                // Heating zone (bottom center)
+                if (p.y > canvas.height - 50 && Math.abs(p.x - canvas.width/2) < 100) {
+                    p.temp += (state.temp - p.temp) * 0.02;
+                }
+                
+                // Cooling zone (top)
+                if (p.y < 50) {
+                    p.temp -= (p.temp - 20) * 0.01;
+                }
+
+                // Buoyancy: Hot rises (lower density), Cold sinks
+                let buoyancy = (p.temp - 20) * 0.05;
+                p.vy -= buoyancy * 0.05; // Upward force
+                p.vy += 0.05; // Gravity
+                
+                // Friction
+                p.vx *= 0.95;
+                p.vy *= 0.95;
+
+                // Random jitter (Brownian-ish)
+                p.vx += (Math.random() - 0.5) * 0.5;
+                
+                // Update Pos
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // Boundaries (Wrap around for X, Bounce for Y)
+                if (p.x < 0) p.x = canvas.width;
+                if (p.x > canvas.width) p.x = 0;
+                if (p.y < 0) { p.y = 0; p.vy *= -0.5; }
+                if (p.y > canvas.height) { p.y = canvas.height; p.vy *= -0.5; }
+            });
+        }
+        else if (state.mode === 'radiation') {
+            time++;
+        }
+    }
+
+    // --- Rendering ---
+    function getColor(temp) {
+        // Map temp 0-100 to Blue-Red
+        const t = Math.min(Math.max(temp, 0), 100) / 100;
+        const r = Math.floor(255 * t);
+        const b = Math.floor(255 * (1-t));
+        return `rgb(${r}, 50, ${b})`;
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Background info
+        ctx.fillStyle = "#333";
+        ctx.font = "14px sans-serif";
+
+        if (state.mode === 'conduction') {
+            // Draw Rod Base
+            if (state.material !== 'vacuum') {
+                ctx.fillStyle = materials.conduction[state.material].color;
+                ctx.fillRect(40, canvas.height/2 - 20, canvas.width - 80, 40);
+            }
+
+            // Draw Particles
+            state.particles.forEach(p => {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, 8, 0, Math.PI*2);
+                ctx.fillStyle = getColor(p.temp);
+                ctx.fill();
+                ctx.strokeStyle = "white";
+                ctx.stroke();
+            });
+
+            // Draw Heat Source
+            ctx.fillStyle = "red";
+            ctx.fillRect(0, canvas.height/2 - 30, 40, 60);
+            ctx.fillStyle = "white";
+            ctx.fillText("열원", 5, canvas.height/2);
+
+            if (state.material === 'vacuum') drawVacuumWarning();
+
+        } else if (state.mode === 'convection') {
+            // Draw Heater
+            ctx.fillStyle = "red";
+            ctx.fillRect(canvas.width/2 - 50, canvas.height - 20, 100, 20);
+            ctx.fillText("가열 장치", canvas.width/2 - 25, canvas.height - 5);
+
+            if (state.material === 'vacuum') {
+                drawVacuumWarning();
+            } else {
+                state.particles.forEach(p => {
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, 6, 0, Math.PI*2);
+                    ctx.fillStyle = getColor(p.temp);
+                    ctx.fill();
+                });
+            }
+
+        } else if (state.mode === 'radiation') {
+            // Sun/Heater
+            ctx.beginPath();
+            ctx.arc(100, canvas.height/2, 40, 0, Math.PI*2);
+            ctx.fillStyle = `rgba(255, ${255 - state.temp*2}, 0, 1)`;
+            ctx.fill();
+            ctx.fillStyle = "black";
+            ctx.fillText(`열원 (${state.temp}℃)`, 65, canvas.height/2 + 5);
+
+            // Object
+            ctx.fillRect(400, canvas.height/2 - 30, 40, 60);
+            ctx.fillText("물체", 405, canvas.height/2);
+
+            // Obstacle check
+            if (state.material === 'wood') {
+                ctx.fillStyle = "#DEB887";
+                ctx.fillRect(250, 50, 20, 200);
+                ctx.fillStyle = "black";
+                ctx.fillText("장애물", 240, 265);
+            }
+
+            // Radiation Waves
+            if (isRunning) {
+                const waveCount = state.temp / 10;
+                for (let i = 0; i < waveCount; i++) {
+                    let waveX = (time * 5 + i * 50) % 300 + 140;
+                    
+                    // Blocking logic
+                    if (state.material === 'wood' && waveX > 250) continue;
+
+                    ctx.beginPath();
+                    ctx.arc(waveX, canvas.height/2, 20 * Math.sin(waveX/20), 0, Math.PI*2); // Very simplified wave visual
+                    ctx.strokeStyle = "orange";
+                    ctx.stroke();
+                }
+            }
+        }
+    }
+
+    function drawVacuumWarning() {
+        ctx.fillStyle = "rgba(0,0,0,0.7)";
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "white";
+        ctx.font = "20px sans-serif";
+        ctx.textAlign = "center";
+        ctx.fillText("⚠️ 입자가 없는 진공 상태입니다!", canvas.width/2, canvas.height/2);
+        ctx.fillText("전도와 대류는 일어날 수 없습니다.", canvas.width/2, canvas.height/2 + 30);
+        ctx.textAlign = "start";
+    }
+
+    function animate() {
+        if (!isRunning) return;
+        updatePhysics();
+        draw();
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // --- Educational Feedback & Logic ---
+    function updateGuide() {
+        const guide = document.getElementById('guideText');
+        const mode = state.mode;
+        
+        if (mode === 'conduction') {
+            guide.innerHTML = `
+                <strong>[전도] 관찰 포인트:</strong><br>
+                고체에서 열은 <strong>입자의 충돌</strong>을 통해 전달됩니다.<br>
+                열원에 가까운 입자가 활발하게 진동하며 옆 입자를 건드리는 모습을 보세요.<br>
+                * '진공'을 선택하면 열이 전달되지 않는 이유를 생각해 봅시다.
+            `;
+        } else if (mode === 'convection') {
+            guide.innerHTML = `
+                <strong>[대류] 관찰 포인트:</strong><br>
+                액체나 기체에서는 <strong>입자가 직접 이동</strong>하며 열을 전달합니다.<br>
+                가열된 입자(붉은색)가 위로 올라가고, 식은 입자(푸른색)가 내려오는 순환을 확인하세요.<br>
+                * 이를 '대류 현상'이라고 합니다.
+            `;
+        } else {
+            guide.innerHTML = `
+                <strong>[복사] 관찰 포인트:</strong><br>
+                복사는 <strong>물질(매질) 없이</strong> 열이 직접 전달되는 방식입니다.<br>
+                태양열이 진공인 우주를 넘어 지구에 도달하는 것과 같습니다.<br>
+                * 중간에 장애물(나무)이 있으면 어떻게 되나요?
+            `;
+        }
+    }
+
+    function provideFeedback() {
+        const status = document.getElementById('statusText');
+        if (state.material === 'vacuum' && state.mode !== 'radiation') {
+            status.innerText = "❌ 진공 상태에서는 매질이 없어 열이 전달되지 않습니다.";
+            status.style.color = "red";
+        } else if (state.mode === 'conduction' && state.material === 'wood') {
+            status.innerText = "⚠️ 나무는 금속보다 열전도율이 낮아 천천히 뜨거워집니다.";
+            status.style.color = "orange";
+        } else {
+            status.innerText = "✅ 실험이 진행 중입니다. 입자의 움직임을 관찰하세요.";
+            status.style.color = "#4a90e2";
+        }
+        
+        // Show Quiz after 5 seconds of running
+        setTimeout(() => {
+            if(isRunning) showQuiz();
+        }, 5000);
+    }
+
+    // --- Quiz System ---
+    const quizzes = {
+        conduction: {
+            q: "프라이팬 손잡이를 플라스틱이나 나무로 만드는 이유는 무엇일까요?",
+            opts: ["열전도가 잘 되게 하기 위해", "열전도를 막아 뜨겁지 않게 하기 위해", "가볍게 만들기 위해"],
+            a: 1
+        },
+        convection: {
+            q: "에어컨을 높은 곳에 설치하는 이유는 무엇일까요?",
+            opts: ["찬 공기는 무거워서 아래로 내려오기 때문에", "더운 공기는 무거워서 아래로 가기 때문에", "전기를 아끼기 위해"],
+            a: 0
+        },
+        radiation: {
+            q: "난로 가까이에 손을 대지 않고 있어도 따뜻한 이유는?",
+            opts: ["공기가 전도되어서", "바람이 불어서(대류)", "열이 직접 전달되어서(복사)"],
+            a: 2
+        }
+    };
+
+    function showQuiz() {
+        const section = document.getElementById('quizSection');
+        const qData = quizzes[state.mode];
+        section.style.display = 'block';
+        document.getElementById('quizQuestion').innerText = "Q. " + qData.q;
+        
+        const optsDiv = document.getElementById('quizOptions');
+        optsDiv.innerHTML = "";
+        document.getElementById('quizFeedback').innerText = "";
+
+        qData.opts.forEach((opt, idx) => {
+            const btn = document.createElement('div');
+            btn.className = 'quiz-option';
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(idx, qData.a, btn);
+            optsDiv.appendChild(btn);
+        });
+        
+        // Scroll to quiz
+        section.scrollIntoView({behavior: "smooth"});
+    }
+
+    function checkAnswer(selected, correct, element) {
+        if (selected === correct) {
+            element.classList.add('correct');
+            document.getElementById('quizFeedback').innerText = "⭕ 정답입니다! 원리를 잘 이해했군요.";
+            document.getElementById('quizFeedback').style.color = "green";
+        } else {
+            element.classList.add('wrong');
+            document.getElementById('quizFeedback').innerText = "❌ 다시 생각해볼까요? 실험 내용을 떠올려보세요.";
+            document.getElementById('quizFeedback').style.color = "red";
+        }
+    }
+
+    // Start
+    init();
+
+</script>
+</body>
+</html>

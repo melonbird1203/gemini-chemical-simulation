@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 금속 원소의 불꽃 반응 실험실</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f4f7f9;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9rem; color: #666; margin-top: 5px; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 300px;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 실험 영역 */
+        .lab-area {
+            position: relative;
+            height: 400px;
+            background: #2c3e50;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            padding-bottom: 20px;
+            overflow: hidden;
+        }
+
+        /* 알코올 램프 및 불꽃 */
+        .burner-stand {
+            width: 80px;
+            height: 40px;
+            background: #7f8c8d;
+            border-radius: 5px;
+            z-index: 2;
+        }
+
+        .flame-container {
+            position: absolute;
+            bottom: 60px;
+            width: 60px;
+            height: 100px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            filter: blur(2px);
+            transition: transform 0.3s ease;
+        }
+
+        .flame {
+            width: 40px;
+            height: 100%;
+            background: linear-gradient(to top, blue, rgba(255,255,255,0.5));
+            border-radius: 50% 50% 20% 20%;
+            animation: flicker 0.1s infinite alternate;
+            transform-origin: bottom center;
+            opacity: 0.8;
+            box-shadow: 0 0 20px blue;
+            transition: background 0.5s, box-shadow 0.5s;
+        }
+
+        @keyframes flicker {
+            0% { transform: scaleY(1) skewX(-2deg); }
+            100% { transform: scaleY(1.1) skewX(2deg); }
+        }
+
+        /* 니크롬선 */
+        .wire-tool {
+            position: absolute;
+            top: 50px;
+            right: -200px; /* 초기 위치 */
+            width: 250px;
+            height: 10px;
+            display: flex;
+            align-items: center;
+            transition: right 1s ease-in-out;
+            z-index: 5;
+        }
+        
+        .wire-handle { width: 100px; height: 10px; background: #95a5a6; border-radius: 5px; }
+        .wire-metal { width: 150px; height: 2px; background: #bdc3c7; }
+        .wire-tip { width: 10px; height: 10px; background: #fff; border-radius: 50%; border: 1px solid #7f8c8d; }
+
+        .wire-tool.active {
+            right: 45%; /* 불꽃 중앙으로 이동 */
+        }
+
+        /* 제어 패널 */
+        .control-panel {
+            padding: 10px;
+        }
+
+        .section-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            display: block;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 5px;
+        }
+
+        .chemical-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            background: #ecf0f1;
+            color: #2c3e50;
+        }
+
+        button:hover { background: #bdc3c7; }
+        button.selected { background: var(--primary-color); color: white; border: 2px solid #2980b9; }
+
+        .slider-group { margin-bottom: 20px; }
+        
+        .toggle-switch {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            cursor: pointer;
+        }
+        
+        .toggle-label { margin-left: 10px; font-weight: bold; }
+
+        /* 결과 창 (스펙트럼) */
+        .result-panel {
+            grid-column: 1 / -1;
+            background: #000;
+            padding: 15px;
+            border-radius: 10px;
+            color: white;
+            min-height: 80px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .spectrum-bar {
+            width: 100%;
+            height: 40px;
+            background: #000; /* 기본 검정 */
+            position: relative;
+            margin-top: 10px;
+            border: 1px solid #333;
+        }
+
+        /* 스펙트럼 라인 (가상) */
+        .spec-line {
+            position: absolute;
+            top: 0; bottom: 0;
+            width: 2px;
+            opacity: 0.8;
+            box-shadow: 0 0 5px currentColor;
+        }
+
+        .feedback-box {
+            grid-column: 1 / -1;
+            background: #e8f6f3;
+            border-left: 5px solid var(--success-color);
+            padding: 15px;
+            margin-top: 10px;
+            display: none; /* 초기 숨김 */
+        }
+        
+        .quiz-section {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff8e1;
+            border-radius: 10px;
+            text-align: center;
+        }
+
+        /* 안전 문구 */
+        .safety-banner {
+            background: #ffecb3;
+            color: #d35400;
+            padding: 10px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 0.85rem;
+            text-align: center;
+            width: 100%;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🔥 가상 화학 실험실: 원소의 불꽃 반응</h1>
+        <div class="subtitle">중학교 2학년 과학 > 1. 물질의 구성 > 여러 가지 원소</div>
+    </header>
+
+    <div class="safety-banner">
+        ⚠️ <strong>안전 수칙:</strong> 실제 실험 시에는 보안경과 장갑을 착용하고, 화기에 주의해야 합니다. 이 시뮬레이션은 안전합니다.
+    </div>
+
+    <div class="container">
+        <div class="lab-area">
+            <div class="wire-tool" id="wireTool">
+                <div class="wire-handle"></div>
+                <div class="wire-metal"></div>
+                <div class="wire-tip" id="wireTip"></div>
+            </div>
+            
+            <div class="flame-container" id="flameContainer">
+                <div class="flame" id="flame"></div>
+            </div>
+            <div class="burner-stand"></div>
+        </div>
+
+        <div class="control-panel">
+            <span class="section-title">1. 시료 선택 (니크롬선에 묻히기)</span>
+            <div class="chemical-grid">
+                <button onclick="selectElement('Li', '리튬', '#ff1a1a', 'red')">Li (리튬)</button>
+                <button onclick="selectElement('Sr', '스트론튬', '#cc0000', 'darkred')">Sr (스트론튬)</button>
+                <button onclick="selectElement('Cu', '구리', '#00ffcc', 'bluegreen')">Cu (구리)</button>
+                <button onclick="selectElement('Na', '나트륨', '#ffcc00', 'yellow')">Na (나트륨)</button>
+            </div>
+
+            <span class="section-title">2. 실험 도구</span>
+            <div class="slider-group">
+                <label>불꽃 세기: <input type="range" min="1" max="3" value="2" id="flameSlider" oninput="adjustFlame()"></label>
+            </div>
+            
+            <div class="toggle-switch" onclick="toggleSpectroscope()">
+                <input type="checkbox" id="specToggle" style="pointer-events: none;">
+                <span class="toggle-label">🔍 분광기로 관찰하기</span>
+            </div>
+
+            <button onclick="performExperiment()" style="width: 100%; background: var(--primary-color); color: white;">실험 시작 (불꽃에 넣기)</button>
+        </div>
+
+        <div class="result-panel">
+            <div id="observationText">실험 결과가 여기에 표시됩니다.</div>
+            <div class="spectrum-bar" id="spectrumDisplay" style="display: none;">
+                </div>
+        </div>
+
+        <div class="feedback-box" id="feedbackBox"></div>
+
+        <div class="quiz-section">
+            <h3>🤔 퀴즈: 방금 관찰한 원소는?</h3>
+            <p>비슷해 보이는 붉은색 불꽃이라도 구별할 수 있나요?</p>
+            <button onclick="checkAnswer('Li')">리튬(Li)</button>
+            <button onclick="checkAnswer('Sr')">스트론튬(Sr)</button>
+            <div id="quizResult" style="margin-top: 10px; font-weight: bold;"></div>
+        </div>
+    </div>
+
+    <script>
+        // 상태 변수
+        let currentElement = null; // { symbol, name, colorCode, spectrumType }
+        let isSpectroscopeOn = false;
+        let isBurning = false;
+
+        // 원소 데이터베이스 (색상 및 스펙트럼 정보)
+        const elementData = {
+            'Li': { 
+                desc: "진한 빨간색 불꽃이 보입니다.", 
+                spectrum: [
+                    {pos: '85%', color: 'red', width: '2px'}, // 670nm 근처
+                    {pos: '75%', color: 'orange', width: '1px'}
+                ],
+                tip: "리튬과 스트론튬은 눈으로 볼 때 둘 다 붉은색이라 구별하기 어렵습니다."
+            },
+            'Sr': { 
+                desc: "짙은 빨간색 불꽃이 보입니다.", 
+                spectrum: [
+                    {pos: '88%', color: 'red', width: '2px'},
+                    {pos: '82%', color: 'orangered', width: '1px'},
+                    {pos: '70%', color: 'orange', width: '1px'},
+                    {pos: '20%', color: 'blue', width: '1px'} // 스트론튬의 특징적인 파란 선
+                ],
+                tip: "분광기를 사용하면 파란색 영역의 선 유무로 리튬과 구별할 수 있어요!"
+            },
+            'Cu': { 
+                desc: "청록색 불꽃이 보입니다.", 
+                spectrum: [
+                    {pos: '40%', color: 'cyan', width: '3px'},
+                    {pos: '30%', color: 'blue', width: '2px'},
+                    {pos: '10%', color: 'violet', width: '1px'}
+                ],
+                tip: "구리는 구리선 자체로도 실험할 수 있으며, 독특한 청록색을 띱니다."
+            },
+            'Na': { 
+                desc: "밝은 노란색 불꽃이 보입니다.", 
+                spectrum: [
+                    {pos: '65%', color: 'yellow', width: '3px'} // 589nm
+                ],
+                tip: "나트륨은 매우 밝은 노란색 불꽃을 냅니다. 가로등에도 사용돼요."
+            }
+        };
+
+        function selectElement(symbol, name, hexColor, type) {
+            currentElement = { symbol, name, hexColor, type };
+            
+            // 버튼 스타일 업데이트
+            document.querySelectorAll('.chemical-grid button').forEach(btn => btn.classList.remove('selected'));
+            event.target.classList.add('selected');
+
+            // 팁 색상 변경
+            document.getElementById('wireTip').style.backgroundColor = hexColor;
+            
+            // 피드백 초기화
+            document.getElementById('feedbackBox').style.display = 'none';
+            document.getElementById('observationText').innerText = `${name} 시료가 준비되었습니다. '실험 시작'을 눌러주세요.`;
+            document.getElementById('spectrumDisplay').innerHTML = ''; // 스펙트럼 초기화
+            resetFlame();
+        }
+
+        function adjustFlame() {
+            const val = document.getElementById('flameSlider').value;
+            const flame = document.getElementById('flame');
+            flame.style.transform = `scale(${0.8 + val * 0.2})`;
+        }
+
+        function toggleSpectroscope() {
+            isSpectroscopeOn = !isSpectroscopeOn;
+            document.getElementById('specToggle').checked = isSpectroscopeOn;
+            
+            const specDisplay = document.getElementById('spectrumDisplay');
+            if (isSpectroscopeOn) {
+                specDisplay.style.display = 'block';
+                // 실험 중이라면 바로 스펙트럼 표시
+                if (isBurning && currentElement) {
+                    showSpectrum(currentElement.symbol);
+                } else {
+                    specDisplay.innerHTML = '<span style="color:#aaa; font-size:0.8rem;">불꽃이 있을 때 스펙트럼이 나타납니다.</span>';
+                }
+            } else {
+                specDisplay.style.display = 'none';
+            }
+        }
+
+        function performExperiment() {
+            if (!currentElement) {
+                alert("먼저 시료를 선택해주세요!");
+                return;
+            }
+
+            isBurning = true;
+            const wireTool = document.getElementById('wireTool');
+            const flame = document.getElementById('flame');
+            const obsText = document.getElementById('observationText');
+
+            // 1. 니크롬선 이동 애니메이션
+            wireTool.classList.add('active');
+
+            // 2. 불꽃 반응 시작 (0.5초 후)
+            setTimeout(() => {
+                // 불꽃 색상 변경
+                flame.style.background = `linear-gradient(to top, ${currentElement.hexColor}, rgba(255,255,255,0.2))`;
+                flame.style.boxShadow = `0 0 40px ${currentElement.hexColor}`;
+
+                // 텍스트 출력
+                obsText.innerText = `[육안 관찰] ${elementData[currentElement.symbol].desc}`;
+
+                // 3. 분광기 모드일 경우 스펙트럼 표시
+                if (isSpectroscopeOn) {
+                    showSpectrum(currentElement.symbol);
+                    obsText.innerHTML += "<br>[분광기 관찰] 고유한 색의 띠(스펙트럼)가 나타납니다.";
+                }
+
+                // 학습 피드백 표시
+                const feedback = document.getElementById('feedbackBox');
+                feedback.style.display = 'block';
+                feedback.innerHTML = `<strong>💡 학습 포인트:</strong> ${elementData[currentElement.symbol].tip}`;
+
+            }, 800);
+        }
+
+        function showSpectrum(symbol) {
+            const container = document.getElementById('spectrumDisplay');
+            container.innerHTML = ''; // 초기화
+            
+            // 배경 그라데이션 (무지개 배경 은은하게 깔기)
+            container.style.background = 'linear-gradient(90deg, #330033, #000033, #003300, #333300, #330000)';
+
+            const lines = elementData[symbol].spectrum;
+            lines.forEach(line => {
+                const div = document.createElement('div');
+                div.className = 'spec-line';
+                div.style.left = line.pos;
+                div.style.backgroundColor = line.color;
+                div.style.width = line.width;
+                div.style.boxShadow = `0 0 4px ${line.color}`;
+                container.appendChild(div);
+            });
+        }
+
+        function resetFlame() {
+            isBurning = false;
+            const flame = document.getElementById('flame');
+            flame.style.background = 'linear-gradient(to top, blue, rgba(255,255,255,0.5))';
+            flame.style.boxShadow = '0 0 20px blue';
+            document.getElementById('wireTool').classList.remove('active');
+        }
+
+        function checkAnswer(answerSymbol) {
+            const resultDiv = document.getElementById('quizResult');
+            if (!currentElement) {
+                resultDiv.innerText = "먼저 실험을 수행해주세요.";
+                resultDiv.style.color = "black";
+                return;
+            }
+
+            if (currentElement.symbol === answerSymbol) {
+                resultDiv.innerText = "✅ 정답입니다! 원소마다 고유한 불꽃색과 스펙트럼이 있습니다.";
+                resultDiv.style.color = "green";
+            } else {
+                resultDiv.innerText = "❌ 다시 생각해보세요. 불꽃색과 스펙트럼을 다시 관찰해볼까요?";
+                resultDiv.style.color = "red";
+            }
+        }
+    </script>
+</body>
+</html>

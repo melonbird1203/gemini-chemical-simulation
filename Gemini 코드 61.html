@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 효과적인 단열 방법 탐색</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --secondary-color: #2196F3;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+        header {
+            grid-column: 1 / -1;
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 { margin: 0; color: var(--secondary-color); font-size: 1.5rem; }
+        p { margin: 5px 0 0; color: #666; font-size: 0.9rem; }
+
+        /* 컨트롤 패널 */
+        .controls {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            height: fit-content;
+        }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.9rem; }
+        select, input[type="range"], button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            margin-bottom: 5px;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #45a049; }
+        button.reset { background-color: #ff9800; margin-top: 10px; }
+        
+        /* 시각화 및 그래프 영역 */
+        .simulation-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .visual-display {
+            background: var(--panel-bg);
+            border-radius: 15px;
+            height: 300px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .graph-container {
+            background: var(--panel-bg);
+            padding: 15px;
+            border-radius: 15px;
+            height: 300px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* 컵 시각화 스타일 */
+        .cup-container {
+            position: relative;
+            width: 150px;
+            height: 200px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .insulation-layer {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            border-radius: 10px 10px 20px 20px;
+            background-color: rgba(200, 200, 200, 0.3);
+            border: 2px dashed #999;
+            transition: all 0.3s ease;
+            z-index: 1;
+        }
+        .cup-inner {
+            width: 80%;
+            height: 90%;
+            background: linear-gradient(to top, #ff4d4d, #ff9999);
+            border-radius: 5px 5px 15px 15px;
+            z-index: 2;
+            position: relative;
+            margin-bottom: 10px;
+            transition: background 0.5s;
+        }
+        .lid {
+            position: absolute;
+            top: -10px;
+            width: 120%;
+            left: -10%;
+            height: 20px;
+            background-color: #555;
+            border-radius: 5px;
+            z-index: 3;
+            display: none;
+        }
+        .heat-arrows {
+            position: absolute;
+            top: -40px;
+            width: 100%;
+            text-align: center;
+            font-size: 24px;
+            animation: floatUp 1.5s infinite;
+            opacity: 0;
+            color: orange;
+        }
+        
+        @keyframes floatUp {
+            0% { transform: translateY(10px); opacity: 1; }
+            100% { transform: translateY(-20px); opacity: 0; }
+        }
+
+        .status-board {
+            margin-top: 10px;
+            padding: 10px;
+            background: #eef;
+            border-radius: 8px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 가상 실험: 우리집 보온병 만들기</h1>
+        <p>어떤 재료와 구조가 열을 가장 잘 가두어 둘까요? 직접 설계해 보세요!</p>
+    </header>
+
+    <aside class="controls">
+        <h3>🛠️ 실험 설계</h3>
+        
+        <div class="control-group">
+            <label for="material">1. 단열재 종류 (전도 차단)</label>
+            <select id="material">
+                <option value="none">없음 (단열재 없음)</option>
+                <option value="cotton">솜 (공기층 많음)</option>
+                <option value="styrofoam">스티로폼 (공기층 매우 많음)</option>
+                <option value="foil">알루미늄 호일 (복사 차단)</option>
+                <option value="newspaper">신문지</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="thickness">2. 단열재 두께: <span id="thickVal">1</span>cm</label>
+            <input type="range" id="thickness" min="0" max="5" value="1" step="1">
+        </div>
+
+        <div class="control-group">
+            <label>3. 뚜껑 유무 (대류 차단)</label>
+            <div style="display: flex; gap: 10px;">
+                <input type="checkbox" id="hasLid"> <label for="hasLid" style="display:inline;">뚜껑 덮기</label>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label for="initTemp">4. 초기 물 온도</label>
+            <select id="initTemp">
+                <option value="60">60℃ (따뜻함)</option>
+                <option value="80" selected>80℃ (뜨거움)</option>
+                <option value="100">100℃ (끓는 물)</option>
+            </select>
+        </div>
+
+        <button onclick="startExperiment()">🔥 실험 시작</button>
+        <button class="reset" onclick="resetExperiment()">🔄 초기화</button>
+
+        <div class="status-board">
+            <strong>현재 온도:</strong> <span id="currentTempDisplay">--</span>℃<br>
+            <strong>경과 시간:</strong> <span id="timeDisplay">0</span>분
+        </div>
+    </aside>
+
+    <main class="simulation-area">
+        <div class="visual-display">
+            <div class="cup-container">
+                <div class="heat-arrows" id="heatVisual">♨️</div>
+                <div class="lid" id="lidVisual"></div>
+                <div class="cup-inner" id="waterVisual"></div>
+                <div class="insulation-layer" id="insulationVisual"></div>
+            </div>
+            <div style="position: absolute; right: 20px; top: 20px; width: 150px; font-size: 0.8rem; color: #555;">
+                <p>💡 <strong>시각화 가이드</strong></p>
+                <ul style="padding-left: 20px; margin: 0;">
+                    <li>빨간색: 뜨거움</li>
+                    <li>파란색: 차가움</li>
+                    <li>♨️: 열 손실(대류/증발)</li>
+                    <li>테두리: 단열재 두께</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="graph-container">
+            <canvas id="tempChart"></canvas>
+        </div>
+    </main>
+</div>
+
+<script>
+    // 변수 선언
+    let chart;
+    let timer;
+    let time = 0;
+    let currentTemp;
+    let isRunning = false;
+    
+    // 환경 온도
+    const ROOM_TEMP = 20;
+
+    // 단열재별 열전도율 팩터 (낮을수록 단열 잘됨)
+    // 1.0 = 기준(없음), 낮을수록 좋음
+    const materials = {
+        'none': { k: 1.0, color: 'transparent', name: '없음' },
+        'cotton': { k: 0.4, color: '#f0f0f0', name: '솜' }, // 전도 억제
+        'styrofoam': { k: 0.2, color: '#e3f2fd', name: '스티로폼' }, // 전도 매우 억제
+        'foil': { k: 0.7, color: '#d7ccc8', name: '호일' }, // 전도는 잘 되지만 복사 차단(여기선 단순 모델링)
+        'newspaper': { k: 0.5, color: '#fff3e0', name: '신문지' }
+    };
+
+    // 초기화
+    window.onload = function() {
+        initChart();
+        updateVisuals();
+    };
+
+    // 입력값 변경 시 시각화 업데이트
+    document.getElementById('material').addEventListener('change', updateVisuals);
+    document.getElementById('thickness').addEventListener('input', function() {
+        document.getElementById('thickVal').innerText = this.value;
+        updateVisuals();
+    });
+    document.getElementById('hasLid').addEventListener('change', updateVisuals);
+    document.getElementById('initTemp').addEventListener('change', function() {
+        document.getElementById('currentTempDisplay').innerText = this.value;
+    });
+
+    function updateVisuals() {
+        const mat = document.getElementById('material').value;
+        const thick = document.getElementById('thickness').value;
+        const hasLid = document.getElementById('hasLid').checked;
+
+        const insulationDiv = document.getElementById('insulationVisual');
+        const lidDiv = document.getElementById('lidVisual');
+
+        // 단열재 스타일
+        insulationDiv.style.backgroundColor = materials[mat].color;
+        if(mat === 'none') {
+            insulationDiv.style.border = 'none';
+        } else {
+            insulationDiv.style.border = '2px dashed #999';
+        }
+
+        // 두께 시각화 (패딩으로 표현)
+        const padding = mat === 'none' ? 0 : (thick * 4); 
+        insulationDiv.style.padding = `${padding}px`;
+        insulationDiv.style.left = `-${padding}px`;
+        insulationDiv.style.bottom = `-${padding}px`;
+        insulationDiv.style.width = `calc(100% + ${padding*2}px)`;
+
+        // 뚜껑 시각화
+        lidDiv.style.display = hasLid ? 'block' : 'none';
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('tempChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '온도 변화 (℃)',
+                    borderColor: '#ff5722',
+                    backgroundColor: 'rgba(255, 87, 34, 0.2)',
+                    data: [],
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: '시간 (분)' } },
+                    y: { title: { display: true, text: '온도 (℃)' }, min: 0, max: 100 }
+                },
+                animation: { duration: 0 }
+            }
+        });
+    }
+
+    function startExperiment() {
+        if (isRunning) return;
+        isRunning = true;
+        
+        // 초기값 설정
+        const initTemp = parseFloat(document.getElementById('initTemp').value);
+        currentTemp = initTemp;
+        time = 0;
+        
+        // 차트 초기화
+        chart.data.labels = [0];
+        chart.data.datasets[0].data = [initTemp];
+        chart.update();
+
+        // 시뮬레이션 루프
+        timer = setInterval(simulateStep, 500); // 0.5초마다 1분 경과로 가정
+    }
+
+    function simulateStep() {
+        if (time >= 20) { // 20분간 실험
+            stopExperiment();
+            analyzeResult();
+            return;
+        }
+
+        time++;
+        
+        // 물리 엔진 (뉴턴의 냉각 법칙 단순화)
+        // Rate = k * (T_curr - T_env)
+        
+        const matType = document.getElementById('material').value;
+        const thickness = parseFloat(document.getElementById('thickness').value);
+        const hasLid = document.getElementById('hasLid').checked;
+
+        let k_base = 0.15; // 기본 냉각 상수
+        
+        // 1. 재료 팩터
+        let k_mat = materials[matType].k;
+        
+        // 2. 두께 팩터 (두꺼울수록 냉각 속도 감소, 단 재료가 없을 땐 효과 없음)
+        let k_thick = (matType === 'none') ? 1 : (1 / (1 + thickness * 0.5));
+
+        // 3. 뚜껑 팩터 (대류/증발에 가장 큰 영향)
+        let k_lid = hasLid ? 0.3 : 1.0; 
+
+        // 종합 냉각 상수
+        let k_total = k_base * k_mat * k_thick * k_lid;
+
+        // 온도 계산
+        let tempDiff = currentTemp - ROOM_TEMP;
+        let tempDrop = tempDiff * k_total;
+        currentTemp -= tempDrop;
+
+        // UI 업데이트
+        document.getElementById('timeDisplay').innerText = time;
+        document.getElementById('currentTempDisplay').innerText = currentTemp.toFixed(1);
+        
+        // 물 색상 변경 (온도에 따라)
+        const redIntensity = Math.max(0, Math.min(255, (currentTemp - 20) * 3));
+        document.getElementById('waterVisual').style.background = `linear-gradient(to top, rgb(${redIntensity}, 50, 50), rgb(255, 100, 100))`;
+
+        // 열기 애니메이션 (온도가 높고 뚜껑이 없으면 활발)
+        const heatVisual = document.getElementById('heatVisual');
+        if (!hasLid && currentTemp > 40) {
+            heatVisual.style.opacity = 1;
+            heatVisual.style.animationDuration = `${2000 / (currentTemp)}s`; // 온도가 높으면 빨리 움직임
+        } else {
+            heatVisual.style.opacity = 0;
+        }
+
+        // 차트 업데이트
+        chart.data.labels.push(time);
+        chart.data.datasets[0].data.push(currentTemp);
+        chart.update();
+    }
+
+    function stopExperiment() {
+        clearInterval(timer);
+        isRunning = false;
+        document.getElementById('heatVisual').style.opacity = 0;
+    }
+
+    function resetExperiment() {
+        stopExperiment();
+        time = 0;
+        document.getElementById('timeDisplay').innerText = '0';
+        document.getElementById('currentTempDisplay').innerText = '--';
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+    }
+
+    function analyzeResult() {
+        const finalTemp = chart.data.datasets[0].data[chart.data.datasets[0].data.length - 1];
+        const hasLid = document.getElementById('hasLid').checked;
+        const matType = document.getElementById('material').value;
+
+        let feedback = "";
+        
+        if (finalTemp > 65) {
+            feedback = "🏆 대단해요! 완벽한 단열 설계를 하셨군요. 열이 거의 빠져나가지 못했어요.";
+        } else if (finalTemp > 45) {
+            feedback = "👍 좋은 시도입니다! 하지만 조금 더 열을 잘 가둘 수 있는 방법이 있을 거예요.";
+        } else {
+            feedback = "앗, 물이 금방 식어버렸네요. 🌡️ 열이 어디로 가장 많이 도망갔을까요?";
+        }
+
+        // 구체적인 피드백 추가
+        if (!hasLid) {
+            feedback += "\n💡 팁: 뚜껑이 없으면 뜨거운 공기가 위로 날아가 버려요(대류). 뚜껑을 덮어보세요!";
+        } else if (matType === 'none' || matType === 'foil') {
+            feedback += "\n💡 팁: 컵의 벽을 통해 열이 직접 전달되는 것(전도)을 막으려면 공기층이 많은 재료(스티로폼, 솜)를 사용해보세요.";
+        }
+
+        alert(`실험 종료! \n최종 온도: ${finalTemp.toFixed(1)}℃\n\n[분석 결과]\n${feedback}`);
+    }
+</script>
+</body>
+</html>

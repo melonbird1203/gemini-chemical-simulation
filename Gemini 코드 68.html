@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>물리 변화 vs 화학 변화 가상 실험실</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --warning: #F1C40F;
+            --danger: #E74C3C;
+            --bg: #F4F6F7;
+            --card-bg: #FFFFFF;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 800px;
+            width: 100%;
+            background: var(--card-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            overflow: hidden;
+            padding: 20px;
+        }
+        h1 {
+            text-align: center;
+            color: #2c3e50;
+            font-size: 1.5rem;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--primary);
+            padding-bottom: 10px;
+        }
+        .lab-bench {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        .screen-area {
+            width: 100%;
+            height: 300px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #bdc3c7;
+            overflow: hidden;
+        }
+        canvas {
+            background: white;
+            border-radius: 8px;
+        }
+        .controls {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: transform 0.2s;
+            font-size: 1rem;
+        }
+        button:hover { transform: translateY(-2px); }
+        .btn-select { background: var(--primary); color: white; }
+        .btn-check { background: var(--warning); color: #333; }
+        .btn-answer { width: 150px; padding: 15px; font-size: 1.1rem; }
+        .btn-phys { background: #3498db; color: white; }
+        .btn-chem { background: #9b59b6; color: white; }
+        
+        .feedback-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f9fa;
+            border-left: 5px solid #bdc3c7;
+            border-radius: 5px;
+            display: none;
+        }
+        .status-bar {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+            color: #7f8c8d;
+        }
+        .molecule-legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔬 가상 실험실: 물질의 변화 탐구</h1>
+    
+    <div class="status-bar">
+        <span>현재 실험: <b id="current-exp-name">실험을 선택하세요</b></span>
+        <span>성취도: <span id="score">0</span> / 5</span>
+    </div>
+
+    <div class="lab-bench">
+        <div class="controls">
+            <button class="btn-select" onclick="loadExperiment('ice')">🧊 얼음 녹이기</button>
+            <button class="btn-select" onclick="loadExperiment('can')">🥫 찌그러진 캔</button>
+            <button class="btn-select" onclick="loadExperiment('sugar')">🔥 설탕 가열하기</button>
+            <button class="btn-select" onclick="loadExperiment('rust')">🔩 못에 녹 생김</button>
+            <button class="btn-select" onclick="loadExperiment('popcorn')">🍿 팝콘 튀기기</button>
+        </div>
+
+        <div class="screen-area" id="screen">
+            <canvas id="particleCanvas" width="500" height="280"></canvas>
+            <div id="start-msg" style="position:absolute; color:#7f8c8d;">위 버튼을 눌러 실험을 시작하세요.</div>
+        </div>
+
+        <div class="molecule-legend" id="legend" style="visibility: hidden;">
+            <span><span class="dot" style="background:skyblue;"></span>물 입자</span>
+            <span><span class="dot" style="background:gray;"></span>철 입자</span>
+            <span><span class="dot" style="background:red;"></span>산소 입자</span>
+        </div>
+
+        <p style="text-align:center; font-weight:bold;">이 변화는 어떤 변화일까요?</p>
+
+        <div class="controls">
+            <button class="btn-answer btn-phys" onclick="checkAnswer('physical')">물리 변화</button>
+            <button class="btn-answer btn-chem" onclick="checkAnswer('chemical')">화학 변화</button>
+        </div>
+
+        <div class="feedback-panel" id="feedback">
+            <h3 id="fb-title">결과</h3>
+            <p id="fb-desc">설명</p>
+            <p id="fb-particle"><b>입자 관점:</b> <span></span></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    const feedback = document.getElementById('feedback');
+    const legend = document.getElementById('legend');
+    
+    let currentExp = null;
+    let particles = [];
+    let animationId;
+    let score = 0;
+    let isChanged = false; // 변화가 일어난 후 상태인지
+
+    // 실험 데이터베이스
+    const experiments = {
+        ice: {
+            name: "얼음 녹이기 (상태 변화)",
+            type: "physical",
+            desc: "얼음이 녹아 물이 되었습니다. 모양과 상태는 변했지만, 물이라는 성질은 변하지 않았습니다.",
+            particleText: "물 분자의 배열만 빽빽한 상태에서 느슨한 상태로 변했습니다. (분자 자체는 그대로)",
+            colors: ['skyblue'],
+            setup: 'solid', // solid, gas, mix
+            changeAction: 'melt'
+        },
+        can: {
+            name: "알루미늄 캔 찌그러뜨리기",
+            type: "physical",
+            desc: "캔의 모양은 찌그러졌지만, 여전히 알루미늄입니다. 성질은 변하지 않았습니다.",
+            particleText: "알루미늄 입자들의 위치만 이동했을 뿐, 입자 배열 구조나 종류는 변하지 않았습니다.",
+            colors: ['gray'],
+            setup: 'solid-block',
+            changeAction: 'distort'
+        },
+        sugar: {
+            name: "설탕 가열하기 (갈색으로 변함)",
+            type: "chemical",
+            desc: "설탕이 타면서 검은색 숯과 물로 분해되었습니다. 전혀 다른 새로운 물질이 되었습니다.",
+            particleText: "설탕 분자가 쪼개져서 탄소(검정)와 물(파랑)이라는 새로운 분자로 변했습니다.",
+            colors: ['white'], // 초기
+            setup: 'pile',
+            changeAction: 'burn'
+        },
+        rust: {
+            name: "철 못에 녹이 슬다",
+            type: "chemical",
+            desc: "은색 철이 붉은색 녹(산화철)으로 변했습니다. 자석에 붙지 않는 새로운 성질을 가집니다.",
+            particleText: "철 입자와 산소 입자가 결합하여 '산화철'이라는 새로운 입자가 생성되었습니다.",
+            colors: ['gray', 'red'],
+            setup: 'scattered',
+            changeAction: 'combine'
+        },
+        popcorn: {
+            name: "팝콘 튀기기",
+            type: "physical", // 논란의 여지가 있으나 중등과정에서는 내부 수분 기화로 인한 물리적 폭발+화학적 변화 혼재이나, 보통 '모양변화/상태변화' 강조 시 물리, '익는 것' 강조 시 화학. 여기서는 옥수수 알갱이 내부 수증기 팽창에 의한 물리변화 강조(단순화) 혹은 요리로 봐서 화학. *교과서적으로는 옥수수->팝콘은 성질 변화(맛,식감)로 화학변화로 분류하기도 함. 여기서는 확실한 '화학'으로 설정 (전분 구조 변화)*
+            // 수정: 중등 교과서에서 팝콘은 애매할 수 있으므로 명확한 예시인 '달걀 익히기'와 유사하게 화학으로 처리하거나, 단순 팽창이면 물리. 
+            // 안전하게 '양초 연소'나 '달걀 삶기'가 낫지만, 재미를 위해 팝콘을 '화학(성질변화)'로 설정.
+            type: "chemical",
+            desc: "옥수수가 열을 받아 맛과 색, 식감이 변했습니다. (전분의 호화 - 화학적 성질 변화)",
+            particleText: "열에 의해 내부 분자 구조가 변하여 새로운 성질을 띠게 되었습니다.",
+            colors: ['orange'],
+            setup: 'seed',
+            changeAction: 'explode'
+        }
+    };
+
+    function loadExperiment(key) {
+        currentExp = experiments[key];
+        document.getElementById('current-exp-name').textContent = currentExp.name;
+        document.getElementById('start-msg').style.display = 'none';
+        feedback.style.display = 'none';
+        legend.style.visibility = 'visible';
+        
+        isChanged = false;
+        initParticles(currentExp);
+        loop();
+        
+        // 1.5초 후 변화 애니메이션 트리거
+        setTimeout(() => {
+            isChanged = true;
+            triggerChange(currentExp);
+        }, 1500);
+    }
+
+    function initParticles(exp) {
+        particles = [];
+        const count = 30;
+        
+        if (exp.setup === 'solid') {
+            // 고체 배열 (규칙적)
+            for(let i=0; i<5; i++) {
+                for(let j=0; j<6; j++) {
+                    particles.push({
+                        x: 180 + j * 25, y: 100 + i * 25,
+                        vx: 0, vy: 0,
+                        color: exp.colors[0],
+                        r: 10, type: 'original'
+                    });
+                }
+            }
+        } else if (exp.setup === 'scattered') {
+            // 산만하게 퍼짐 (철과 산소)
+            for(let i=0; i<15; i++) { // 철
+                particles.push({ x: Math.random()*400+50, y: Math.random()*200+40, vx: Math.random()-0.5, vy: Math.random()-0.5, color: 'gray', r: 10, type: 'Fe' });
+            }
+            for(let i=0; i<15; i++) { // 산소
+                particles.push({ x: Math.random()*400+50, y: Math.random()*200+40, vx: Math.random()*2-1, vy: Math.random()*2-1, color: 'red', r: 6, type: 'O2' });
+            }
+        } else if (exp.setup === 'pile') {
+             for(let i=0; i<30; i++) {
+                particles.push({ x: 250 + (Math.random()-0.5)*60, y: 200 + (Math.random()-0.5)*40, vx: 0, vy: 0, color: 'white', r: 8, type: 'sugar' });
+            }
+        } else {
+             // 기본
+             for(let i=0; i<20; i++) {
+                particles.push({ x: 250, y: 140, vx: (Math.random()-0.5)*2, vy: (Math.random()-0.5)*2, color: exp.colors[0], r: 10, type: 'base' });
+            }
+        }
+    }
+
+    function triggerChange(exp) {
+        if (exp.changeAction === 'melt') {
+            // 흐트러지며 움직임
+            particles.forEach(p => {
+                p.vx = (Math.random() - 0.5) * 2;
+                p.vy = (Math.random() - 0.5) * 2; // 아래로 흐르는 느낌 대신 자유 운동 (액체)
+            });
+        } else if (exp.changeAction === 'distort') {
+            // 전체 덩어리가 찌그러짐
+            particles.forEach(p => {
+                if(p.x > 250) p.x -= 20;
+                else p.x += 20;
+                p.y += (Math.random()*10);
+            });
+        } else if (exp.changeAction === 'combine') {
+            // 결합 (화학)
+            // 간단한 시각화를 위해 색을 바꾸거나 붙임
+            particles.forEach(p => {
+                p.vx *= 0.1; p.vy *= 0.1; // 느려짐
+                if(p.type === 'Fe') p.color = '#8B4513'; // 녹슨색
+                if(p.type === 'O2') p.r = 0; // 산소 사라짐(결합된것으로 간주)
+            });
+        } else if (exp.changeAction === 'burn') {
+            // 분해 (화학)
+            particles.forEach((p, index) => {
+                p.vx = (Math.random() - 0.5) * 4;
+                p.vy = (Math.random() - 0.5) * 4;
+                if (index % 2 === 0) p.color = 'black'; // 탄소
+                else p.color = 'blue'; // 물(수증기)
+            });
+        }
+    }
+
+    function loop() {
+        ctx.clearRect(0,0, canvas.width, canvas.height);
+        
+        particles.forEach(p => {
+            // 움직임
+            if(isChanged && (currentExp.changeAction === 'melt' || currentExp.changeAction === 'burn' || currentExp.setup === 'scattered')) {
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                // 벽 튕기기
+                if(p.x < 10 || p.x > canvas.width-10) p.vx *= -1;
+                if(p.y < 10 || p.y > canvas.height-10) p.vy *= -1;
+            }
+
+            // 그리기
+            if(p.r > 0) {
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.r, 0, Math.PI*2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+            }
+        });
+
+        animationId = requestAnimationFrame(loop);
+    }
+
+    function checkAnswer(userChoice) {
+        if(!currentExp) {
+            alert("먼저 실험을 선택해주세요!");
+            return;
+        }
+
+        const isCorrect = userChoice === currentExp.type;
+        const resultTitle = document.getElementById('fb-title');
+        const resultDesc = document.getElementById('fb-desc');
+        const resultParticle = document.querySelector('#fb-particle span');
+        const card = document.getElementById('feedback');
+
+        card.style.display = 'block';
+        
+        if(isCorrect) {
+            resultTitle.textContent = "✅ 정답입니다!";
+            resultTitle.style.color = "var(--success)";
+            score = Math.min(score + 1, 5);
+        } else {
+            resultTitle.textContent = "❌ 다시 생각해볼까요?";
+            resultTitle.style.color = "var(--danger)";
+        }
+
+        document.getElementById('score').textContent = score;
+        resultDesc.textContent = currentExp.desc;
+        resultParticle.textContent = currentExp.particleText;
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 산화 구리(II)의 성분비</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --accent-color: #E74C3C;
+            --bg-color: #F5F7FA;
+            --text-color: #333;
+            --copper-color: #B87333;
+            --oxide-color: #2C3E50;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            padding: 30px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 20px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        h3 { margin-top: 10px; color: #666; font-weight: normal; }
+
+        .lab-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+        }
+
+        @media (max-width: 768px) {
+            .lab-layout { grid-template-columns: 1fr; }
+        }
+
+        /* 실험 구역 스타일 */
+        .experiment-zone {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            padding: 20px;
+            position: relative;
+            text-align: center;
+        }
+
+        .apparatus {
+            height: 250px;
+            position: relative;
+            background: #f9f9f9;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        /* 도가니 및 물질 시각화 */
+        .tripod {
+            width: 100px;
+            height: 80px;
+            border-left: 5px solid #555;
+            border-right: 5px solid #555;
+            border-top: 5px solid #555;
+            position: relative;
+            margin-bottom: 20px;
+        }
+        .crucible {
+            width: 60px;
+            height: 40px;
+            background: #eee;
+            border: 2px solid #ccc;
+            border-radius: 0 0 30px 30px;
+            position: absolute;
+            bottom: 85px; /* 삼발이 위 */
+            left: 50%;
+            transform: translateX(-50%);
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .substance {
+            width: 40px;
+            height: 15px;
+            background-color: var(--copper-color);
+            border-radius: 50% 50% 5px 5px;
+            transition: background-color 2s ease;
+        }
+        .flame {
+            width: 30px;
+            height: 40px;
+            background: radial-gradient(circle, yellow, orange, red);
+            border-radius: 50% 50% 20% 20%;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.5s;
+            animation: flicker 0.5s infinite alternate;
+        }
+
+        @keyframes flicker { from { transform: translateX(-50%) scale(1); } to { transform: translateX(-50%) scale(1.1); } }
+
+        /* 입자 모형 캔버스 */
+        #particleCanvas {
+            width: 100%;
+            height: 150px;
+            background: #222;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        /* 제어 패널 */
+        .controls {
+            background: #f0f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        
+        .control-group { margin-bottom: 15px; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            transition: background 0.3s;
+        }
+        .btn:hover { background: #357ABD; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn-reset { background: #95a5a6; margin-left: 10px; }
+
+        /* 데이터 및 그래프 구역 */
+        .data-zone {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 14px;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        th { background-color: #f2f2f2; }
+        .highlight { background-color: #e8f4ff; font-weight: bold; }
+
+        .graph-container {
+            height: 200px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            justify-content: space-around;
+            padding: 10px 10px 30px 40px; /*축 공간 확보*/
+        }
+        
+        /* 그래프 축 라벨 */
+        .y-axis-label {
+            position: absolute;
+            left: -30px;
+            top: 50%;
+            transform: rotate(-90deg);
+            font-size: 12px;
+            width: 100px;
+            text-align: center;
+        }
+        .x-axis-label {
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+            text-align: center;
+            font-size: 12px;
+        }
+
+        .bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 20%;
+            height: 100%;
+            justify-content: flex-end;
+        }
+        .bar {
+            width: 100%;
+            transition: height 1s ease;
+            position: relative;
+        }
+        .bar-cu { background-color: var(--copper-color); }
+        .bar-o { background-color: var(--primary-color); }
+        .bar-label { font-size: 12px; margin-top: 5px; }
+
+        .feedback-box {
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 14px;
+        }
+        
+        /* 퀴즈 영역 */
+        .quiz-section {
+            margin-top: 30px;
+            padding: 20px;
+            border-top: 2px dashed #ddd;
+        }
+        .quiz-options button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            background: white;
+            border: 1px solid #ccc;
+            text-align: left;
+            cursor: pointer;
+        }
+        .quiz-options button:hover { background: #f0f0f0; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🔬 산화 구리(II) 생성 실험</h1>
+        <h3>일정 성분비 법칙 알아보기</h3>
+    </header>
+
+    <div class="lab-layout">
+        <div class="experiment-zone">
+            <div class="apparatus">
+                <div class="tripod"></div>
+                <div class="crucible">
+                    <div id="substanceDisplay" class="substance"></div>
+                </div>
+                <div id="flameDisplay" class="flame"></div>
+            </div>
+
+            <div style="text-align: left; font-size: 0.9em; margin-bottom: 5px;">🧬 입자 모형 (🔴구리 / 🔵산소)</div>
+            <canvas id="particleCanvas" width="400" height="150"></canvas>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label for="massInput">구리(Cu)의 질량: <span id="massValue">4.0</span>g</label>
+                    <input type="range" id="massInput" min="0" max="10" step="0.4" value="4.0">
+                </div>
+                <div class="control-group">
+                    <label>반응 조건: 산소 충분함 (개방된 용기)</label>
+                </div>
+                <button id="heatBtn" class="btn" onclick="startExperiment()">🔥 가열하기</button>
+                <button class="btn btn-reset" onclick="resetExperiment()">🔄 초기화</button>
+            </div>
+            
+            <div id="feedbackText" class="feedback-box" style="display:none;"></div>
+        </div>
+
+        <div class="data-zone">
+            <h3>📊 실험 결과 데이터</h3>
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>반응 전 구리 (g)</th>
+                        <th>반응 후 산화구리 (g)</th>
+                        <th>결합한 산소 (g)</th>
+                        <th>질량비 (구리:산소)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td id="td-cu">-</td>
+                        <td id="td-cuo">-</td>
+                        <td id="td-o">-</td>
+                        <td id="td-ratio">-</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>📈 성분 질량 그래프</h3>
+            <div class="graph-container">
+                <span class="y-axis-label">질량 (g)</span>
+                
+                <div class="bar-group">
+                    <div id="barCu" class="bar bar-cu" style="height: 0px;"></div>
+                    <span class="bar-label">구리</span>
+                </div>
+                
+                <div class="bar-group">
+                    <div id="barO" class="bar bar-o" style="height: 0px;"></div>
+                    <span class="bar-label">산소</span>
+                </div>
+
+                <div class="bar-group">
+                    <div id="barCuO" class="bar" style="background-color:var(--oxide-color); height: 0px;"></div>
+                    <span class="bar-label">산화구리</span>
+                </div>
+
+                <span class="x-axis-label">물질 종류</span>
+            </div>
+
+            <div style="text-align: right; margin-top: 10px;">
+                <button class="btn" style="background:#27ae60; font-size:0.9em;" onclick="alert('실험 결과 레포트가 PDF로 저장되었습니다. (시뮬레이션)')">📄 결과 레포트 저장</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="quiz-section">
+        <h3>💡 개념 확인 퀴즈</h3>
+        <p>Q. 구리 8g을 완전히 연소시키기 위해 필요한 산소의 최소 질량은 얼마인가요?</p>
+        <div class="quiz-options">
+            <button onclick="checkAnswer(1)">1. 1g</button>
+            <button onclick="checkAnswer(2)">2. 2g</button>
+            <button onclick="checkAnswer(3)">3. 4g</button>
+            <button onclick="checkAnswer(4)">4. 8g</button>
+        </div>
+        <div id="quizResult" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+</div>
+
+<script>
+    // 변수 설정
+    const massInput = document.getElementById('massInput');
+    const massValue = document.getElementById('massValue');
+    const heatBtn = document.getElementById('heatBtn');
+    const substance = document.getElementById('substanceDisplay');
+    const flame = document.getElementById('flameDisplay');
+    const feedbackText = document.getElementById('feedbackText');
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let isReacted = false;
+    let particles = [];
+
+    // 초기화
+    function init() {
+        massInput.addEventListener('input', (e) => {
+            massValue.textContent = parseFloat(e.target.value).toFixed(1);
+            if(isReacted) resetExperiment(false); // 값 변경 시 리셋하되 값은 유지
+        });
+        drawInitialParticles();
+    }
+
+    // 입자 그리기 함수
+    function drawInitialParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles = [];
+        // 구리 입자 (고체 상태, 규칙적 배열)
+        const cuMass = parseFloat(massInput.value);
+        const count = Math.floor(cuMass * 2) + 2; // 시각적 개수 조절
+        
+        for(let i=0; i<count; i++) {
+            particles.push({
+                x: 50 + (i % 5) * 20, 
+                y: 100 - Math.floor(i / 5) * 20,
+                type: 'Cu',
+                color: '#B87333'
+            });
+        }
+        
+        particles.forEach(p => drawParticle(p));
+    }
+
+    function drawParticle(p) {
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, 8, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.stroke();
+        ctx.closePath();
+        
+        // 입자 이름 텍스트
+        ctx.fillStyle = 'white';
+        ctx.font = '8px Arial';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.type === 'Cu' ? 'Cu' : 'O', p.x, p.y);
+    }
+
+    // 실험 시작 함수
+    function startExperiment() {
+        if (parseFloat(massInput.value) === 0) {
+            alert("구리를 도가니에 넣어주세요 (0g 이상).");
+            return;
+        }
+
+        heatBtn.disabled = true;
+        massInput.disabled = true;
+        flame.style.opacity = 1; // 불꽃 점화
+
+        // 3초간 가열 애니메이션
+        setTimeout(() => {
+            substance.style.backgroundColor = '#2C3E50'; // 검은색으로 변색 (CuO)
+            calculateResults();
+            animateParticlesReaction();
+            flame.style.opacity = 0; // 불꽃 끄기
+            isReacted = true;
+        }, 1500);
+    }
+
+    // 결과 계산 및 그래프 업데이트
+    function calculateResults() {
+        const cuMass = parseFloat(massInput.value);
+        const oMass = cuMass * 0.25; // 비율 4:1
+        const cuoMass = cuMass + oMass;
+
+        // 테이블 업데이트
+        document.getElementById('td-cu').textContent = cuMass.toFixed(1);
+        document.getElementById('td-cuo').textContent = cuoMass.toFixed(1);
+        document.getElementById('td-o').textContent = oMass.toFixed(1);
+        
+        // 비율 표시 (항상 4:1)
+        document.getElementById('td-ratio').innerHTML = 
+            cuMass > 0 ? "<span class='highlight'>4 : 1</span>" : "-";
+
+        // 그래프 업데이트 (최대 15g 기준으로 높이 퍼센트 계산)
+        const maxScale = 15; 
+        document.getElementById('barCu').style.height = (cuMass / maxScale * 100) + '%';
+        document.getElementById('barO').style.height = (oMass / maxScale * 100) + '%';
+        document.getElementById('barCuO').style.height = (cuoMass / maxScale * 100) + '%';
+
+        // 피드백 텍스트
+        feedbackText.style.display = 'block';
+        feedbackText.innerHTML = `
+            <strong>실험 결과 분석:</strong><br>
+            구리 ${cuMass}g이 모두 반응하여 산화 구리(II) ${cuoMass}g이 되었습니다.<br>
+            이때 결합한 산소의 질량은 ${oMass}g입니다.<br>
+            구리와 산소의 질량비는 <strong>${cuMass} : ${oMass} = 4 : 1</strong> 입니다.
+            <br>👉 이것은 <strong>일정 성분비 법칙</strong>을 보여줍니다.
+        `;
+    }
+
+    // 입자 반응 애니메이션
+    function animateParticlesReaction() {
+        // 산소 입자가 날아와서 구리 옆에 붙는 애니메이션 로직 (간단화)
+        const currentParticles = [...particles];
+        let oCount = 0;
+        
+        const interval = setInterval(() => {
+            if(oCount >= currentParticles.length) {
+                clearInterval(interval);
+                return;
+            }
+            
+            // 기존 구리 입자 옆에 산소 입자 추가
+            const targetCu = currentParticles[oCount];
+            const newO = {
+                x: targetCu.x + 10,
+                y: targetCu.y - 10,
+                type: 'O',
+                color: '#4A90E2'
+            };
+            
+            // 캔버스 다시 그리기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 기존 입자들 그리기 (CuO로 색상 변경)
+            particles.forEach((p, idx) => {
+                if (idx <= oCount) p.color = '#2C3E50'; // 반응한 구리는 검게
+                drawParticle(p);
+            });
+            
+            // 이미 추가된 산소들 그리기 (여기서는 particles 배열에 추가하여 처리)
+            particles.push(newO);
+            drawParticle(newO);
+            
+            oCount++;
+        }, 100);
+    }
+
+    // 초기화 함수
+    function resetExperiment(fullReset = true) {
+        isReacted = false;
+        heatBtn.disabled = false;
+        massInput.disabled = false;
+        flame.style.opacity = 0;
+        substance.style.backgroundColor = '#B87333'; // 다시 붉은색
+        
+        // 그래프 및 테이블 리셋
+        document.getElementById('barCu').style.height = '0%';
+        document.getElementById('barO').style.height = '0%';
+        document.getElementById('barCuO').style.height = '0%';
+        document.getElementById('td-cu').textContent = '-';
+        document.getElementById('td-cuo').textContent = '-';
+        document.getElementById('td-o').textContent = '-';
+        document.getElementById('td-ratio').textContent = '-';
+        
+        feedbackText.style.display = 'none';
+
+        if(fullReset) {
+            massInput.value = 4.0;
+            massValue.textContent = "4.0";
+            document.getElementById('quizResult').textContent = "";
+        }
+        
+        drawInitialParticles();
+    }
+
+    // 퀴즈 정답 확인
+    function checkAnswer(answer) {
+        const resultDiv = document.getElementById('quizResult');
+        if (answer === 2) {
+            resultDiv.style.color = "blue";
+            resultDiv.innerHTML = "✅ 정답입니다! <br>구리 : 산소 = 4 : 1 이므로, 8 : x = 4 : 1 에서 x = 2g 입니다.";
+        } else {
+            resultDiv.style.color = "red";
+            resultDiv.textContent = "❌ 다시 생각해보세요. 질량비 4:1을 기억하세요!";
+        }
+    }
+
+    // 시작
+    init();
+</script>
+
+</body>
+</html>

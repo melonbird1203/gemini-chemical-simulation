@@ -1,0 +1,563 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>과학 가상실험실: 물과 식용유의 온도 변화</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #F5A623;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0 0 10px 0; color: #2c3e50; }
+        .subtitle { font-size: 1.1em; color: #666; }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* 실험 영역 */
+        .lab-area {
+            flex: 1;
+            min-width: 350px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .beaker-container {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-bottom: 20px;
+            margin-top: 20px;
+        }
+
+        .apparatus {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .thermometer {
+            width: 12px;
+            height: 120px;
+            background: #eee;
+            border: 2px solid #999;
+            border-radius: 10px;
+            position: relative;
+            margin-bottom: -40px; /* 비커 안으로 넣기 */
+            z-index: 5;
+        }
+        
+        .thermometer .mercury {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 20%; /* 초기값 */
+            background: red;
+            border-radius: 0 0 8px 8px;
+            transition: height 0.2s;
+        }
+
+        .temp-display {
+            font-weight: bold;
+            margin-bottom: 5px;
+            font-size: 1.2em;
+        }
+
+        .beaker {
+            width: 100px;
+            height: 120px;
+            border-left: 3px solid #ccc;
+            border-right: 3px solid #ccc;
+            border-bottom: 3px solid #ccc;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255,255,255,0.5);
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60px; /* 질량에 따라 변함 */
+            transition: height 0.3s;
+        }
+
+        .liquid.water { background-color: rgba(74, 144, 226, 0.6); }
+        .liquid.oil { background-color: rgba(245, 166, 35, 0.6); }
+
+        .heater {
+            width: 120px;
+            height: 20px;
+            background: #555;
+            margin-top: 5px;
+            border-radius: 5px;
+            position: relative;
+            transition: background 0.5s;
+        }
+
+        .heater.on {
+            background: #ff4d4d;
+            box-shadow: 0 0 15px #ff4d4d;
+        }
+
+        /* 컨트롤 및 그래프 영역 */
+        .dashboard {
+            flex: 1;
+            min-width: 350px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 20px;
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        label { font-size: 0.9em; font-weight: bold; margin-bottom: 5px; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+
+        .btn-group {
+            grid-column: 1 / -1;
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1em;
+            transition: transform 0.1s;
+        }
+
+        button:active { transform: scale(0.98); }
+        .btn-start { background-color: #2ecc71; color: white; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+
+        .graph-area {
+            position: relative;
+            width: 100%;
+            height: 300px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #fff;
+        }
+
+        canvas { width: 100%; height: 100%; }
+
+        .analysis-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border-left: 5px solid #4A90E2;
+            border-radius: 5px;
+            display: none; /* 실험 후 표시 */
+        }
+
+        .quiz-section {
+            margin-top: 15px;
+            padding-top: 15px;
+            border-top: 1px dashed #ccc;
+        }
+
+        .safety-note {
+            width: 100%;
+            max-width: 800px;
+            background: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            margin-bottom: 15px;
+            font-size: 0.9em;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🔥 물 vs 식용유: 무엇이 더 빨리 뜨거워질까?</h1>
+        <div class="subtitle">중학교 2학년 과학: 물질의 비열 비교 가상실험</div>
+    </header>
+
+    <div class="safety-note">
+        ⚠️ <strong>안전 주의:</strong> 실제 실험실에서는 가열된 비커와 액체가 매우 뜨거우니 절대 맨손으로 만지지 마세요!
+    </div>
+
+    <div class="container">
+        <div class="lab-area">
+            <h3>실험 장치</h3>
+            <div class="beaker-container">
+                <div class="apparatus">
+                    <div class="temp-display" id="tempTextWater">20℃</div>
+                    <div class="thermometer">
+                        <div class="mercury" id="mercuryWater"></div>
+                    </div>
+                    <div class="beaker">
+                        <div class="liquid water" id="liquidWater"></div>
+                    </div>
+                    <div>💧 물 (<span id="massDisplayWater">100</span>g)</div>
+                    <div class="heater" id="heaterWater"></div>
+                </div>
+
+                <div class="apparatus">
+                    <div class="temp-display" id="tempTextOil">20℃</div>
+                    <div class="thermometer">
+                        <div class="mercury" id="mercuryOil"></div>
+                    </div>
+                    <div class="beaker">
+                        <div class="liquid oil" id="liquidOil"></div>
+                    </div>
+                    <div>🌻 식용유 (<span id="massDisplayOil">100</span>g)</div>
+                    <div class="heater" id="heaterOil"></div>
+                </div>
+            </div>
+            <p style="text-align: center; font-size: 0.9em; color:#777;">
+                가열 장치를 켜면 비커 아래가 붉게 변하며 온도가 올라갑니다.
+            </p>
+        </div>
+
+        <div class="dashboard">
+            <h3>실험 조작 및 결과</h3>
+            <div class="controls">
+                <div class="control-group">
+                    <label>액체의 질량 (g)</label>
+                    <input type="range" id="massRange" min="100" max="200" step="10" value="100">
+                    <span style="font-size:0.8em; color:#666;">현재: <span id="massValue">100</span>g</span>
+                </div>
+                <div class="control-group">
+                    <label>가열기 세기 (불꽃)</label>
+                    <input type="range" id="powerRange" min="1" max="5" step="1" value="3">
+                    <span style="font-size:0.8em; color:#666;">세기: <span id="powerValue">3</span></span>
+                </div>
+                <div class="btn-group">
+                    <button class="btn-start" onclick="startExperiment()">🔥 가열 시작</button>
+                    <button class="btn-reset" onclick="resetExperiment()">🔄 초기화</button>
+                </div>
+            </div>
+
+            <div class="graph-area">
+                <canvas id="tempGraph"></canvas>
+            </div>
+            <div style="text-align: center; margin-top: 5px;">
+                <span style="color:var(--primary-color)">● 물</span> &nbsp; 
+                <span style="color:var(--secondary-color)">● 식용유</span>
+            </div>
+
+            <div class="analysis-box" id="analysisBox">
+                <h4>📊 실험 결과 분석</h4>
+                <p id="resultText">결과가 여기에 표시됩니다.</p>
+                
+                <div class="quiz-section">
+                    <strong>💡 생각 넓히기 퀴즈</strong>
+                    <p>같은 열을 가했는데 식용유의 온도가 더 빨리 오른 이유는 무엇일까요?</p>
+                    <select id="quizSelect" style="width: 100%; padding: 8px; margin-bottom: 10px;">
+                        <option value="">정답을 선택하세요...</option>
+                        <option value="wrong1">식용유의 질량이 더 무겁기 때문에</option>
+                        <option value="correct">식용유의 비열이 물보다 작기 때문에</option>
+                        <option value="wrong2">물은 투명해서 열을 통과시키기 때문에</option>
+                    </select>
+                    <button onclick="checkAnswer()" style="background:#4A90E2; color:white; width:100%;">정답 확인</button>
+                    <p id="quizFeedback" style="margin-top:10px; font-weight:bold;"></p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 상수 및 변수 설정 ---
+        const specificHeatWater = 4.2; // J/g℃ (대략값)
+        const specificHeatOil = 2.0;   // J/g℃ (대략값, 물의 절반 정도)
+        const initTemp = 20;
+        
+        let mass = 100;
+        let power = 3;
+        let time = 0;
+        let tempWater = initTemp;
+        let tempOil = initTemp;
+        let isRunning = false;
+        let intervalId = null;
+        
+        // 데이터 배열 (그래프용)
+        let dataTime = [];
+        let dataWater = [];
+        let dataOil = [];
+
+        // DOM 요소
+        const elMassRange = document.getElementById('massRange');
+        const elMassVal = document.getElementById('massValue');
+        const elPowerRange = document.getElementById('powerRange');
+        const elPowerVal = document.getElementById('powerValue');
+        
+        const canvas = document.getElementById('tempGraph');
+        const ctx = canvas.getContext('2d');
+
+        // --- 초기화 및 이벤트 리스너 ---
+        window.onload = function() {
+            resetExperiment();
+            resizeCanvas();
+        };
+        window.onresize = resizeCanvas;
+
+        elMassRange.addEventListener('input', (e) => {
+            if(isRunning) return;
+            mass = parseInt(e.target.value);
+            elMassVal.innerText = mass;
+            document.getElementById('massDisplayWater').innerText = mass;
+            document.getElementById('massDisplayOil').innerText = mass;
+            updateLiquidHeight();
+        });
+
+        elPowerRange.addEventListener('input', (e) => {
+            if(isRunning) return;
+            power = parseInt(e.target.value);
+            elPowerVal.innerText = power;
+        });
+
+        function updateLiquidHeight() {
+            // 질량이 많으면 액체 높이가 높아짐 (60px ~ 100px 사이)
+            const height = 40 + (mass / 200) * 60;
+            document.getElementById('liquidWater').style.height = height + 'px';
+            document.getElementById('liquidOil').style.height = height + 'px';
+        }
+
+        function resizeCanvas() {
+            // 캔버스 해상도 조정
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+            drawGraph();
+        }
+
+        // --- 실험 로직 ---
+        function startExperiment() {
+            if (isRunning) return;
+            isRunning = true;
+            
+            // UI 잠금
+            elMassRange.disabled = true;
+            elPowerRange.disabled = true;
+            document.getElementById('heaterWater').classList.add('on');
+            document.getElementById('heaterOil').classList.add('on');
+            document.getElementById('analysisBox').style.display = 'none';
+
+            intervalId = setInterval(updateSimulation, 100); // 0.1초마다 업데이트
+        }
+
+        function updateSimulation() {
+            time += 1; // 1틱 = 10초로 가정 (화면상 빠른 전개)
+
+            // 물리 계산: Q = cmΔt => Δt = Q / cm
+            // Power가 높을수록 Q 증가
+            const heatAdded = power * 20; // 임의의 열량 단위
+            
+            // 온도 상승 계산
+            let deltaT_Water = heatAdded / (mass * specificHeatWater);
+            let deltaT_Oil = heatAdded / (mass * specificHeatOil);
+
+            tempWater += deltaT_Water;
+            tempOil += deltaT_Oil;
+
+            // 물은 100도에서 끓음 (간단한 시뮬레이션 위해 100도 제한)
+            if(tempWater > 100) tempWater = 100;
+            // 기름은 더 올라갈 수 있음 (200도 제한)
+            if(tempOil > 200) tempOil = 200;
+
+            // 데이터 저장
+            dataTime.push(time);
+            dataWater.push(tempWater);
+            dataOil.push(tempOil);
+
+            // UI 업데이트
+            updateDisplay();
+            drawGraph();
+
+            // 종료 조건: 시간이 60틱(약 10분 가상) 지나거나 온도가 너무 높으면 종료
+            if (time >= 60 || tempOil >= 150) {
+                stopExperiment();
+            }
+        }
+
+        function updateDisplay() {
+            // 텍스트 업데이트
+            document.getElementById('tempTextWater').innerText = Math.round(tempWater) + '℃';
+            document.getElementById('tempTextOil').innerText = Math.round(tempOil) + '℃';
+
+            // 온도계 높이 업데이트 (0~150도 기준 매핑)
+            const hWater = Math.min((tempWater / 150) * 100, 100);
+            const hOil = Math.min((tempOil / 150) * 100, 100);
+            
+            document.getElementById('mercuryWater').style.height = hWater + '%';
+            document.getElementById('mercuryOil').style.height = hOil + '%';
+        }
+
+        function stopExperiment() {
+            clearInterval(intervalId);
+            isRunning = false;
+            document.getElementById('heaterWater').classList.remove('on');
+            document.getElementById('heaterOil').classList.remove('on');
+            
+            showResult();
+        }
+
+        function resetExperiment() {
+            clearInterval(intervalId);
+            isRunning = false;
+            time = 0;
+            tempWater = initTemp;
+            tempOil = initTemp;
+            dataTime = [];
+            dataWater = [];
+            dataOil = [];
+
+            elMassRange.disabled = false;
+            elPowerRange.disabled = false;
+            document.getElementById('heaterWater').classList.remove('on');
+            document.getElementById('heaterOil').classList.remove('on');
+            document.getElementById('analysisBox').style.display = 'none';
+            document.getElementById('quizSelect').value = "";
+            document.getElementById('quizFeedback').innerText = "";
+
+            updateLiquidHeight();
+            updateDisplay();
+            drawGraph(); // 초기 빈 그래프
+        }
+
+        // --- 그래프 그리기 (Canvas API) ---
+        function drawGraph() {
+            const w = canvas.width;
+            const h = canvas.height;
+            const padding = 40;
+            
+            ctx.clearRect(0, 0, w, h);
+
+            // 축 그리기
+            ctx.beginPath();
+            ctx.strokeStyle = '#888';
+            ctx.lineWidth = 1;
+            // X축
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(w - padding, h - padding);
+            // Y축
+            ctx.moveTo(padding, h - padding);
+            ctx.lineTo(padding, padding);
+            ctx.stroke();
+
+            // 라벨
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText('시간', w - padding, h - padding + 30);
+            ctx.fillText('온도(℃)', 0, padding - 10);
+
+            if (dataTime.length === 0) return;
+
+            // 스케일 계산
+            const maxTime = 60; // x축 최대값
+            const maxTemp = 160; // y축 최대값
+
+            const xScale = (w - 2 * padding) / maxTime;
+            const yScale = (h - 2 * padding) / maxTemp;
+
+            // 그래프 그리기 함수
+            function drawLine(data, color) {
+                ctx.beginPath();
+                ctx.strokeStyle = color;
+                ctx.lineWidth = 3;
+                data.forEach((val, i) => {
+                    const x = padding + i * xScale;
+                    const y = h - padding - val * yScale;
+                    if (i === 0) ctx.moveTo(x, y);
+                    else ctx.lineTo(x, y);
+                });
+                ctx.stroke();
+            }
+
+            drawLine(dataWater, '#4A90E2'); // 물 (파랑)
+            drawLine(dataOil, '#F5A623');   // 식용유 (주황)
+        }
+
+        // --- 결과 및 퀴즈 ---
+        function showResult() {
+            const box = document.getElementById('analysisBox');
+            const resultText = document.getElementById('resultText');
+            
+            box.style.display = 'block';
+            
+            const diff = Math.round(tempOil - tempWater);
+            resultText.innerHTML = `
+                실험 종료! 같은 시간 동안 가열했을 때,<br>
+                <strong>식용유</strong>의 온도가 물보다 <strong>약 ${diff}℃</strong> 더 높게 올라갔습니다.<br>
+                그래프의 기울기를 비교해보세요. 어느 쪽이 더 가파른가요?
+            `;
+        }
+
+        function checkAnswer() {
+            const val = document.getElementById('quizSelect').value;
+            const feedback = document.getElementById('quizFeedback');
+
+            if (val === 'correct') {
+                feedback.style.color = 'green';
+                feedback.innerText = "⭕ 정답입니다! 식용유는 물보다 비열이 작아서 적은 열로도 온도가 쉽게 변합니다.";
+            } else if (val === '') {
+                feedback.style.color = '#666';
+                feedback.innerText = "답을 선택해주세요.";
+            } else {
+                feedback.style.color = 'red';
+                feedback.innerText = "❌ 다시 생각해보세요. 질량과 가열 조건은 같았습니다.";
+            }
+        }
+    </script>
+</body>
+</html>

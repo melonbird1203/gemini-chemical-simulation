@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중3 과학: 화학 반응의 변화 관찰 가상실험</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --accent: #FF6B6B;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+        }
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        header {
+            background-color: var(--primary);
+            color: white;
+            width: 100%;
+            padding: 1rem 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            width: 95%;
+            margin-top: 20px;
+            gap: 20px;
+        }
+        /* 실험 영역 */
+        .lab-bench {
+            flex: 2;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            min-height: 400px;
+        }
+        .beaker-container {
+            position: relative;
+            width: 200px;
+            height: 250px;
+            margin-top: 50px;
+        }
+        .beaker {
+            width: 100%;
+            height: 100%;
+            border: 4px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            overflow: hidden;
+            background: rgba(255,255,255,0.5);
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%; /* JS로 제어 */
+            background-color: #E0F7FA;
+            transition: height 1s, background-color 1s;
+        }
+        .solid-matter {
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 40px;
+            background: #eee;
+            border-radius: 10px;
+            display: none;
+        }
+        
+        /* 반응 효과 애니메이션 */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            border: 1px solid #fff;
+            animation: rise 2s infinite ease-in;
+            display: none;
+        }
+        @keyframes rise {
+            0% { bottom: 0; opacity: 0; transform: translateX(0); }
+            50% { opacity: 1; }
+            100% { bottom: 100%; opacity: 0; transform: translateX(10px); }
+        }
+        
+        .precipitate {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0;
+            background-color: white;
+            opacity: 0.9;
+            transition: height 2s;
+        }
+        
+        .glow-effect {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            width: 0; height: 0;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(255,200,0,0.8) 0%, rgba(255,0,0,0) 70%);
+            transition: width 0.5s, height 0.5s;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        h2, h3 { margin-top: 0; color: var(--primary); }
+        
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--primary);
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            font-size: 1rem;
+        }
+        .btn:hover { background-color: #357ABD; }
+        .btn:disabled { background-color: #ccc; cursor: not-allowed; }
+        .btn-reset { background-color: var(--accent); }
+        
+        .selection-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        /* 정보 및 결과 창 */
+        .info-panel {
+            margin-top: 20px;
+            padding: 15px;
+            background: #F0F4F8;
+            border-radius: 10px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        /* 입자 모형 뷰어 */
+        .particle-view {
+            width: 100%;
+            height: 150px;
+            background: #222;
+            border-radius: 10px;
+            margin-top: 10px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #aaa;
+            font-size: 0.8rem;
+        }
+        .atom {
+            width: 20px; height: 20px;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 1s ease-in-out;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        /* 퀴즈 영역 */
+        .quiz-section {
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            display: none;
+        }
+        .quiz-options button {
+            margin: 5px;
+            background: #eee;
+            color: #333;
+        }
+        
+        /* 온도계 */
+        .thermometer-wrapper {
+            position: absolute;
+            right: 20px;
+            top: 50px;
+            width: 20px;
+            height: 150px;
+            background: #eee;
+            border-radius: 10px;
+            border: 2px solid #ccc;
+        }
+        .mercury {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 30%; /* 기본 온도 */
+            background: #FF6B6B;
+            border-radius: 0 0 8px 8px;
+            transition: height 1s;
+        }
+        .temp-text {
+            position: absolute;
+            top: -25px;
+            right: 0;
+            font-weight: bold;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 중3 과학: 화학 반응 관찰 실험실</h1>
+</header>
+
+<div class="container">
+    <div class="lab-bench">
+        <h3>실험대</h3>
+        <div class="beaker-container">
+            <div class="beaker">
+                <div class="liquid" id="liquid"></div>
+                <div class="solid-matter" id="solid"></div>
+                <div class="precipitate" id="precipitate"></div>
+                <div class="glow-effect" id="glow"></div>
+                </div>
+        </div>
+        
+        <div class="thermometer-wrapper">
+            <span class="temp-text" id="tempText">20°C</span>
+            <div class="mercury" id="mercury"></div>
+        </div>
+
+        <div style="margin-top: 20px; text-align: center;">
+            <p><strong>입자 모형 (확대경)</strong></p>
+            <div class="particle-view" id="particleBox">
+                실험을 선택하고 반응을 시작하세요.
+            </div>
+            <p style="font-size: 0.8rem; color: #666;">* 실제 입자는 훨씬 작으며 끊임없이 운동합니다.</p>
+        </div>
+    </div>
+
+    <div class="controls">
+        <h3>1. 실험 선택</h3>
+        <p>관찰하고 싶은 반응을 선택하세요.</p>
+        <div class="selection-group">
+            <button class="btn" onclick="setExperiment(1)">① 기체 발생</button>
+            <button class="btn" onclick="setExperiment(2)">② 앙금 생성</button>
+            <button class="btn" onclick="setExperiment(3)">③ 빛과 열</button>
+        </div>
+
+        <div id="material-list" class="info-panel">
+            실험을 선택하면 재료가 준비됩니다.
+        </div>
+
+        <h3>2. 실험 수행</h3>
+        <button class="btn" id="btnAddReactant" onclick="addReactants()" disabled>반응물 넣기</button>
+        <button class="btn btn-reset" onclick="resetExperiment()">실험 초기화</button>
+
+        <h3>3. 관찰 결과</h3>
+        <div class="info-panel" id="result-log">
+            대기 중...
+        </div>
+    </div>
+</div>
+
+<div class="container quiz-section" id="quizArea">
+    <h3>📝 개념 확인 퀴즈</h3>
+    <p id="quizQuestion">문제가 여기에 표시됩니다.</p>
+    <div class="quiz-options" id="quizOptions"></div>
+    <p id="quizFeedback" style="font-weight: bold; margin-top: 10px;"></p>
+</div>
+
+<script>
+    let currentExp = 0; // 0: None, 1: Gas, 2: Precipitate, 3: Heat/Light
+    let step = 0; // 0: Start, 1: Ready, 2: Reacted
+
+    const materials = {
+        1: { name: "달걀 껍데기(탄산 칼슘) + 묽은 염산", desc: "달걀 껍데기에 산성 용액을 떨어뜨려 봅니다.", temp: 25 },
+        2: { name: "질산 은 수용액 + 염화 나트륨 수용액", desc: "두 투명한 수용액을 섞어 봅니다.", temp: 20 },
+        3: { name: "메테인(연료) 연소", desc: "연료가 산소와 만나 연소 반응을 일으킵니다.", temp: 80 }
+    };
+
+    function setExperiment(expId) {
+        resetExperiment();
+        currentExp = expId;
+        const mat = materials[expId];
+        document.getElementById('material-list').innerHTML = `<strong>준비물:</strong> ${mat.name}<br><br>${mat.desc}`;
+        document.getElementById('btnAddReactant').disabled = false;
+        document.getElementById('btnAddReactant').innerText = "반응 시작하기";
+        
+        // 초기 입자 설정 (반응 전)
+        drawParticles(expId, 'before');
+        document.getElementById('result-log').innerText = "실험 준비 완료. '반응 시작하기'를 누르세요.";
+    }
+
+    function addReactants() {
+        if (step === 2) return; // 이미 반응함
+        step = 2;
+        document.getElementById('btnAddReactant').disabled = true;
+
+        const liquid = document.getElementById('liquid');
+        const solid = document.getElementById('solid');
+        const log = document.getElementById('result-log');
+        const tempText = document.getElementById('tempText');
+        const mercury = document.getElementById('mercury');
+
+        // 기본 액체 채우기
+        liquid.style.height = "50%";
+        
+        if (currentExp === 1) {
+            // 기체 발생 (달걀껍데기 + 식초)
+            solid.style.display = "block"; // 달걀껍데기
+            liquid.style.backgroundColor = "#FDF5E6"; // 식초 색
+            
+            log.innerHTML = "반응 중... <br>부글부글 거품이 올라옵니다! <br><strong>관찰: 기체 발생 (이산화탄소)</strong>";
+            createBubbles();
+            drawParticles(1, 'after');
+            
+            // 미세한 온도 상승
+            mercury.style.height = "35%";
+            tempText.innerText = "22°C";
+
+        } else if (currentExp === 2) {
+            // 앙금 생성
+            liquid.style.backgroundColor = "#E0F7FA";
+            
+            setTimeout(() => {
+                document.getElementById('precipitate').style.height = "20%";
+                log.innerHTML = "반응 중... <br>뿌연 흰색 가루가 가라앉습니다. <br><strong>관찰: 흰색 앙금 생성 (염화 은)</strong>";
+                drawParticles(2, 'after');
+            }, 1000);
+
+        } else if (currentExp === 3) {
+            // 빛과 열 (연소)
+            liquid.style.height = "20%"; // 연료
+            liquid.style.backgroundColor = "#ddd";
+            
+            const glow = document.getElementById('glow');
+            glow.style.width = "150px";
+            glow.style.height = "150px";
+            
+            log.innerHTML = "반응 중... <br>밝은 빛과 뜨거운 열이 발생합니다. <br><strong>관찰: 빛과 열 방출 (발열 반응)</strong>";
+            
+            // 온도 급상승
+            mercury.style.height = "80%";
+            tempText.innerText = "80°C+";
+            drawParticles(3, 'after');
+        }
+
+        // 퀴즈 표시
+        setTimeout(() => {
+            showQuiz(currentExp);
+        }, 3000);
+    }
+
+    function createBubbles() {
+        const beaker = document.querySelector('.beaker');
+        for(let i=0; i<15; i++) {
+            let b = document.createElement('div');
+            b.className = 'bubble';
+            b.style.left = Math.random() * 80 + 10 + "%";
+            b.style.width = Math.random() * 10 + 5 + "px";
+            b.style.height = b.style.width;
+            b.style.animationDuration = (Math.random() * 1 + 1) + "s";
+            b.style.display = "block";
+            beaker.appendChild(b);
+        }
+    }
+
+    function drawParticles(expId, state) {
+        const box = document.getElementById('particleBox');
+        box.innerHTML = ""; // 초기화
+
+        // 간단한 입자 시각화 로직 (SVG 대신 div 사용)
+        if (expId === 1) { // 기체 발생
+            if (state === 'before') {
+                box.innerHTML = `<span style="color:#fff">CaCO₃(고체)와 H+(산)이 따로 존재</span>`;
+            } else {
+                box.innerHTML = `<span style="color:#aaa">입자가 재배열되어 CO₂ 기체가 되어 날아갑니다.</span>`;
+                // 시각적 표현 생략하고 텍스트로 개념 강화
+            }
+        } else if (expId === 2) { // 앙금
+            if (state === 'before') {
+                createAtom(box, 'Ag+', 'silver', 30, 40);
+                createAtom(box, 'NO3-', 'gray', 50, 40);
+                createAtom(box, 'Na+', 'orange', 30, 80);
+                createAtom(box, 'Cl-', 'green', 50, 80);
+            } else {
+                // Ag와 Cl이 결합
+                createAtom(box, 'AgCl', 'white', 40, 100); // 바닥에 가라앉음
+                createAtom(box, 'Na+', 'orange', 30, 30); // 둥둥
+                createAtom(box, 'NO3-', 'gray', 60, 30); // 둥둥
+            }
+        } else if (expId === 3) { // 연소
+             if (state === 'before') {
+                 box.innerHTML = "CH₄와 O₂가 충돌 전입니다.";
+             } else {
+                 box.innerHTML = "원자 배열이 바뀌며 에너지가 빛/열로 방출됩니다.";
+             }
+        }
+    }
+
+    function createAtom(container, text, color, x, y) {
+        const d = document.createElement('div');
+        d.className = 'atom';
+        d.innerText = text;
+        d.style.backgroundColor = color;
+        d.style.left = x + "%";
+        d.style.top = y + "%";
+        if(text === 'AgCl') {
+            d.style.width = '40px'; d.style.height = '40px'; d.style.borderRadius = '10px';
+        }
+        container.appendChild(d);
+    }
+
+    function resetExperiment() {
+        step = 0;
+        document.getElementById('liquid').style.height = "0";
+        document.getElementById('solid').style.display = "none";
+        document.getElementById('precipitate').style.height = "0";
+        document.getElementById('glow').style.width = "0";
+        document.getElementById('glow').style.height = "0";
+        document.getElementById('result-log').innerText = "대기 중...";
+        document.getElementById('btnAddReactant').disabled = true;
+        document.getElementById('btnAddReactant').innerText = "반응물 넣기";
+        
+        // 온도 초기화
+        document.getElementById('mercury').style.height = "30%";
+        document.getElementById('tempText').innerText = "20°C";
+        
+        // 버블 제거
+        const bubbles = document.querySelectorAll('.bubble');
+        bubbles.forEach(b => b.remove());
+
+        document.getElementById('quizArea').style.display = 'none';
+        document.getElementById('particleBox').innerHTML = "실험을 선택하세요.";
+    }
+
+    // 퀴즈 로직
+    const quizzes = {
+        1: { q: "이 실험에서 발생한 기체는 무엇이며, 어떤 현상으로 알 수 있나요?", a: ["산소 - 불꽃이 커짐", "이산화탄소 - 거품 발생", "수소 - 펑 소리"], correct: 1 },
+        2: { q: "흰색 앙금이 생성된 이유는 무엇입니까?", a: ["물질의 상태만 변해서", "원자가 새로 생겨나서", "이온이 반응하여 물에 녹지 않는 물질을 만들어서"], correct: 2 },
+        3: { q: "연소 반응 시 에너지는 어떻게 변했나요?", a: ["열과 빛 형태로 방출됨", "에너지가 흡수되어 차가워짐", "변화 없음"], correct: 0 }
+    };
+
+    function showQuiz(id) {
+        const qData = quizzes[id];
+        const section = document.getElementById('quizArea');
+        section.style.display = 'block';
+        document.getElementById('quizQuestion').innerText = "Q. " + qData.q;
+        document.getElementById('quizFeedback').innerText = "";
+        
+        const optsDiv = document.getElementById('quizOptions');
+        optsDiv.innerHTML = "";
+        qData.a.forEach((ans, idx) => {
+            const btn = document.createElement('button');
+            btn.innerText = ans;
+            btn.className = "btn";
+            btn.onclick = () => checkAnswer(id, idx);
+            optsDiv.appendChild(btn);
+        });
+        
+        // 스크롤 이동
+        section.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function checkAnswer(expId, choiceIdx) {
+        const correct = quizzes[expId].correct;
+        const feedback = document.getElementById('quizFeedback');
+        if (choiceIdx === correct) {
+            feedback.style.color = "green";
+            feedback.innerText = "✅ 정답입니다! 화학 반응의 특징을 잘 관찰했군요.";
+        } else {
+            feedback.style.color = "red";
+            feedback.innerText = "❌ 다시 생각해보세요. 관찰 결과(거품, 앙금, 열)를 다시 확인해볼까요?";
+        }
+    }
+</script>
+
+</body>
+</html>

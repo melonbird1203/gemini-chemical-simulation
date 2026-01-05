@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 물질의 용해도와 온도</title>
+    <style>
+        :root { --primary: #4A90E2; --accent: #FF6B6B; --bg: #F0F4F8; }
+        body { font-family: 'Malgun Gothic', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #333; margin-bottom: 10px; font-size: 1.5rem; }
+        .container { display: flex; flex-wrap: wrap; gap: 20px; max-width: 1000px; width: 100%; justify-content: center; }
+        
+        /* 컨트롤 패널 */
+        .controls { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 280px; }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; color: #555; }
+        select, button { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 1rem; cursor: pointer; }
+        button { background: var(--primary); color: white; border: none; transition: 0.2s; margin-bottom: 5px;}
+        button:hover { background: #357ABD; }
+        button.reset { background: #718096; }
+        input[type=range] { width: 100%; }
+        .value-display { font-size: 1.2rem; color: var(--primary); font-weight: bold; text-align: right; }
+
+        /* 비커 시각화 */
+        .visualization { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 280px; display: flex; flex-direction: column; align-items: center; }
+        .beaker-container { position: relative; width: 200px; height: 250px; border: 3px solid #aaa; border-top: none; border-radius: 0 0 15px 15px; margin-top: 20px; background: linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(200,230,255,0.4)); overflow: hidden; }
+        .water { position: absolute; bottom: 0; width: 100%; height: 80%; background: rgba(74, 144, 226, 0.3); transition: height 0.5s; }
+        .particle { position: absolute; width: 6px; height: 6px; border-radius: 50%; background: var(--primary); opacity: 0.8; transition: top 0.5s, left 0.5s; }
+        .precipitate { position: absolute; bottom: 5px; width: 100%; height: 0; background: #ddd; transition: height 0.3s; display: flex; justify-content: center; align-items: flex-end; font-size: 0.8rem; color: #666; }
+        .pile { width: 8px; height: 8px; background: #8B4513; border-radius: 50%; position: absolute; bottom: 2px; }
+
+        /* 그래프 및 상태 */
+        .status-panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); flex: 1; min-width: 280px; }
+        .status-item { display: flex; justify-content: space-between; margin-bottom: 10px; border-bottom: 1px solid #eee; padding-bottom: 5px; }
+        .status-alert { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: bold; text-align: center; display: none; }
+        .alert-sat { background: #FFF3CD; color: #856404; }
+        .alert-precip { background: #F8D7DA; color: #721C24; }
+
+        /* 간단한 그래프 바 */
+        .bar-chart { margin-top: 20px; }
+        .bar-bg { background: #eee; height: 20px; border-radius: 10px; overflow: hidden; position: relative; }
+        .bar-fill { height: 100%; background: var(--primary); width: 0%; transition: width 0.3s; }
+        .bar-limit { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--accent); z-index: 10; }
+        .bar-label { font-size: 0.8rem; color: #666; margin-top: 5px; display: flex; justify-content: space-between; }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험: 물질의 용해도 비교</h1>
+    
+    <div class="container">
+        <div class="controls">
+            <div class="control-group">
+                <label>🧪 용질 선택 (물 100g 기준)</label>
+                <select id="substanceSelect" onchange="resetExperiment()">
+                    <option value="kno3">질산칼륨 (온도 영향 큼)</option>
+                    <option value="nano3">질산나트륨 (온도 영향 중간)</option>
+                    <option value="nacl">염화나트륨 (온도 영향 작음)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>🌡️ 물의 온도: <span id="tempDisplay" class="value-display">20</span>℃</label>
+                <input type="range" id="tempRange" min="0" max="100" step="10" value="20" oninput="updateExperiment()">
+            </div>
+
+            <div class="control-group">
+                <label>➕ 용질 추가 (현재: <span id="amountDisplay" class="value-display">0</span>g)</label>
+                <div style="display:flex; gap:5px;">
+                    <button onclick="addSolute(1)">+1g 넣기</button>
+                    <button onclick="addSolute(10)">+10g 넣기</button>
+                    <button onclick="addSolute(50)">+50g 넣기</button>
+                </div>
+                <button class="reset" onclick="resetExperiment()">🔄 비커 비우기 (초기화)</button>
+            </div>
+        </div>
+
+        <div class="visualization">
+            <h3>🔬 비커 관찰</h3>
+            <div class="beaker-container" id="beaker">
+                <div class="water"></div>
+                <div id="particleContainer"></div>
+                <div id="precipitatePile" class="precipitate"></div>
+            </div>
+            <p style="font-size: 0.9rem; color: #666; margin-top: 10px;">파란 점: 녹은 입자 | 갈색 바닥: 녹지 않음(석출)</p>
+        </div>
+
+        <div class="status-panel">
+            <h3>📊 실험 데이터</h3>
+            <div class="status-item"><span>현재 온도에서의 최대 용해도:</span> <strong id="maxSolVal">0g</strong></div>
+            <div class="status-item"><span>실제 녹은 양:</span> <strong id="dissolvedVal">0g</strong></div>
+            <div class="status-item"><span>녹지 않고 남은 양(석출):</span> <strong id="precipVal" style="color:var(--accent)">0g</strong></div>
+
+            <div id="satAlert" class="status-alert alert-sat">⚠️ 포화 상태입니다! 더 이상 녹지 않습니다.</div>
+            <div id="precipAlert" class="status-alert alert-precip">❄️ 온도가 낮아져 결정이 석출되었습니다!</div>
+
+            <div class="bar-chart">
+                <label>용해 상태 그래프</label>
+                <div class="bar-bg">
+                    <div id="barFill" class="bar-fill"></div>
+                </div>
+                <div class="bar-label">
+                    <span>0g</span>
+                    <span id="graphMaxLabel">Max</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 용해도 데이터 (근사치, g/100g 물)
+        // 온도: 0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100
+        const solubilityData = {
+            kno3:  [13, 22, 32, 46, 64, 85, 110, 138, 169, 202, 246], 
+            nano3: [73, 80, 88, 96, 104, 114, 124, 136, 148, 162, 180], 
+            nacl:  [35.7, 35.8, 36.0, 36.3, 36.6, 37.0, 37.3, 37.8, 38.4, 39.0, 39.8] 
+        };
+
+        let currentAmount = 0;
+
+        function getSolubility(substance, temp) {
+            const index = Math.floor(temp / 10);
+            const data = solubilityData[substance];
+            if (!data) return 0;
+            // 간단한 선형 보간
+            const lower = data[index];
+            const upper = index < 10 ? data[index+1] : data[index];
+            const ratio = (temp % 10) / 10;
+            return Math.round((lower + (upper - lower) * ratio) * 10) / 10;
+        }
+
+        function updateExperiment() {
+            const substance = document.getElementById('substanceSelect').value;
+            const temp = parseInt(document.getElementById('tempRange').value);
+            
+            document.getElementById('tempDisplay').innerText = temp;
+            
+            const maxSol = getSolubility(substance, temp);
+            
+            // 상태 계산
+            let dissolved = 0;
+            let precipitate = 0;
+
+            if (currentAmount <= maxSol) {
+                dissolved = currentAmount;
+                precipitate = 0;
+            } else {
+                dissolved = maxSol;
+                precipitate = currentAmount - maxSol;
+            }
+
+            // UI 업데이트
+            document.getElementById('amountDisplay').innerText = currentAmount;
+            document.getElementById('maxSolVal').innerText = maxSol + "g";
+            document.getElementById('dissolvedVal').innerText = dissolved + "g";
+            document.getElementById('precipVal').innerText = precipitate.toFixed(1) + "g";
+
+            // 알림 표시
+            const satAlert = document.getElementById('satAlert');
+            const precipAlert = document.getElementById('precipAlert');
+            
+            satAlert.style.display = (currentAmount >= maxSol && precipitate === 0) ? 'block' : 'none';
+            precipAlert.style.display = (precipitate > 0) ? 'block' : 'none';
+
+            // 그래프 업데이트
+            const barFill = document.getElementById('barFill');
+            const graphMax = Math.max(200, maxSol + 50); // 그래프 최대 스케일 동적 조정
+            document.getElementById('graphMaxLabel').innerText = graphMax + "g";
+            
+            const fillPercent = (dissolved / graphMax) * 100;
+            barFill.style.width = fillPercent + "%";
+            
+            if (precipitate > 0) {
+                barFill.style.backgroundColor = "#FF6B6B"; // 석출 시 붉은색 경고
+            } else {
+                barFill.style.backgroundColor = "#4A90E2";
+            }
+
+            // 시각화 (입자)
+            renderParticles(dissolved, precipitate);
+        }
+
+        function addSolute(amount) {
+            currentAmount += amount;
+            updateExperiment();
+        }
+
+        function resetExperiment() {
+            currentAmount = 0;
+            updateExperiment();
+        }
+
+        function renderParticles(dissolved, precipitate) {
+            const container = document.getElementById('particleContainer');
+            const pile = document.getElementById('precipitatePile');
+            
+            // 성능을 위해 입자 수는 스케일 다운 (1g 당 1개는 너무 많음 -> 5g 당 1개로 시각화)
+            const visualCount = Math.min(100, Math.floor(dissolved / 3)); 
+            
+            // 기존 입자 수 조정 (간단히 innerHTML 초기화 후 재생성 - 최적화보다는 명료함 우선)
+            container.innerHTML = '';
+            
+            for(let i=0; i<visualCount; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                // 비커 내부 랜덤 위치 (물 영역 내)
+                p.style.left = (Math.random() * 180 + 10) + 'px'; 
+                p.style.top = (Math.random() * 150 + 50) + 'px';
+                
+                // 간단한 애니메이션 효과
+                p.style.animation = `float ${2 + Math.random()}s infinite alternate`;
+                container.appendChild(p);
+            }
+
+            // 석출물 시각화
+            if (precipitate > 0) {
+                const pileHeight = Math.min(60, precipitate); // 최대 높이 제한
+                pile.style.height = pileHeight + 'px';
+                pile.style.backgroundColor = '#8B4513';
+                pile.innerHTML = '⛰️'; // 가라앉은 더미 아이콘
+            } else {
+                pile.style.height = '0px';
+                pile.innerHTML = '';
+            }
+        }
+
+        // 초기 실행
+        updateExperiment();
+    </script>
+</body>
+</html>

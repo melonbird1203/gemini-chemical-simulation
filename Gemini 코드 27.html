@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 물의 전기 분해 가상 실험실</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --danger-color: #ff6b6b;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+            --glass-color: rgba(255, 255, 255, 0.8);
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9rem; color: #666; margin-top: 5px; }
+
+        /* 메인 레이아웃 */
+        .lab-container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        /* 제어 패널 */
+        .control-panel {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        label { font-weight: bold; font-size: 0.9rem; }
+        select, input[type="range"] {
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-start { background-color: var(--primary-color); color: white; }
+        .btn-stop { background-color: var(--danger-color); color: white; }
+        .btn-reset { background-color: #95a5a6; color: white; }
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* 시뮬레이션 영역 */
+        .simulation-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .apparatus {
+            position: relative;
+            height: 300px;
+            background: linear-gradient(to bottom, #e3f2fd, #bbdefb);
+            border-radius: 10px;
+            border: 2px solid #90caf9;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 20px;
+        }
+
+        /* 호프만 전해 장치 모사 */
+        .tube-container {
+            display: flex;
+            gap: 50px;
+            align-items: flex-end;
+            position: relative;
+            z-index: 2;
+        }
+
+        .test-tube {
+            width: 60px;
+            height: 200px;
+            background: rgba(255,255,255,0.3);
+            border: 2px solid #555;
+            border-bottom: none;
+            border-radius: 30px 30px 0 0;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .electrode {
+            width: 10px;
+            height: 40px;
+            background: #333;
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+
+        .electrode::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: #d32f2f;
+        }
+        
+        #electrode-minus::after { content: '(-)극'; color: blue; }
+        #electrode-plus::after { content: '(+)극'; color: red; }
+
+        .gas-space {
+            background-color: white;
+            width: 100%;
+            height: 0%; /* 기체가 차면 늘어남 */
+            position: absolute;
+            top: 0;
+            left: 0;
+            transition: height 0.2s linear;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 0.8rem;
+            color: #666;
+            border-bottom: 1px dashed #aaa;
+        }
+
+        .bubbles {
+            position: absolute;
+            bottom: 40px;
+            left: 0;
+            width: 100%;
+            height: 0;
+            pointer-events: none;
+        }
+
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            animation: rise 2s infinite ease-in;
+        }
+
+        @keyframes rise {
+            0% { bottom: 0; transform: scale(0.5); opacity: 0; }
+            50% { opacity: 1; }
+            100% { bottom: 150px; transform: scale(1.2); opacity: 0; }
+        }
+
+        /* 정보 패널 */
+        .info-panel {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+
+        .data-box {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+            text-align: center;
+        }
+
+        .molecular-view {
+            background: #2c3e50;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+        }
+        
+        .molecule-anim { font-size: 1.5rem; letter-spacing: 5px; }
+
+        /* 퀴즈 영역 */
+        .quiz-section {
+            margin-top: 30px;
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+        }
+
+        .message-box {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.3);
+            z-index: 100;
+            display: none;
+            text-align: center;
+            max-width: 400px;
+        }
+        .overlay {
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 99;
+            display: none;
+        }
+
+        /* 유틸리티 */
+        .hidden { display: none; }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            background: #eee;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>💧 물의 전기 분해 실험실</h1>
+        <p class="subtitle">중학교 2학년 과학 [Ⅰ. 원소] - 라부아지에의 실험 재현</p>
+    </header>
+
+    <div class="lab-container">
+        <aside class="control-panel">
+            <h3>🔬 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>전해질 선택 (필수)</label>
+                <select id="electrolyte">
+                    <option value="none">없음 (순수한 물)</option>
+                    <option value="naoh">수산화나트륨 (NaOH)</option>
+                    <option value="na2so4">황산나트륨 (Na2SO4)</option>
+                </select>
+                <small style="color: #666; font-size: 0.8em;">* 순수한 물은 전기가 잘 통하지 않습니다.</small>
+            </div>
+
+            <div class="control-group">
+                <label>전류의 세기: <span id="current-val">0</span> mA</label>
+                <input type="range" id="current" min="0" max="1000" step="50" value="0">
+            </div>
+
+            <div class="control-group">
+                <button id="btn-start" class="btn-start">실험 시작</button>
+                <button id="btn-stop" class="btn-stop" disabled>멈춤</button>
+                <button id="btn-reset" class="btn-reset">초기화</button>
+            </div>
+
+            <hr>
+            <h3>🔥 기체 확인 실험</h3>
+            <div class="control-group">
+                <button id="test-minus" disabled>(-)극 기체 확인 (성냥불)</button>
+                <button id="test-plus" disabled>(+)극 기체 확인 (꺼진 불씨)</button>
+            </div>
+        </aside>
+
+        <main class="simulation-area">
+            <div class="apparatus">
+                <div class="tube-container">
+                    <div class="test-tube" id="tube-h2">
+                        <div class="gas-space" id="gas-h2"></div>
+                        <div class="bubbles" id="bubbles-h2"></div>
+                        <div class="electrode" id="electrode-minus"></div>
+                    </div>
+                    <div class="test-tube" id="tube-o2">
+                        <div class="gas-space" id="gas-o2"></div>
+                        <div class="bubbles" id="bubbles-o2"></div>
+                        <div class="electrode" id="electrode-plus"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="info-panel">
+                <div class="data-box">
+                    <span class="tag">거시적 관점</span>
+                    <h4>생성된 기체 부피비</h4>
+                    <p style="font-size: 1.2rem;">
+                        (-)극 : (+)극 = <br>
+                        <strong style="color: var(--primary-color);" id="ratio-display">0 : 0</strong>
+                    </p>
+                </div>
+                <div class="molecular-view">
+                    <span class="tag">미시적 관점 (입자 모형)</span>
+                    <div id="molecule-anim" class="molecule-anim">💧 H₂O</div>
+                    <div id="reaction-text" style="margin-top:10px; font-size: 0.9rem;">물이 가만히 있습니다.</div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <section class="quiz-section">
+        <h3>📝 개념 확인 퀴즈</h3>
+        <p>실험 결과를 보고 아래 질문에 답해보세요.</p>
+        <div style="margin-bottom: 10px;">
+            <strong>Q1. (-)극에서 발생하여 '펑' 소리를 내며 타는 기체는 무엇인가요?</strong><br>
+            <label><input type="radio" name="q1" value="O2"> 산소</label>
+            <label><input type="radio" name="q1" value="H2"> 수소</label>
+            <label><input type="radio" name="q1" value="N2"> 질소</label>
+            <button onclick="checkAnswer('q1', 'H2', '정답입니다! (-)극에서는 수소 기체가 발생합니다.')">확인</button>
+        </div>
+        <div>
+            <strong>Q2. 이 실험을 통해 알 수 있는 사실은?</strong><br>
+            <label><input type="radio" name="q2" value="wrong"> 물은 원소이다.</label>
+            <label><input type="radio" name="q2" value="correct"> 물은 수소와 산소로 분해되므로 원소가 아니다.</label>
+            <button onclick="checkAnswer('q2', 'correct', '정답입니다! 라부아지에는 이 실험으로 물이 원소가 아님을 증명했습니다.')">확인</button>
+        </div>
+    </section>
+
+    <div class="overlay" id="overlay"></div>
+    <div class="message-box" id="msg-box">
+        <h3 id="msg-title">알림</h3>
+        <p id="msg-content">내용</p>
+        <button onclick="closeModal()">닫기</button>
+    </div>
+
+    <script>
+        // 상태 변수
+        let isRunning = false;
+        let volumeH2 = 0;
+        let volumeO2 = 0;
+        let animationFrame;
+        
+        // 요소 선택
+        const sliderCurrent = document.getElementById('current');
+        const displayCurrent = document.getElementById('current-val');
+        const selectElectrolyte = document.getElementById('electrolyte');
+        const tubeH2 = document.getElementById('gas-h2');
+        const tubeO2 = document.getElementById('gas-o2');
+        const bubblesH2 = document.getElementById('bubbles-h2');
+        const bubblesO2 = document.getElementById('bubbles-o2');
+        const ratioDisplay = document.getElementById('ratio-display');
+        const reactionText = document.getElementById('reaction-text');
+        const moleculeAnim = document.getElementById('molecule-anim');
+        
+        const btnStart = document.getElementById('btn-start');
+        const btnStop = document.getElementById('btn-stop');
+        const btnReset = document.getElementById('btn-reset');
+        const btnTestMinus = document.getElementById('test-minus');
+        const btnTestPlus = document.getElementById('test-plus');
+
+        // 초기화
+        sliderCurrent.addEventListener('input', (e) => {
+            displayCurrent.textContent = e.target.value;
+        });
+
+        btnStart.addEventListener('click', startExperiment);
+        btnStop.addEventListener('click', stopExperiment);
+        btnReset.addEventListener('click', resetExperiment);
+
+        btnTestMinus.addEventListener('click', () => testGas('minus'));
+        btnTestPlus.addEventListener('click', () => testGas('plus'));
+
+        function startExperiment() {
+            const current = parseInt(sliderCurrent.value);
+            const electrolyte = selectElectrolyte.value;
+
+            // 1. 안전 및 조건 확인
+            if (electrolyte === 'none') {
+                showModal('반응 없음', '순수한 물에는 전류가 거의 흐르지 않아 분해가 일어나지 않습니다.<br>전해질(수산화나트륨 등)을 넣어보세요!');
+                return;
+            }
+            if (current === 0) {
+                showModal('전류 부족', '전원 장치의 전류를 높여주세요.');
+                return;
+            }
+
+            isRunning = true;
+            btnStart.disabled = true;
+            btnStop.disabled = false;
+            selectElectrolyte.disabled = true; // 실험 중 조건 변경 불가
+
+            // 애니메이션 및 로직 시작
+            createBubbles();
+            runSimulationLoop();
+            
+            // 미시적 관점 업데이트
+            moleculeAnim.innerHTML = "⚡ 2H₂O → 2H₂ + O₂ ⚡";
+            reactionText.textContent = "전기에너지가 물 분자를 수소와 산소로 끊어내고 있습니다!";
+        }
+
+        function stopExperiment() {
+            isRunning = false;
+            btnStart.disabled = false;
+            btnStop.disabled = true;
+            clearBubbles();
+            cancelAnimationFrame(animationFrame);
+            
+            moleculeAnim.innerHTML = "⏸️ 일시 정지";
+            reactionText.textContent = "실험이 중단되었습니다.";
+        }
+
+        function resetExperiment() {
+            stopExperiment();
+            volumeH2 = 0;
+            volumeO2 = 0;
+            updateVisuals();
+            selectElectrolyte.disabled = false;
+            moleculeAnim.innerHTML = "💧 H₂O";
+            reactionText.textContent = "물이 가만히 있습니다.";
+            
+            btnTestMinus.disabled = true;
+            btnTestPlus.disabled = true;
+        }
+
+        function runSimulationLoop() {
+            if (!isRunning) return;
+
+            const current = parseInt(sliderCurrent.value);
+            // 속도 계산 (전류가 셀수록 빠름)
+            const speed = (current / 1000) * 0.2; 
+
+            // 부피 증가 (수소 2 : 산소 1)
+            if (volumeH2 < 100) {
+                volumeH2 += speed * 2;
+                volumeO2 += speed * 1;
+                updateVisuals();
+                animationFrame = requestAnimationFrame(runSimulationLoop);
+            } else {
+                stopExperiment();
+                showModal('실험 완료', '시험관에 기체가 가득 찼습니다! 기체 확인 실험을 진행해보세요.');
+            }
+        }
+
+        function updateVisuals() {
+            // 시험관 기체 높이 반영
+            tubeH2.style.height = `${Math.min(volumeH2, 100)}%`;
+            tubeH2.textContent = `${Math.floor(volumeH2)}mL`;
+            
+            tubeO2.style.height = `${Math.min(volumeO2, 100)}%`;
+            tubeO2.textContent = `${Math.floor(volumeO2)}mL`;
+
+            // 비율 텍스트 업데이트
+            if (volumeO2 > 0) {
+                const ratio = (volumeH2 / volumeO2).toFixed(1);
+                ratioDisplay.textContent = `${ratio} : 1`;
+            }
+
+            // 기체가 어느 정도 모이면 확인 버튼 활성화
+            if (volumeH2 > 20) btnTestMinus.disabled = false;
+            if (volumeO2 > 20) btnTestPlus.disabled = false;
+        }
+
+        // 버블 애니메이션 (CSS class 동적 추가 아님, 간단히 DOM 제어)
+        let bubbleInterval;
+        function createBubbles() {
+            clearBubbles(); // 기존 제거
+            bubbleInterval = setInterval(() => {
+                addBubble(bubblesH2, 2); // 수소 쪽 많이
+                addBubble(bubblesO2, 1); // 산소 쪽 적게
+            }, 300);
+        }
+
+        function addBubble(container, count) {
+            for(let i=0; i<count; i++) {
+                const b = document.createElement('div');
+                b.className = 'bubble';
+                b.style.left = Math.random() * 80 + 10 + '%';
+                b.style.width = (Math.random() * 5 + 5) + 'px';
+                b.style.height = b.style.width;
+                container.appendChild(b);
+                // 애니메이션 끝나면 제거
+                setTimeout(() => b.remove(), 2000);
+            }
+        }
+
+        function clearBubbles() {
+            clearInterval(bubbleInterval);
+            bubblesH2.innerHTML = '';
+            bubblesO2.innerHTML = '';
+        }
+
+        // 기체 확인 로직
+        function testGas(type) {
+            if (type === 'minus') {
+                showModal('(-)극 확인 결과', '🔥 성냥불을 가까이 대니 "펑!" 소리를 내며 탔습니다.<br>➜ <strong>수소(H₂)</strong>의 가연성');
+            } else {
+                showModal('(+)극 확인 결과', '🕯️ 꺼져가는 불씨를 대니 다시 타올랐습니다.<br>➜ <strong>산소(O₂)</strong>의 조연성');
+            }
+        }
+
+        // 모달 및 퀴즈
+        function showModal(title, content) {
+            document.getElementById('msg-title').innerText = title;
+            document.getElementById('msg-content').innerHTML = content;
+            document.getElementById('overlay').style.display = 'block';
+            document.getElementById('msg-box').style.display = 'block';
+        }
+
+        function closeModal() {
+            document.getElementById('overlay').style.display = 'none';
+            document.getElementById('msg-box').style.display = 'none';
+        }
+        
+        function checkAnswer(name, correctVal, correctMsg) {
+            const radios = document.getElementsByName(name);
+            let selected;
+            for(let r of radios) { if(r.checked) selected = r.value; }
+            
+            if(!selected) {
+                alert('보기를 선택해주세요.');
+                return;
+            }
+            
+            if(selected === correctVal) {
+                alert(correctMsg);
+            } else {
+                alert('다시 생각해보세요. 실험 결과를 잘 관찰해보세요!');
+            }
+        }
+    </script>
+</body>
+</html>

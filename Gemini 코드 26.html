@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>비눗방울 입자 탐구 실험실 | 중2 과학</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --accent-color: #ff6b6b;
+            --text-color: #333;
+            --success-color: #2ecc71;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #eef2f5;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); font-size: 1.8rem; }
+        .subtitle { color: #666; margin-top: 5px; font-size: 0.95rem; }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            width: 100%;
+            max-width: 1000px;
+            flex-wrap: wrap;
+        }
+
+        /* 왼쪽: 실험 조작 패널 */
+        .control-panel {
+            flex: 1;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            min-width: 300px;
+        }
+
+        .control-group { margin-bottom: 25px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        
+        input[type="range"] { width: 100%; cursor: pointer; }
+        
+        .toggle-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        
+        .btn-toggle {
+            padding: 8px 16px;
+            border: 2px solid var(--primary-color);
+            background: white;
+            color: var(--primary-color);
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+        }
+        
+        .btn-toggle.active {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .status-box {
+            background: var(--secondary-color);
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+
+        /* 오른쪽: 시각화 영역 */
+        .visualization-area {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 300px;
+        }
+
+        /* 1. 매크로 뷰 (비눗방울) */
+        .macro-view {
+            background: linear-gradient(to bottom, #87CEEB, #E0F6FF);
+            height: 300px;
+            border-radius: 15px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .bubble {
+            border-radius: 50%;
+            background: radial-gradient(circle at 30% 30%, rgba(255,255,255,0.1), rgba(255,255,255,0.05) 60%, rgba(255,255,255,0.4) 100%);
+            box-shadow: inset 0 0 20px rgba(255,255,255,0.5), 0 0 10px rgba(255,255,255,0.2);
+            border: 2px solid rgba(255,255,255,0.6);
+            transition: width 0.1s, height 0.1s;
+            position: relative;
+        }
+        
+        /* 간섭 무늬 효과 */
+        .bubble::after {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            border-radius: 50%;
+            background: linear-gradient(45deg, rgba(255,0,0,0.1), rgba(0,255,0,0.1), rgba(0,0,255,0.1));
+            animation: swirl 5s infinite linear;
+        }
+
+        @keyframes swirl { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .burst-effect {
+            position: absolute;
+            width: 100%; height: 100%;
+            display: none;
+            justify-content: center;
+            align-items: center;
+            font-size: 2rem;
+            font-weight: bold;
+            color: var(--accent-color);
+            background: rgba(255,255,255,0.8);
+            z-index: 10;
+        }
+
+        /* 2. 마이크로 뷰 (입자 모델) */
+        .micro-view {
+            background: #2c3e50;
+            height: 200px;
+            border-radius: 15px;
+            position: relative;
+            padding: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        .magnifier-label {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(255,255,255,0.9);
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            z-index: 5;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        /* 학습 가이드 및 퀴즈 */
+        .learning-section {
+            width: 100%;
+            max-width: 1000px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            margin-top: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .quiz-box {
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            padding: 15px;
+            margin-top: 15px;
+        }
+
+        .hidden { display: none; }
+        
+        .instruction-step {
+            font-weight: bold;
+            color: var(--primary-color);
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧼 비눗방울 입자 탐구 실험실</h1>
+    <div class="subtitle">중2 과학: Ⅰ-1. 원소와 물질의 구성 | 학습목표: 물질이 입자로 구성되어 있음을 추론한다.</div>
+</header>
+
+<div class="container">
+    <div class="control-panel">
+        <h3>🎛️ 실험 조건 설정</h3>
+        
+        <div class="control-group">
+            <label>1. 비눗물 재료 선택 (첨가물)</label>
+            <div class="toggle-group">
+                <button class="btn-toggle active" id="btnBasic" onclick="setAdditive('basic')">기본 비눗물</button>
+                <button class="btn-toggle" id="btnGlycerin" onclick="setAdditive('glycerin')">글리세린 첨가</button>
+            </div>
+            <p id="additiveDesc" style="font-size: 0.8rem; color: #666;">기본 비눗물입니다. 물이 증발하기 쉽습니다.</p>
+        </div>
+
+        <div class="control-group">
+            <label>2. 공기 주입 (후~ 하고 불어보세요)</label>
+            <input type="range" id="airSlider" min="0" max="100" value="0" step="1" oninput="updateSimulation()">
+            <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 5px;">
+                <span>작음</span>
+                <span id="airValue">0%</span>
+                <span>큼</span>
+            </div>
+        </div>
+
+        <div class="status-box">
+            <h4>📊 실시간 관찰 노트</h4>
+            <p><strong>비눗방울 두께:</strong> <span id="thicknessValue">매우 두꺼움</span></p>
+            <p><strong>입자 간 거리:</strong> <span id="particleDistValue">매우 가까움</span></p>
+            <div id="feedbackText" style="color: var(--primary-color); font-weight: bold; margin-top: 10px;">
+                슬라이더를 움직여 공기를 넣어보세요!
+            </div>
+        </div>
+        
+        <button onclick="resetExperiment()" style="width: 100%; margin-top: 20px; padding: 10px; background: #666; color: white; border: none; border-radius: 8px; cursor: pointer;">실험 초기화</button>
+    </div>
+
+    <div class="visualization-area">
+        <div class="macro-view">
+            <div id="bubble" class="bubble" style="width: 0px; height: 0px;"></div>
+            <div id="burstMessage" class="burst-effect">팡! 터졌습니다!</div>
+        </div>
+
+        <div class="micro-view">
+            <div class="magnifier-label">🔍 현미경 확대 (비눗방울 막 표면)</div>
+            <canvas id="particleCanvas"></canvas>
+        </div>
+    </div>
+</div>
+
+<div class="learning-section">
+    <h3>💡 핵심 개념 정리</h3>
+    <ul>
+        <li>비눗방울 막은 연속된 막처럼 보이지만, 실제로는 아주 작은 <strong>입자(물 분자와 비누 분자)</strong>들이 서로 잡아당기며 연결되어 있습니다.</li>
+        <li>공기를 불어 넣으면 표면적이 넓어지면서 <strong>입자 사이의 거리가 멀어집니다.</strong></li>
+        <li>입자 사이가 너무 멀어지면 서로 잡아당기는 힘(인력)이 끊어져 비눗방울이 터지게 됩니다. 이것은 <strong>물질이 입자로 이루어져 있음</strong>을 보여주는 증거입니다.</li>
+    </ul>
+
+    <div class="quiz-box">
+        <h4>🤔 생각해보기 (Self Check)</h4>
+        <p><strong>Q. 글리세린을 넣었을 때 비눗방울이 더 크게 커지는 이유는 무엇일까요?</strong></p>
+        <details>
+            <summary style="cursor: pointer; color: var(--primary-color); font-weight: bold;">정답 및 해설 보기</summary>
+            <p style="margin-top: 10px;">
+                <strong>정답:</strong> 글리세린 입자가 물 입자 사이에서 물이 증발하는 것을 막고, 입자들끼리 서로 잡아당기는 힘을 유지하도록 도와주기 때문입니다. <br>
+                즉, 입자 간격이 조금 더 멀어져도 결합이 끊어지지 않고 버틸 수 있게 해줍니다.
+            </p>
+        </details>
+    </div>
+</div>
+
+<script>
+    // 상태 변수
+    let airAmount = 0;
+    let isBurst = false;
+    let additiveType = 'basic'; // basic, glycerin
+    const MAX_SIZE_BASIC = 70; // 기본 터짐 임계값 (슬라이더 기준)
+    const MAX_SIZE_GLYCERIN = 95; // 글리세린 터짐 임계값
+
+    // DOM 요소
+    const bubble = document.getElementById('bubble');
+    const airSlider = document.getElementById('airSlider');
+    const airValue = document.getElementById('airValue');
+    const burstMessage = document.getElementById('burstMessage');
+    const feedbackText = document.getElementById('feedbackText');
+    const thicknessValue = document.getElementById('thicknessValue');
+    const particleDistValue = document.getElementById('particleDistValue');
+    const additiveDesc = document.getElementById('additiveDesc');
+    
+    // Canvas 설정 (입자 뷰)
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    // 초기화
+    function initParticles() {
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = canvas.parentElement.offsetHeight;
+        particles = [];
+        
+        // 입자 생성 (격자 형태)
+        const rows = 5;
+        const cols = 8;
+        for(let i=0; i<rows; i++) {
+            for(let j=0; j<cols; j++) {
+                particles.push({
+                    baseX: (canvas.width / cols) * j + 30,
+                    baseY: (canvas.height / rows) * i + 30,
+                    x: 0,
+                    y: 0,
+                    jitter: Math.random() * 2 // 약간의 자연스러운 떨림
+                });
+            }
+        }
+    }
+    window.addEventListener('resize', initParticles);
+    initParticles();
+
+    // 첨가물 설정 함수
+    function setAdditive(type) {
+        if(isBurst) resetExperiment();
+        
+        additiveType = type;
+        document.getElementById('btnBasic').classList.toggle('active', type === 'basic');
+        document.getElementById('btnGlycerin').classList.toggle('active', type === 'glycerin');
+        
+        if(type === 'basic') {
+            additiveDesc.innerHTML = "기본 비눗물입니다. 물 분자가 쉽게 증발하여 입자 결합이 빨리 끊어집니다.";
+        } else {
+            additiveDesc.innerHTML = "글리세린이 추가되었습니다! 입자 사이의 결합을 끈끈하게 만들어 더 크게 불 수 있습니다.";
+        }
+        updateSimulation();
+    }
+
+    // 시뮬레이션 메인 루프
+    function updateSimulation() {
+        if (isBurst) return;
+
+        airAmount = parseInt(airSlider.value);
+        airValue.innerText = airAmount + "%";
+
+        // 1. 비눗방울 크기 업데이트
+        const bubbleSize = airAmount * 3; // 픽셀 단위 변환
+        bubble.style.width = bubbleSize + 'px';
+        bubble.style.height = bubbleSize + 'px';
+        
+        // 2. 터짐 로직 체크
+        let threshold = (additiveType === 'basic') ? MAX_SIZE_BASIC : MAX_SIZE_GLYCERIN;
+        
+        // 임계값 근처에서 흔들림 효과 추가
+        if (airAmount > threshold - 10) {
+            bubble.style.transform = `translate(${Math.random()*4-2}px, ${Math.random()*4-2}px)`;
+            feedbackText.innerText = "⚠️ 경고! 입자 사이가 너무 멀어지고 있어요!";
+            feedbackText.style.color = "red";
+        } else {
+            bubble.style.transform = "none";
+            updateFeedbackText(airAmount);
+        }
+
+        if (airAmount >= threshold) {
+            burstBubble();
+            return;
+        }
+
+        // 3. 입자 뷰 업데이트 (Canvas 그리기)
+        drawParticles(airAmount);
+        updateStats(airAmount, threshold);
+    }
+
+    function updateStats(amount, threshold) {
+        const ratio = amount / threshold;
+        
+        // 두께 계산 (가상)
+        if(ratio < 0.3) thicknessValue.innerText = "매우 두꺼움 (안전)";
+        else if(ratio < 0.6) thicknessValue.innerText = "보통";
+        else if(ratio < 0.9) thicknessValue.innerText = "얇음";
+        else thicknessValue.innerText = "매우 얇음 (위험!)";
+
+        // 입자 거리
+        if(ratio < 0.3) particleDistValue.innerText = "촘촘함 ●●●";
+        else if(ratio < 0.6) particleDistValue.innerText = "보통 ● ● ●";
+        else if(ratio < 0.9) particleDistValue.innerText = "멀어짐 ●  ●  ●";
+        else particleDistValue.innerText = "끊어지기 직전 ●   ●   ●";
+    }
+
+    function updateFeedbackText(amount) {
+        feedbackText.style.color = "var(--primary-color)";
+        if(amount === 0) feedbackText.innerText = "슬라이더를 움직여 공기를 넣어보세요!";
+        else if(amount < 30) feedbackText.innerText = "비눗방울이 커지면서 막이 얇아지고 있습니다.";
+        else if(amount < 60) feedbackText.innerText = "확대 화면을 보세요. 입자 사이가 멀어지고 있죠?";
+        else feedbackText.innerText = "조심하세요! 막이 아주 얇아졌습니다.";
+    }
+
+    function drawParticles(amount) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 공기량에 따라 입자 사이 간격 벌어짐 (Zoom in 효과처럼)
+        const expansionFactor = 1 + (amount / 100) * 1.5; 
+        
+        ctx.fillStyle = "#87CEEB"; // 물/비누 입자 색
+        if(additiveType === 'glycerin') ctx.fillStyle = "#FFA500"; // 글리세린 섞인 색
+        
+        particles.forEach(p => {
+            // 중심 기준으로 퍼져나가게 계산
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            let distFromCenterX = p.baseX - centerX;
+            let distFromCenterY = p.baseY - centerY;
+            
+            let currentX = centerX + distFromCenterX * expansionFactor;
+            let currentY = centerY + distFromCenterY * expansionFactor;
+
+            // 입자 그리기
+            ctx.beginPath();
+            ctx.arc(currentX, currentY, 6, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 입자 사이 연결선 (결합력 시각화)
+            // 너무 멀어지면 선이 얇아지다가 사라짐
+            if (amount < 80) {
+                ctx.strokeStyle = `rgba(255, 255, 255, ${1 - amount/100})`;
+                ctx.lineWidth = 2;
+                // 간단히 오른쪽 입자와 연결하는 흉내
+                ctx.beginPath();
+                ctx.moveTo(currentX, currentY);
+                ctx.lineTo(currentX + (30 * expansionFactor), currentY); // 가상의 옆 입자
+                ctx.stroke();
+            }
+        });
+    }
+
+    function burstBubble() {
+        isBurst = true;
+        bubble.style.display = 'none';
+        burstMessage.style.display = 'flex';
+        feedbackText.innerText = "팡! 입자 사이가 너무 멀어져서 결합이 끊어졌습니다.";
+        feedbackText.style.color = "var(--accent-color)";
+        
+        // 캔버스에 터짐 효과 그리기
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.font = "20px Arial";
+        ctx.fillStyle = "white";
+        ctx.fillText("결합 파괴! (입자가 흩어짐)", 50, 100);
+    }
+
+    function resetExperiment() {
+        isBurst = false;
+        airSlider.value = 0;
+        bubble.style.display = 'block';
+        bubble.style.width = '0px';
+        bubble.style.height = '0px';
+        burstMessage.style.display = 'none';
+        
+        // 애니메이션 초기화
+        initParticles();
+        updateSimulation();
+        feedbackText.innerText = "실험이 초기화되었습니다. 다시 시작해보세요.";
+        feedbackText.style.color = "var(--text-color)";
+    }
+
+    // 초기 실행
+    updateSimulation();
+    animate();
+
+    function animate() {
+        if(!isBurst) {
+            // 미세한 입자 움직임 (브라운 운동 느낌)
+            requestAnimationFrame(animate);
+        }
+    }
+</script>
+
+</body>
+</html>

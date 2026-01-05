@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 실험: 순물질과 혼합물의 온도 변화</title>
+    <style>
+        :root { --primary: #4A90E2; --secondary: #E74C3C; --bg: #f4f7f6; --panel: #ffffff; }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; align-items: center; }
+        h1 { color: #333; margin-bottom: 10px; }
+        .container { display: grid; grid-template-columns: 250px 1fr 300px; gap: 20px; max-width: 1200px; width: 100%; }
+        
+        /* Controls */
+        .panel { background: var(--panel); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 14px; color: #555; }
+        select, input[type="range"], button { width: 100%; padding: 8px; margin-bottom: 5px; border-radius: 6px; border: 1px solid #ddd; }
+        button { background: var(--primary); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.2s; }
+        button:hover { opacity: 0.9; }
+        button.reset { background: #95a5a6; margin-top: 10px; }
+        
+        /* Visualization */
+        .visual-area { display: flex; flex-direction: column; align-items: center; justify-content: center; background: #fff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); position: relative; }
+        .beaker { width: 150px; height: 200px; border: 4px solid #333; border-top: none; position: relative; background: linear-gradient(to bottom, rgba(255,255,255,0.5), rgba(74, 144, 226, 0.2)); border-radius: 0 0 15px 15px; overflow: hidden; }
+        .liquid { position: absolute; bottom: 0; left: 0; right: 0; height: 70%; background: rgba(74, 144, 226, 0.4); transition: height 1s; }
+        .particles { position: absolute; width: 100%; height: 100%; }
+        .particle { position: absolute; border-radius: 50%; transition: top 0.5s, left 0.5s; }
+        .water-p { width: 10px; height: 10px; background: #3498db; }
+        .salt-p { width: 12px; height: 12px; background: #e74c3c; border: 1px solid #c0392b; }
+        
+        .thermometer { width: 20px; height: 220px; background: #eee; border: 2px solid #333; border-radius: 10px; position: absolute; right: 40px; top: 10px; }
+        .mercury { width: 100%; background: #e74c3c; position: absolute; bottom: 0; border-radius: 0 0 8px 8px; transition: height 0.2s; }
+        .temp-display { position: absolute; top: -30px; right: 20px; font-size: 24px; font-weight: bold; color: #333; }
+        
+        /* Graph */
+        .graph-area { background: #fff; border-radius: 12px; padding: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; }
+        canvas { width: 100%; height: 300px; background: #fdfdfd; border: 1px solid #eee; }
+        .status-box { margin-top: 10px; padding: 10px; background: #ecf0f1; border-radius: 8px; font-size: 14px; line-height: 1.4; }
+
+        /* Animation Classes */
+        @keyframes boil { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+        .boiling .particle { animation: boil 0.5s infinite ease-in-out; }
+        .freezing .particle { transition: all 1s; transform: scale(0.9); }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 물질의 특성</h1>
+
+    <div class="container">
+        <div class="panel">
+            <h3>🎛️ 실험 설정</h3>
+            <div class="control-group">
+                <label>실험 모드</label>
+                <select id="experimentMode">
+                    <option value="boil">가열 (끓는점)</option>
+                    <option value="freeze">냉각 (어는점)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>물질 선택</label>
+                <select id="substanceType" onchange="updateUI()">
+                    <option value="water">순수한 물</option>
+                    <option value="saltwater">소금물 (혼합물)</option>
+                </select>
+            </div>
+            <div class="control-group" id="concentrationGroup" style="display:none;">
+                <label>소금물 농도: <span id="concVal">10</span>%</label>
+                <input type="range" id="concentration" min="5" max="20" step="5" value="10" oninput="document.getElementById('concVal').innerText = this.value">
+            </div>
+            <div class="control-group">
+                <label>진행 속도</label>
+                <input type="range" id="speed" min="1" max="5" value="2">
+            </div>
+            <button onclick="startSimulation()">▶ 실험 시작</button>
+            <button class="reset" onclick="resetSimulation()">↺ 초기화</button>
+        </div>
+
+        <div class="visual-area">
+            <div class="temp-display" id="tempDisplay">25.0°C</div>
+            <div class="beaker" id="beaker">
+                <div class="liquid">
+                    <div class="particles" id="particleContainer"></div>
+                </div>
+            </div>
+            <div class="thermometer"><div class="mercury" id="mercury" style="height: 25%;"></div></div>
+        </div>
+
+        <div class="graph-area">
+            <h3>📈 온도 변화 그래프</h3>
+            <canvas id="graphCanvas"></canvas>
+            <div class="status-box" id="statusMessage">
+                실험 설정을 마치고 '실험 시작' 버튼을 눌러보세요.
+            </div>
+        </div>
+    </div>
+
+<script>
+    let timer = null;
+    let time = 0;
+    let temperature = 25;
+    let isRunning = false;
+    let dataPoints = [];
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // Canvas Setup
+    canvas.width = 300;
+    canvas.height = 300;
+
+    function updateUI() {
+        const type = document.getElementById('substanceType').value;
+        const concGroup = document.getElementById('concentrationGroup');
+        concGroup.style.display = type === 'saltwater' ? 'block' : 'none';
+        drawParticlesInternal();
+    }
+
+    function drawParticlesInternal() {
+        const container = document.getElementById('particleContainer');
+        container.innerHTML = '';
+        const type = document.getElementById('substanceType').value;
+        const conc = parseInt(document.getElementById('concentration').value);
+        
+        // Add Water Particles
+        for(let i=0; i<20; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle water-p';
+            p.style.top = Math.random() * 80 + 10 + '%';
+            p.style.left = Math.random() * 80 + 10 + '%';
+            container.appendChild(p);
+        }
+
+        // Add Salt Particles
+        if(type === 'saltwater') {
+            let count = conc / 2; // Simple visual representation
+            for(let i=0; i<count; i++) {
+                let p = document.createElement('div');
+                p.className = 'particle salt-p';
+                p.style.top = Math.random() * 80 + 10 + '%';
+                p.style.left = Math.random() * 80 + 10 + '%';
+                container.appendChild(p);
+            }
+        }
+    }
+
+    function startSimulation() {
+        if(isRunning) return;
+        resetSimulation(false);
+        isRunning = true;
+        
+        const mode = document.getElementById('experimentMode').value;
+        const type = document.getElementById('substanceType').value;
+        const conc = parseInt(document.getElementById('concentration').value);
+        const speedMultiplier = parseInt(document.getElementById('speed').value);
+
+        // Set Initial Temp
+        temperature = mode === 'boil' ? 25 : 20;
+
+        timer = setInterval(() => {
+            time++;
+            let step = 0.5 * speedMultiplier;
+
+            // Physics Logic (Simplified for Education)
+            if (mode === 'boil') {
+                let boilingPoint = type === 'water' ? 100 : 100 + (conc * 0.5);
+                
+                if (temperature < boilingPoint) {
+                    temperature += step;
+                } else {
+                    // Phase Change Logic
+                    if(type === 'water') {
+                        temperature = 100 + (Math.random() * 0.2); // Almost constant
+                        document.getElementById('statusMessage').innerHTML = "<strong>관찰 포인트:</strong><br>물이 끓고 있습니다. 온도가 100°C에서 일정하게 유지되는 평탄한 구간이 보이나요?";
+                    } else {
+                        temperature += (step * 0.1); // Continues to rise slowly
+                        document.getElementById('statusMessage').innerHTML = `<strong>관찰 포인트:</strong><br>소금물이 끓고 있습니다. <br>순물질과 달리 온도가 ${boilingPoint.toFixed(1)}°C를 넘어 조금씩 계속 올라가고 있습니다.`;
+                    }
+                    document.getElementById('beaker').classList.add('boiling');
+                }
+            } else { // Freezing
+                let freezingPoint = type === 'water' ? 0 : 0 - (conc * 0.5);
+                
+                if (temperature > freezingPoint) {
+                    temperature -= step;
+                } else {
+                     if(type === 'water') {
+                        temperature = 0 - (Math.random() * 0.2);
+                         document.getElementById('statusMessage').innerHTML = "<strong>관찰 포인트:</strong><br>물이 얼고 있습니다. 0°C에서 온도가 변하지 않는 구간을 확인하세요.";
+                    } else {
+                        temperature -= (step * 0.1); // Continues to drop
+                        document.getElementById('statusMessage').innerHTML = `<strong>관찰 포인트:</strong><br>소금물이 얼고 있습니다. <br>어는점(${freezingPoint.toFixed(1)}°C) 이하로 온도가 계속 내려갑니다.`;
+                    }
+                    document.getElementById('beaker').classList.add('freezing');
+                }
+            }
+
+            dataPoints.push(temperature);
+            updateVisuals();
+            drawGraph(mode);
+
+            if (time > 150) {
+                clearInterval(timer);
+                isRunning = false;
+                document.getElementById('statusMessage').innerHTML += "<br>✅ 실험이 종료되었습니다.";
+            }
+
+        }, 100);
+    }
+
+    function updateVisuals() {
+        document.getElementById('tempDisplay').innerText = temperature.toFixed(1) + "°C";
+        // Map temp -10 to 110 to height 0 to 100
+        let h = ((temperature + 10) / 120) * 100;
+        if(h < 0) h = 0; if(h > 100) h = 100;
+        document.getElementById('mercury').style.height = h + "%";
+    }
+
+    function drawGraph(mode) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Draw Axis
+        ctx.beginPath();
+        ctx.strokeStyle = '#888';
+        ctx.moveTo(30, 10); ctx.lineTo(30, 270); // Y
+        ctx.moveTo(30, 150); ctx.lineTo(290, 150); // X (Center for Freezing)
+        if(mode === 'boil') {
+             ctx.moveTo(30, 270); ctx.lineTo(290, 270); // X (Bottom for Boiling)
+        }
+        ctx.stroke();
+
+        // Plot Data
+        ctx.beginPath();
+        ctx.strokeStyle = '#e74c3c';
+        ctx.lineWidth = 2;
+        
+        let startY = mode === 'boil' ? 270 : 150; // Visual offset
+        
+        dataPoints.forEach((temp, index) => {
+            let x = 30 + (index * 2);
+            let y = 0;
+            if(mode === 'boil') {
+                y = 270 - (temp * 2); // Scale fit
+            } else {
+                y = 150 - (temp * 5);
+            }
+            
+            if(index === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        });
+        ctx.stroke();
+    }
+
+    function resetSimulation(clearGraph = true) {
+        clearInterval(timer);
+        isRunning = false;
+        time = 0;
+        if(clearGraph) dataPoints = [];
+        document.getElementById('beaker').classList.remove('boiling', 'freezing');
+        document.getElementById('statusMessage').innerText = "준비 완료. 설정 후 시작 버튼을 누르세요.";
+        drawParticlesInternal();
+        // Clear Canvas
+        if(clearGraph) ctx.clearRect(0, 0, canvas.width, canvas.height);
+    }
+
+    // Init
+    updateUI();
+</script>
+</body>
+</html>

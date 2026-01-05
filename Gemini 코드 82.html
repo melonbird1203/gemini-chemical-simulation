@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 반응과 에너지 출입 가상실험실</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --danger-color: #e74c3c;
+            --success-color: #2ecc71;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .subtitle { color: #7f8c8d; margin-bottom: 20px; font-size: 0.9em; }
+
+        /* 레이아웃 */
+        .lab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            flex: 1;
+            min-width: 300px;
+        }
+
+        /* 제어 패널 */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #34495e; }
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #bdc3c7; }
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #bdc3c7; cursor: not-allowed; }
+        
+        /* 시각화 영역 */
+        .visualization-area {
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+            height: 300px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            position: relative;
+            padding: 20px;
+            overflow: hidden;
+        }
+
+        /* 비커 & 액체 */
+        .beaker {
+            width: 120px;
+            height: 180px;
+            border: 4px solid #7f8c8d;
+            border-top: none;
+            border-radius: 0 0 15px 15px;
+            position: relative;
+            background: rgba(255,255,255,0.5);
+            z-index: 2;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            width: 110px;
+            height: 60%; /* 초기 높이 */
+            background-color: #aed9e0;
+            border-radius: 0 0 10px 10px;
+            transition: background-color 1s, height 0.5s;
+        }
+        .bubbles {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            display: none;
+        }
+        .bubble {
+            position: absolute;
+            bottom: 0;
+            width: 10px;
+            height: 10px;
+            background: rgba(255,255,255,0.7);
+            border-radius: 50%;
+            animation: rise 2s infinite;
+        }
+
+        /* 온도계 */
+        .thermometer-wrapper {
+            width: 40px;
+            height: 220px;
+            background: #fff;
+            border-radius: 20px;
+            border: 2px solid #bdc3c7;
+            position: relative;
+            display: flex;
+            justify-content: center;
+        }
+        .mercury {
+            width: 10px;
+            background: #e74c3c;
+            position: absolute;
+            bottom: 10px;
+            height: 25%; /* 25도 기준 */
+            border-radius: 5px;
+            transition: height 0.5s, background 0.5s;
+            max-height: 90%;
+        }
+        .temp-display {
+            position: absolute;
+            top: -30px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+
+        /* 에너지 흐름 애니메이션 */
+        .energy-arrows {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 300px;
+            height: 300px;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .arrow {
+            position: absolute;
+            width: 0; 
+            height: 0; 
+            opacity: 0;
+        }
+
+        /* 그래프 영역 */
+        .graph-container {
+            margin-top: 20px;
+            height: 200px;
+            background: white;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+        canvas { width: 100%; height: 100%; }
+
+        /* 결과 및 피드백 */
+        .feedback-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 8px;
+            display: none;
+        }
+        .quiz-box {
+            margin-top: 20px;
+            background: #e8f6f3;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        @keyframes rise {
+            0% { bottom: 0; opacity: 1; }
+            100% { bottom: 100%; opacity: 0; }
+        }
+        @keyframes flowOut {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+        }
+        @keyframes flowIn {
+            0% { transform: translate(-50%, -50%) scale(1.5); opacity: 0; }
+            100% { transform: translate(-50%, -50%) scale(0.5); opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 화학 반응과 에너지 변화 실험실</h1>
+    <div class="subtitle">중학교 3학년 과학 - [9과17-06] 에너지의 출입 이해하기</div>
+
+    <div class="lab-container">
+        <div class="panel">
+            <h3>🎛️ 실험 설정</h3>
+            <div class="control-group">
+                <label for="reactionSelect">반응 선택:</label>
+                <select id="reactionSelect">
+                    <option value="exo">염화칼슘 + 물 (손난로 원리)</option>
+                    <option value="endo">탄산수소나트륨 + 식초 (화산 폭발 실험)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label for="amountRange">시약 투입량 (g): <span id="amountDisplay">5</span>g</label>
+                <input type="range" id="amountRange" min="1" max="10" value="5">
+            </div>
+            <button id="startBtn" onclick="startExperiment()">실험 시작하기 🚀</button>
+            <button id="resetBtn" onclick="resetExperiment()" style="background-color: #95a5a6; margin-top: 10px; display:none;">초기화 🔄</button>
+            
+            <div class="quiz-box">
+                <h4>🧠 생각하나요?</h4>
+                <p id="quizText">실험을 시작하면 퀴즈가 나타납니다.</p>
+                <div id="quizOptions" style="display:none; margin-top:10px;">
+                    <button onclick="checkAnswer('up')" style="font-size:0.9em; padding:5px;">온도가 올라갈 것이다</button>
+                    <button onclick="checkAnswer('down')" style="font-size:0.9em; padding:5px; margin-top:5px;">온도가 내려갈 것이다</button>
+                </div>
+                <p id="quizResult" style="font-weight:bold; margin-top:10px;"></p>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>🔬 관찰 및 결과</h3>
+            <div class="visualization-area">
+                <div class="energy-arrows" id="energyFlow">
+                    </div>
+                <div class="beaker">
+                    <div class="liquid" id="liquid">
+                        <div class="bubbles" id="bubbles"></div>
+                    </div>
+                </div>
+                <div class="thermometer-wrapper">
+                    <div class="temp-display" id="tempText">25°C</div>
+                    <div class="mercury" id="mercury"></div>
+                </div>
+            </div>
+            
+            <div class="feedback-box" id="feedback">
+                <strong>💡 결과 분석:</strong> <span id="feedbackText"></span>
+            </div>
+
+            <div class="graph-container">
+                <canvas id="tempGraph"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 변수 설정
+        const canvas = document.getElementById('tempGraph');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+        let currentTime = 0;
+        let currentTemp = 25;
+        let targetTemp = 25;
+        let isRunning = false;
+        
+        // 그래프 초기화
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
+        // 슬라이더 이벤트
+        document.getElementById('amountRange').addEventListener('input', function(e) {
+            document.getElementById('amountDisplay').innerText = e.target.value;
+        });
+
+        // 퀴즈 로직
+        function setupQuiz(type) {
+            const quizText = document.getElementById('quizText');
+            const quizOptions = document.getElementById('quizOptions');
+            const quizResult = document.getElementById('quizResult');
+            
+            quizResult.innerText = "";
+            quizOptions.style.display = "block";
+            
+            if(type === 'exo') {
+                quizText.innerText = "염화칼슘이 물에 녹으면 온도는 어떻게 변할까요?";
+            } else {
+                quizText.innerText = "식초와 베이킹소다가 만나면 온도는 어떻게 변할까요?";
+            }
+        }
+
+        function checkAnswer(ans) {
+            const type = document.getElementById('reactionSelect').value;
+            const quizResult = document.getElementById('quizResult');
+            let isCorrect = false;
+
+            if (type === 'exo' && ans === 'up') isCorrect = true;
+            if (type === 'endo' && ans === 'down') isCorrect = true;
+
+            if (isCorrect) {
+                quizResult.innerText = "정답입니다! 🎉 시뮬레이션으로 확인해보세요.";
+                quizResult.style.color = "green";
+            } else {
+                quizResult.innerText = "다시 생각해보세요! 🤔";
+                quizResult.style.color = "red";
+            }
+        }
+
+        // 실험 시작 함수
+        function startExperiment() {
+            if(isRunning) return;
+            isRunning = true;
+            
+            document.getElementById('startBtn').style.display = 'none';
+            document.getElementById('resetBtn').style.display = 'block';
+            document.getElementById('amountRange').disabled = true;
+            document.getElementById('reactionSelect').disabled = true;
+
+            const type = document.getElementById('reactionSelect').value;
+            const amount = parseInt(document.getElementById('amountRange').value);
+            
+            // 퀴즈 세팅
+            setupQuiz(type);
+
+            // 목표 온도 계산 (간단한 시뮬레이션 로직)
+            const baseTemp = 25;
+            if (type === 'exo') {
+                // 발열: 양이 많을수록 온도 상승폭 큼 (최대 60도 제한)
+                targetTemp = baseTemp + (amount * 3.5); 
+                startReactionVisuals('red');
+            } else {
+                // 흡열: 양이 많을수록 온도 하강폭 큼 (최소 5도 제한)
+                targetTemp = baseTemp - (amount * 1.5);
+                startReactionVisuals('blue');
+            }
+
+            drawGraph();
+        }
+
+        function startReactionVisuals(color) {
+            const liquid = document.getElementById('liquid');
+            const bubbles = document.getElementById('bubbles');
+            const energyFlow = document.getElementById('energyFlow');
+            
+            // 액체 색상 변경
+            if(color === 'red') {
+                liquid.style.backgroundColor = "#e74c3c"; // 붉은색
+                energyFlow.innerHTML = '<div style="position:absolute; top:50%; left:50%; width:200px; height:200px; border: 2px dashed red; border-radius:50%; animation: flowOut 2s infinite;"></div><div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:red; font-weight:bold;">열 방출 🔥</div>';
+            } else {
+                liquid.style.backgroundColor = "#3498db"; // 푸른색
+                bubbles.style.display = "block"; // 기포 발생 (탄산가스)
+                 // 기포 생성 로직
+                 for(let i=0; i<10; i++) {
+                    let b = document.createElement('div');
+                    b.className = 'bubble';
+                    b.style.left = Math.random() * 100 + '%';
+                    b.style.animationDelay = Math.random() + 's';
+                    bubbles.appendChild(b);
+                 }
+                energyFlow.innerHTML = '<div style="position:absolute; top:50%; left:50%; width:200px; height:200px; border: 2px dashed blue; border-radius:50%; animation: flowIn 2s infinite;"></div><div style="position:absolute; top:50%; left:50%; transform:translate(-50%, -50%); color:blue; font-weight:bold;">열 흡수 ❄️</div>';
+            }
+        }
+
+        // 그래프 및 온도 업데이트 루프
+        function drawGraph() {
+            const mercury = document.getElementById('mercury');
+            const tempText = document.getElementById('tempText');
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height - (25 * 3)); // 시작점 (25도 기준)
+            
+            let time = 0;
+            let temp = 25;
+            const points = [];
+
+            animationId = setInterval(() => {
+                currentTime++;
+                
+                // 온도 서서히 변화시키기
+                if (Math.abs(currentTemp - targetTemp) > 0.5) {
+                    currentTemp += (targetTemp - currentTemp) * 0.05;
+                } else {
+                    currentTemp = targetTemp;
+                    showFeedback();
+                    clearInterval(animationId);
+                }
+
+                // 온도계 업데이트
+                tempText.innerText = currentTemp.toFixed(1) + "°C";
+                // 0도=0%, 100도=100% 매핑 (간단히)
+                mercury.style.height = currentTemp + '%';
+                if(currentTemp > 25) mercury.style.background = "#e74c3c"; // 빨강
+                else mercury.style.background = "#3498db"; // 파랑
+
+                // 그래프 그리기
+                // X축: 시간(최대 100틱), Y축: 온도 (0~100도)
+                const x = (currentTime / 100) * canvas.width;
+                const y = canvas.height - (currentTemp * 2); // 스케일 조정
+                
+                // 간단한 점 찍기 방식
+                ctx.fillStyle = "#2c3e50";
+                ctx.fillRect(x, y, 2, 2);
+
+            }, 50);
+        }
+
+        function showFeedback() {
+            const feedback = document.getElementById('feedback');
+            const feedbackText = document.getElementById('feedbackText');
+            const type = document.getElementById('reactionSelect').value;
+
+            feedback.style.display = 'block';
+            if (type === 'exo') {
+                feedbackText.innerHTML = "온도가 상승했습니다! 이는 <strong>발열 반응(Exothermic)</strong>입니다. 반응물이 가진 에너지가 생성물보다 커서, 남는 에너지가 <strong>열</strong>의 형태로 방출된 것입니다.";
+            } else {
+                feedbackText.innerHTML = "온도가 하강했습니다! 이는 <strong>흡열 반응(Endothermic)</strong>입니다. 반응이 일어날 때 주변의 <strong>열에너지를 흡수</strong>하여 온도가 낮아졌습니다. 기포(이산화탄소)도 관찰되었나요?";
+            }
+        }
+
+        function resetExperiment() {
+            isRunning = false;
+            clearInterval(animationId);
+            currentTime = 0;
+            currentTemp = 25;
+            
+            document.getElementById('startBtn').style.display = 'block';
+            document.getElementById('resetBtn').style.display = 'none';
+            document.getElementById('amountRange').disabled = false;
+            document.getElementById('reactionSelect').disabled = false;
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('quizOptions').style.display = 'none';
+            document.getElementById('quizResult').innerText = "";
+            document.getElementById('liquid').style.backgroundColor = "#aed9e0";
+            document.getElementById('bubbles').innerHTML = "";
+            document.getElementById('energyFlow').innerHTML = "";
+            document.getElementById('tempText').innerText = "25°C";
+            document.getElementById('mercury').style.height = "25%";
+            document.getElementById('mercury').style.background = "#e74c3c";
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    </script>
+</body>
+</html>

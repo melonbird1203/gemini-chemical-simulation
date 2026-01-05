@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 어떤 물질이 석출될까?</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --text-color: #2c3e50;
+            --boric-color: #e74c3c;
+            --nacl-color: #27ae60;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { margin-bottom: 10px; color: #34495e; }
+        .subtitle { margin-bottom: 20px; color: #7f8c8d; font-size: 0.9em; }
+
+        /* 메인 레이아웃 */
+        .lab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* 왼쪽: 그래프 및 데이터 영역 */
+        .data-panel {
+            flex: 1;
+            min-width: 300px;
+            border-right: 1px solid #eee;
+            padding-right: 20px;
+        }
+
+        canvas#graphCanvas {
+            width: 100%;
+            height: 250px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            font-size: 0.85em;
+            margin-top: 5px;
+            justify-content: center;
+        }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+
+        /* 중앙: 비커 시각화 영역 */
+        .visual-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .beaker-container {
+            position: relative;
+            width: 200px;
+            height: 280px;
+        }
+
+        /* 비커 스타일 */
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border-left: 3px solid #aaa;
+            border-right: 3px solid #aaa;
+            border-bottom: 3px solid #aaa;
+            border-radius: 0 0 20px 20px;
+            position: absolute;
+            bottom: 20px;
+            left: 25px;
+            background: rgba(255, 255, 255, 0.3);
+            overflow: hidden;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 160px; /* 물 100g 기준 */
+            background: linear-gradient(to top, #a1c4fd 0%, #c2e9fb 100%);
+            opacity: 0.7;
+            transition: background 1s;
+        }
+
+        .crystals {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0px;
+            background-color: rgba(255, 255, 255, 0.9);
+            background-image: radial-gradient(circle, #ddd 1px, transparent 1px);
+            background-size: 5px 5px;
+            transition: height 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            color: #555;
+            border-radius: 0 0 15px 15px;
+        }
+
+        .thermometer-display {
+            position: absolute;
+            top: 0;
+            right: 0;
+            background: #333;
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-family: monospace;
+            font-size: 1.2em;
+        }
+
+        /* 입자 애니메이션용 캔버스 */
+        canvas#particleCanvas {
+            position: absolute;
+            bottom: 20px;
+            left: 25px;
+            pointer-events: none;
+        }
+
+        /* 하단: 컨트롤 패널 */
+        .control-panel {
+            width: 100%;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .status-box {
+            background: #e8f4f8;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary-color);
+            min-height: 60px;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .slider-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        input[type="range"] {
+            flex: 1;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+
+        .btn-predict { background: #9b59b6; color: white; }
+        .btn-cool { background: #3498db; color: white; }
+        .btn-reset { background: #95a5a6; color: white; }
+        
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* 팝업 오버레이 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            align-items: center;
+            justify-content: center;
+            z-index: 100;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            text-align: center;
+            max-width: 400px;
+        }
+        .choice-btn {
+            display: block;
+            width: 100%;
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        .choice-btn:hover { background: #e9ecef; }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧪 실험 9: 결정 석출 시뮬레이션</h1>
+    <div class="subtitle">중학교 2학년 과학 > 혼합물의 분리 > 용해도와 재결정</div>
+
+    <div class="lab-container">
+        <div class="data-panel">
+            <h3>📈 용해도 곡선</h3>
+            <canvas id="graphCanvas" width="300" height="250"></canvas>
+            <div class="legend">
+                <span><span class="dot" style="background:var(--boric-color)"></span>붕산</span>
+                <span><span class="dot" style="background:var(--nacl-color)"></span>염화나트륨</span>
+            </div>
+            <div style="margin-top: 15px; font-size: 0.9em;">
+                <p><strong>현재 용해도 (100g 기준)</strong></p>
+                <ul id="current-solubility-info">
+                    <li>염화나트륨: -- g</li>
+                    <li>붕산: -- g</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="visual-panel">
+            <div class="beaker-container">
+                <div class="thermometer-display" id="tempDisplay">80℃</div>
+                <div class="beaker">
+                    <div class="liquid" id="liquid"></div>
+                    <div class="crystals" id="crystals"></div>
+                </div>
+                <canvas id="particleCanvas" width="150" height="200"></canvas>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <div class="status-box" id="feedbackBox">
+                안녕하세요! 실험을 시작하려면 물질의 양을 확인하고 <strong>[예측하기]</strong> 버튼을 눌러주세요.
+            </div>
+
+            <div class="input-group">
+                <div class="inputs">
+                    <label>물: 100g (고정)</label> | 
+                    <label>초기온도: 80℃</label>
+                </div>
+                <div class="inputs">
+                    <label>염화나트륨: 25g</label> | 
+                    <label>붕산: 25g</label>
+                </div>
+            </div>
+
+            <div class="slider-container">
+                <span>냉각 온도 설정:</span>
+                <input type="range" id="tempSlider" min="20" max="80" value="80" step="1" disabled>
+                <span id="targetTemp">80℃</span>
+            </div>
+
+            <div style="display: flex; gap: 10px; justify-content: flex-end;">
+                <button class="btn-predict" id="btnPredict" onclick="openPredictModal()">1. 예측하기</button>
+                <button class="btn-cool" id="btnCool" onclick="startCooling()" disabled>2. 냉각 시작</button>
+                <button class="btn-reset" onclick="resetExperiment()">처음으로</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="predictModal" class="modal">
+        <div class="modal-content">
+            <h3>🤔 결과 예측하기</h3>
+            <p>80℃ 용액을 20℃로 식히면 어떤 일이 일어날까요?</p>
+            <button class="choice-btn" onclick="submitPrediction('nacl')">염화나트륨만 고체로 나온다.</button>
+            <button class="choice-btn" onclick="submitPrediction('boric')">붕산만 고체로 나온다.</button>
+            <button class="choice-btn" onclick="submitPrediction('both')">둘 다 고체로 나온다.</button>
+            <button class="choice-btn" onclick="submitPrediction('none')">아무것도 나오지 않는다.</button>
+        </div>
+    </div>
+
+<script>
+    /**
+     * 과학 시뮬레이션 로직 및 상태 관리
+     * 개발자: Atom (Gemini)
+     */
+
+    // --- 1. 실험 데이터 및 상태 (State) ---
+    const state = {
+        temp: 80,         // 현재 온도
+        targetTemp: 20,   // 목표 온도
+        water: 100,       // 물의 양 (g)
+        nacl: 25,         // 넣은 소금 양 (g)
+        boric: 25,        // 넣은 붕산 양 (g)
+        isAnimating: false,
+        userPrediction: null
+    };
+
+    // 용해도 데이터 근사치 (Textbook Data approximation)
+    // NaCl: 온도 영향 적음 (y = 0.04x + 35.8 정도)
+    // Boric: 온도 영향 큼 (지수 함수 형태 or 보간)
+    function getSolubility(substance, temp) {
+        if (substance === 'nacl') {
+            // NaCl: 20도에서 약 36, 80도에서 약 38
+            return 35.8 + (temp * 0.03); 
+        } else if (substance === 'boric') {
+            // Boric: 20도에서 약 5, 60도에서 15, 80도에서 24 (문제 조건이 20g/70g이면 그에 맞춤)
+            // *프롬프트 요청사항 반영*: 20도-20g, 80도-70g (상당히 과포화된 실험용 조건)
+            // 선형 보간으로 단순화: y = 0.83x + 3.33
+            // 실제 곡선 느낌을 주기 위해 약간의 곡률 적용
+            let t = (temp - 20) / 60; // 0 ~ 1 정규화
+            // 2차 곡선 보간: 20 + t^1.5 * 50
+            return 20 + Math.pow(t, 1.2) * 50; 
+        }
+        return 0;
+    }
+
+    // --- 2. 캔버스 드로잉 (Canvas Rendering) ---
+    const graphCanvas = document.getElementById('graphCanvas');
+    const graphCtx = graphCanvas.getContext('2d');
+    const particleCanvas = document.getElementById('particleCanvas');
+    const particleCtx = particleCanvas.getContext('2d');
+
+    // 입자 시스템 변수
+    let particles = [];
+
+    function drawGraph() {
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+        const padding = 30;
+        
+        graphCtx.clearRect(0, 0, w, h);
+        
+        // 축 그리기
+        graphCtx.beginPath();
+        graphCtx.moveTo(padding, padding);
+        graphCtx.lineTo(padding, h - padding); // Y축
+        graphCtx.lineTo(w - padding, h - padding); // X축
+        graphCtx.strokeStyle = '#333';
+        graphCtx.stroke();
+
+        // 라벨
+        graphCtx.fillStyle = '#666';
+        graphCtx.font = '10px sans-serif';
+        graphCtx.fillText('0', padding - 10, h - padding + 10);
+        graphCtx.fillText('100℃', w - 40, h - padding + 15);
+        graphCtx.fillText('용해도(g)', 5, 20);
+
+        // 곡선 그리기 함수
+        function drawCurve(substance, color) {
+            graphCtx.beginPath();
+            graphCtx.strokeStyle = color;
+            graphCtx.lineWidth = 2;
+            for(let t = 0; t <= 100; t+=5) {
+                let s = getSolubility(substance, t);
+                let x = padding + (t / 100) * (w - 2 * padding);
+                let y = (h - padding) - (s / 100) * (h - 2 * padding); // Max 100g 스케일
+                if(t===0) graphCtx.moveTo(x, y);
+                else graphCtx.lineTo(x, y);
+            }
+            graphCtx.stroke();
+        }
+
+        drawCurve('nacl', '#27ae60');
+        drawCurve('boric', '#e74c3c');
+
+        // 현재 온도 상태 표시 (수직선)
+        let cx = padding + (state.temp / 100) * (w - 2 * padding);
+        graphCtx.beginPath();
+        graphCtx.setLineDash([5, 5]);
+        graphCtx.moveTo(cx, padding);
+        graphCtx.lineTo(cx, h - padding);
+        graphCtx.strokeStyle = '#999';
+        graphCtx.stroke();
+        graphCtx.setLineDash([]);
+
+        // 현재 용해도 포인트 표시
+        [ 'nacl', 'boric'].forEach(sub => {
+            let s = getSolubility(sub, state.temp);
+            let cy = (h - padding) - (s / 100) * (h - 2 * padding);
+            graphCtx.beginPath();
+            graphCtx.arc(cx, cy, 4, 0, Math.PI*2);
+            graphCtx.fillStyle = sub === 'nacl' ? '#27ae60' : '#e74c3c';
+            graphCtx.fill();
+        });
+    }
+
+    // --- 3. 실험 제어 로직 ---
+
+    function updateDisplay() {
+        document.getElementById('tempDisplay').innerText = Math.round(state.temp) + '℃';
+        document.getElementById('targetTemp').innerText = document.getElementById('tempSlider').value + '℃';
+        
+        // 그래프 업데이트
+        drawGraph();
+
+        // 텍스트 정보 업데이트
+        const sNacl = getSolubility('nacl', state.temp).toFixed(1);
+        const sBoric = getSolubility('boric', state.temp).toFixed(1);
+        document.getElementById('current-solubility-info').innerHTML = 
+            `<li>염화나트륨: 약 ${sNacl}g</li><li>붕산: 약 ${sBoric}g</li>`;
+
+        // 석출량 계산 및 비커 시각화
+        const precipNacl = Math.max(0, state.nacl - sNacl);
+        const precipBoric = Math.max(0, state.boric - sBoric);
+        const totalPrecip = precipNacl + precipBoric;
+
+        // 결정 높이 시각화 (최대 100px로 제한)
+        const crystalHeight = Math.min(80, totalPrecip * 3); 
+        document.getElementById('crystals').style.height = crystalHeight + 'px';
+        
+        // 결정 텍스트
+        if (crystalHeight > 5) {
+            document.getElementById('crystals').innerText = "결정 생성 중...";
+        } else {
+            document.getElementById('crystals').innerText = "";
+        }
+
+        // 결과 피드백 (애니메이션 끝난 후)
+        if (!state.isAnimating && state.temp <= 21 && state.temp > 19) {
+             finalizeResult(precipNacl, precipBoric);
+        }
+    }
+
+    function startCooling() {
+        if (state.isAnimating) return;
+        
+        state.isAnimating = true;
+        document.getElementById('btnCool').disabled = true;
+        document.getElementById('tempSlider').disabled = true;
+        document.getElementById('feedbackBox').innerHTML = "냉각 중입니다... 그래프와 비커 안을 관찰하세요.<br>온도가 내려가면서 <strong>용해도 곡선</strong> 밑으로 떨어지는 물질이 석출됩니다.";
+
+        // 목표 온도
+        const target = parseInt(document.getElementById('tempSlider').value);
+        state.targetTemp = target;
+
+        // 애니메이션 루프
+        function loop() {
+            if (state.temp > state.targetTemp) {
+                state.temp -= 0.2; // 냉각 속도
+                updateDisplay();
+                spawnParticles(); // 입자 생성 효과
+                updateParticles();
+                requestAnimationFrame(loop);
+            } else {
+                state.temp = state.targetTemp;
+                state.isAnimating = false;
+                updateDisplay();
+                particleCtx.clearRect(0,0,150,200); // 파티클 정리
+            }
+        }
+        loop();
+    }
+
+    // 입자(눈송이 같은 결정) 효과
+    function spawnParticles() {
+        // 붕산 용해도 한계 밑으로 떨어지면 생성
+        const sBoric = getSolubility('boric', state.temp);
+        if (state.boric > sBoric) {
+            if (Math.random() < 0.3) { // 생성 확률
+                particles.push({
+                    x: Math.random() * 150,
+                    y: 0,
+                    speed: Math.random() * 1 + 1,
+                    size: Math.random() * 2 + 1
+                });
+            }
+        }
+    }
+
+    function updateParticles() {
+        particleCtx.clearRect(0, 0, 150, 200);
+        particleCtx.fillStyle = 'white';
+        for (let i = 0; i < particles.length; i++) {
+            let p = particles[i];
+            p.y += p.speed;
+            particleCtx.fillRect(p.x, p.y, p.size, p.size);
+            
+            // 바닥(결정 층)에 닿으면 사라짐
+            const crystalH = parseFloat(document.getElementById('crystals').style.height) || 0;
+            if (p.y > 200 - crystalH) {
+                particles.splice(i, 1);
+                i--;
+            }
+        }
+    }
+
+    function finalizeResult(pNacl, pBoric) {
+        let msg = `<strong>[실험 결과]</strong> 온도가 ${state.targetTemp}℃가 되었습니다.<br>`;
+        msg += `석출된 붕산: 약 ${pBoric.toFixed(1)}g / 석출된 소금: 약 ${pNacl.toFixed(1)}g<br>`;
+        
+        let isCorrect = (state.userPrediction === 'boric' && pBoric > 1 && pNacl < 1);
+        
+        if (isCorrect) {
+            msg += `<span style="color:blue">🎉 정답입니다! 붕산의 용해도가 온도에 따라 급격히 줄어들어 결정이 생겼습니다.</span>`;
+            document.getElementById('crystals').innerText = "붕산 결정";
+        } else {
+            msg += `<span style="color:red">💡 예측과 다르다면 그래프를 다시 보세요. 기울기가 급한 붕산만 많이 석출됩니다.</span>`;
+            document.getElementById('crystals').innerText = "붕산";
+        }
+
+        // 클릭 이벤트 추가
+        document.getElementById('crystals').style.cursor = "pointer";
+        document.getElementById('crystals').onclick = () => alert(`이 하얀 고체는 붕산입니다.\n총 ${pBoric.toFixed(1)}g이 석출되었습니다.`);
+
+        document.getElementById('feedbackBox').innerHTML = msg;
+        document.getElementById('tempSlider').disabled = false;
+        document.getElementById('btnCool').innerText = "추가 냉각/가열";
+        document.getElementById('btnCool').disabled = false;
+        document.getElementById('btnCool').onclick = startCooling; // 재사용 가능하게
+    }
+
+    // --- 4. UI 및 팝업 제어 ---
+
+    function openPredictModal() {
+        document.getElementById('predictModal').style.display = 'flex';
+    }
+
+    function submitPrediction(val) {
+        state.userPrediction = val;
+        document.getElementById('predictModal').style.display = 'none';
+        document.getElementById('btnPredict').disabled = true;
+        document.getElementById('btnCool').disabled = false;
+        document.getElementById('tempSlider').disabled = false;
+        
+        let text = "";
+        if(val === 'nacl') text = "염화나트륨";
+        else if(val === 'boric') text = "붕산";
+        else if(val === 'both') text = "둘 다";
+        else text = "없음";
+
+        document.getElementById('feedbackBox').innerHTML = 
+            `당신의 예측: <strong>${text}</strong><br>이제 <strong>[2. 냉각 시작]</strong> 버튼을 눌러 예측이 맞는지 확인해보세요!`;
+    }
+
+    function resetExperiment() {
+        location.reload();
+    }
+
+    // 초기화
+    drawGraph();
+
+</script>
+</body>
+</html>

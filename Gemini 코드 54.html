@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 질산칼륨과 염화나트륨 분리하기</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50E3C2;
+            --accent-color: #FF6B6B;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 { color: var(--primary-color); margin-bottom: 5px; }
+        .subtitle { font-size: 0.9rem; color: #666; }
+        
+        /* Main Container */
+        .lab-container {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        /* Visualization Area */
+        .visual-stage {
+            height: 350px;
+            background: #eef2f5;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #ddd;
+        }
+
+        /* Lab Equipment Graphics (CSS Shapes) */
+        .beaker {
+            width: 120px;
+            height: 160px;
+            border: 4px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: rgba(255,255,255,0.4);
+            margin: 0 20px;
+        }
+        .solution {
+            width: 100%;
+            height: 60%;
+            background: rgba(135, 206, 235, 0.3); /* Water */
+            position: absolute;
+            bottom: 0;
+            border-radius: 0 0 6px 6px;
+            transition: height 1s, background-color 1s;
+        }
+        .particles {
+            position: absolute;
+            bottom: 5px;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .particle {
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            position: absolute;
+            transition: all 1s;
+        }
+        .kno3 { background-color: white; border: 1px solid #ccc; shape-rendering: crispEdges; } /* White crystals */
+        .nacl { background-color: #ddd; border-radius: 2px; } /* Salt cubes */
+        
+        .crystal-formation {
+            position: absolute;
+            bottom: 0;
+            left: 10%;
+            width: 80%;
+            height: 0;
+            background-image: radial-gradient(circle, white 2px, transparent 3px);
+            background-size: 10px 10px;
+            opacity: 0;
+            transition: opacity 1s, height 2s;
+        }
+
+        .filter-setup {
+            display: none;
+            flex-direction: column;
+            align-items: center;
+        }
+        .funnel {
+            width: 0; 
+            height: 0; 
+            border-left: 40px solid transparent;
+            border-right: 40px solid transparent;
+            border-top: 60px solid #ddd;
+            margin-bottom: -10px;
+            position: relative;
+            z-index: 2;
+        }
+        .filter-paper {
+            position: absolute;
+            top: -55px;
+            left: -35px;
+            width: 70px;
+            height: 20px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 10px;
+            color: #888;
+        }
+
+        .heat-source {
+            width: 60px;
+            height: 40px;
+            background: #888;
+            position: absolute;
+            bottom: -50px;
+            border-radius: 5px;
+            display: none; /* Active on heat */
+        }
+        .flame {
+            width: 20px;
+            height: 30px;
+            background: orange;
+            border-radius: 50% 50% 20% 20%;
+            position: absolute;
+            top: -20px;
+            left: 20px;
+            animation: flicker 0.5s infinite alternate;
+        }
+
+        @keyframes flicker { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+        /* Dashboard & Controls */
+        .dashboard {
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .info-panel {
+            background: #fff;
+            padding: 15px;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+        .status-text { font-weight: bold; color: var(--primary-color); margin-bottom: 10px; display: block; }
+        .temp-display { font-size: 1.2rem; color: #e74c3c; font-weight: bold; }
+        
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .btn {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: var(--primary-color);
+            color: white;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+            font-weight: bold;
+        }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { background: #357ABD; }
+        .btn-secondary { background: var(--secondary-color); color: #005f5f; }
+        .btn-danger { background: var(--accent-color); }
+
+        /* Step Indicators */
+        .steps {
+            display: flex;
+            justify-content: space-around;
+            padding: 10px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #eee;
+        }
+        .step-dot {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #ddd;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 12px;
+            color: white;
+            font-weight: bold;
+        }
+        .step-dot.active { background: var(--primary-color); }
+
+        .explanation-box {
+            grid-column: 1 / -1;
+            background: #fff8e1;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            border-left: 4px solid #ffc107;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🧪 실험 10: 혼합물 분리하기</h1>
+        <div class="subtitle">질산칼륨($KNO_3$)과 염화나트륨($NaCl$) 재결정 실험</div>
+    </header>
+
+    <div class="lab-container">
+        <div class="steps">
+            <div class="step-dot active" id="dot-1">1</div>
+            <div class="step-dot" id="dot-2">2</div>
+            <div class="step-dot" id="dot-3">3</div>
+            <div class="step-dot" id="dot-4">4</div>
+        </div>
+
+        <div class="visual-stage">
+            <div class="beaker" id="mainBeaker">
+                <div class="solution" id="solutionLiquid"></div>
+                <div class="particles" id="particleContainer">
+                    </div>
+                <div class="crystal-formation" id="crystals"></div>
+            </div>
+
+            <div class="filter-setup" id="filterSetup">
+                <div class="funnel">
+                    <div class="filter-paper" id="filterPaperContents"></div>
+                </div>
+                <div class="beaker" style="height: 100px; margin-top: 5px;">
+                    <div class="solution" id="filtrateLiquid" style="height: 0;"></div>
+                </div>
+            </div>
+
+            <div class="heat-source" id="heater">
+                <div class="flame"></div>
+            </div>
+        </div>
+
+        <div class="dashboard">
+            <div class="info-panel">
+                <span class="status-text" id="statusMessage">상태: 실험 준비 완료</span>
+                <div>온도: <span class="temp-display" id="tempValue">20</span>°C</div>
+                <div style="margin-top:10px; font-size: 0.85rem;">
+                    <div>🧪 질산칼륨: <span id="kno3-status">고체 상태</span></div>
+                    <div>🧂 염화나트륨: <span id="nacl-status">고체 상태</span></div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn" id="btnAction" onclick="nextStep()">물 붓고 가열하기</button>
+                <button class="btn btn-secondary" id="btnReset" onclick="resetExperiment()" style="display:none;">실험 다시하기</button>
+            </div>
+
+            <div class="explanation-box" id="guideText">
+                시작하려면 [물 붓고 가열하기] 버튼을 누르세요. 두 물질을 뜨거운 물에 모두 녹여야 합니다.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Experiment State
+        let currentStep = 0; // 0: Start, 1: Heating, 2: Cooling, 3: Filtering, 4: Evaporating
+        let temp = 20;
+        
+        // DOM Elements
+        const particleContainer = document.getElementById('particleContainer');
+        const statusMsg = document.getElementById('statusMessage');
+        const tempVal = document.getElementById('tempValue');
+        const btnAction = document.getElementById('btnAction');
+        const guideText = document.getElementById('guideText');
+        const heater = document.getElementById('heater');
+        const solution = document.getElementById('solutionLiquid');
+        const crystals = document.getElementById('crystals');
+        const mainBeaker = document.getElementById('mainBeaker');
+        const filterSetup = document.getElementById('filterSetup');
+        const filtrateLiquid = document.getElementById('filtrateLiquid');
+        const filterPaperContents = document.getElementById('filterPaperContents');
+        const kno3Status = document.getElementById('kno3-status');
+        const naclStatus = document.getElementById('nacl-status');
+
+        // Initial Setup: Create solid particles
+        function createParticles() {
+            particleContainer.innerHTML = '';
+            // Create KNO3 (White circles)
+            for(let i=0; i<15; i++) {
+                let p = document.createElement('div');
+                p.className = 'particle kno3';
+                p.style.left = (Math.random() * 80 + 10) + '%';
+                p.style.bottom = (Math.random() * 20) + 'px';
+                particleContainer.appendChild(p);
+            }
+            // Create NaCl (Grey squares)
+            for(let i=0; i<15; i++) {
+                let p = document.createElement('div');
+                p.className = 'particle nacl';
+                p.style.left = (Math.random() * 80 + 10) + '%';
+                p.style.bottom = (Math.random() * 20) + 'px';
+                particleContainer.appendChild(p);
+            }
+        }
+        createParticles();
+
+        function updateSteps(step) {
+            document.querySelectorAll('.step-dot').forEach((dot, idx) => {
+                dot.className = `step-dot ${idx + 1 <= step ? 'active' : ''}`;
+            });
+        }
+
+        function nextStep() {
+            if (currentStep === 0) startHeating();
+            else if (currentStep === 1) startCooling();
+            else if (currentStep === 2) startFiltering();
+            else if (currentStep === 3) startEvaporating();
+        }
+
+        // Step 1: Heating & Dissolving
+        function startHeating() {
+            currentStep = 1;
+            updateSteps(1);
+            btnAction.disabled = true;
+            heater.style.display = 'block'; // Show flame
+            statusMsg.innerText = "상태: 가열 중 (용해)";
+            guideText.innerText = "물을 붓고 온도를 높입니다. 온도가 높아지면 두 물질의 용해도가 모두 증가하여 물에 완전히 녹게 됩니다.";
+
+            let heatingInterval = setInterval(() => {
+                temp += 2;
+                tempVal.innerText = temp;
+                
+                // Visuals: Dissolving
+                if(temp > 40) {
+                    document.querySelectorAll('.particle').forEach(p => p.style.opacity = '0'); // Dissolve
+                    solution.style.height = "70%"; // Water level rises/bubbles
+                }
+
+                if (temp >= 80) {
+                    clearInterval(heatingInterval);
+                    heater.style.display = 'none';
+                    kno3Status.innerText = "용해됨 (투명)";
+                    naclStatus.innerText = "용해됨 (투명)";
+                    statusMsg.innerText = "상태: 모두 용해됨";
+                    guideText.innerHTML = "<b>확인:</b> 80°C에서 두 물질이 모두 투명하게 녹았습니다.<br>이제 천천히 식혀서 결정을 만들어 봅시다.";
+                    
+                    btnAction.innerText = "냉각하기 (결정 만들기)";
+                    btnAction.disabled = false;
+                }
+            }, 50);
+        }
+
+        // Step 2: Cooling & Recrystallization
+        function startCooling() {
+            currentStep = 2;
+            updateSteps(2);
+            btnAction.disabled = true;
+            statusMsg.innerText = "상태: 냉각 중 (재결정)";
+            guideText.innerText = "비커를 실온에서 천천히 식힙니다. 용해도가 급격히 감소하는 물질만 고체로 다시 나타납니다.";
+
+            let coolingInterval = setInterval(() => {
+                temp -= 1;
+                tempVal.innerText = temp;
+
+                if (temp <= 40) {
+                    // Show KNO3 Crystals appearing
+                    crystals.style.opacity = 1;
+                    crystals.style.height = '40px'; 
+                    kno3Status.innerText = "석출됨 (흰색 결정)";
+                }
+
+                if (temp <= 20) {
+                    clearInterval(coolingInterval);
+                    statusMsg.innerText = "상태: 냉각 완료";
+                    guideText.innerHTML = "<b>관찰 포인트:</b> 바닥에 흰색 고체가 생겼습니다. 이것은 온도에 따른 용해도 차이가 큰 <b>질산칼륨($KNO_3$)</b>입니다. 염화나트륨은 아직 물에 녹아 있습니다.";
+                    
+                    btnAction.innerText = "거름 장치로 거르기";
+                    btnAction.disabled = false;
+                }
+            }, 50);
+        }
+
+        // Step 3: Filtering
+        function startFiltering() {
+            currentStep = 3;
+            updateSteps(3);
+            btnAction.disabled = true;
+            
+            // Switch visuals
+            mainBeaker.style.display = 'none';
+            filterSetup.style.display = 'flex';
+            
+            statusMsg.innerText = "상태: 여과 중";
+            guideText.innerText = "거름종이에 혼합물을 붓습니다. 고체 결정은 거름종이에 남고, 액체는 아래로 빠져나갑니다.";
+
+            // Animation
+            setTimeout(() => {
+                filtrateLiquid.style.height = "50%"; // Liquid fills bottom beaker
+                filterPaperContents.innerText = "KNO3 결정";
+                filterPaperContents.style.background = "#fff";
+                filterPaperContents.style.border = "2px solid #ccc";
+                
+                statusMsg.innerText = "상태: 분리 1단계 완료";
+                guideText.innerHTML = "<b>분리 결과:</b> 거름종이 위에는 <b>질산칼륨</b>이 남았고, 아래 비커에는 <b>염화나트륨 수용액</b>이 모였습니다.<br>이제 남은 용액에서 소금을 얻어봅시다.";
+                
+                btnAction.innerText = "여과액 증발시키기";
+                btnAction.disabled = false;
+            }, 1500);
+        }
+
+        // Step 4: Evaporating
+        function startEvaporating() {
+            currentStep = 4;
+            updateSteps(4);
+            btnAction.style.display = 'none'; // Experiment done
+            document.getElementById('btnReset').style.display = 'block';
+
+            // Focus on the bottom beaker
+            filterSetup.querySelector('.funnel').style.opacity = '0.3';
+            heater.style.display = 'block';
+            heater.style.bottom = '20px'; // Move heater under filtration beaker (simulated position)
+            
+            statusMsg.innerText = "상태: 증발 건조 중";
+            guideText.innerText = "여과액을 가열하여 물을 증발시킵니다.";
+
+            setTimeout(() => {
+                filtrateLiquid.style.height = "10%"; // Water evaporates
+                heater.style.display = 'none';
+                
+                // Show NaCl crystals in bottom beaker
+                filtrateLiquid.style.background = "url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 10 10%22><rect width=%225%22 height=%225%22 fill=%22%23888%22/></svg>')";
+                filtrateLiquid.style.backgroundSize = "10px 10px";
+                
+                statusMsg.innerText = "실험 완료: 분리 성공!";
+                naclStatus.innerText = "석출됨 (소금 결정)";
+                guideText.innerHTML = "<div style='color:green; font-weight:bold;'>🎉 성공했습니다!</div><br>1. 거름종이: 재결정된 <b>질산칼륨</b><br>2. 증발접시: 남은 <b>염화나트륨</b><br>용해도 차이를 이용하여 두 물질을 완벽하게 분리했습니다.";
+
+            }, 2500);
+        }
+
+        function resetExperiment() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

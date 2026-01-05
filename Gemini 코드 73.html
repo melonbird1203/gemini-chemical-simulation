@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중3 과학 - 질량 보존 법칙 가상 실험</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --danger: #E74C3C;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+        }
+        body { font-family: 'Pretendard', sans-serif; margin: 0; padding: 20px; background: var(--bg); color: var(--text); }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--primary); }
+        
+        /* 실험 제어 패널 */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; padding: 15px; background: #eef2f7; border-radius: 10px; }
+        .control-group { display: flex; flex-direction: column; gap: 10px; }
+        label { font-weight: bold; }
+        select, button { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 1rem; cursor: pointer; }
+        button.primary { background: var(--primary); color: white; border: none; font-weight: bold; transition: 0.3s; }
+        button.primary:hover { background: #357ABD; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* 실험대 (Visual Stage) */
+        .lab-bench { 
+            position: relative; 
+            height: 350px; 
+            background: #e0e0e0; 
+            border-radius: 10px; 
+            display: flex; 
+            justify-content: center; 
+            align-items: flex-end; 
+            padding-bottom: 30px; 
+            overflow: hidden;
+            border-bottom: 5px solid #bbb;
+        }
+
+        /* 저울 */
+        .scale {
+            width: 200px;
+            height: 60px;
+            background: #333;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            z-index: 10;
+        }
+        .scale::after { content: 'ELECTRONIC SCALE'; position: absolute; bottom: 2px; font-size: 0.6rem; color: #888; }
+
+        /* 플라스크 및 실험 기구 */
+        .flask-container {
+            position: absolute;
+            bottom: 90px; /* 저울 위 */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: transform 0.5s;
+        }
+        .flask {
+            width: 80px;
+            height: 100px;
+            background: rgba(255, 255, 255, 0.4);
+            border: 2px solid rgba(100, 100, 100, 0.5);
+            border-radius: 40% 40% 5px 5px;
+            position: relative;
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px;
+            background: #AEC6CF; /* 기본 액체 색 */
+            transition: background 1s, height 1s;
+        }
+        .test-tube {
+            width: 15px;
+            height: 50px;
+            background: rgba(255,255,255,0.6);
+            border: 1px solid #888;
+            border-radius: 0 0 10px 10px;
+            position: absolute;
+            top: 10px;
+            left: 32px;
+            z-index: 5;
+        }
+        .test-tube-liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 30px;
+            background: #ffcccc;
+            border-radius: 0 0 8px 8px;
+        }
+
+        /* 뚜껑 */
+        .lid {
+            width: 40px;
+            height: 10px;
+            background: #555;
+            position: absolute;
+            top: -10px;
+            left: 20px;
+            display: none; /* 기본 숨김 */
+        }
+
+        /* 애니메이션 효과 */
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            bottom: 0;
+            animation: rise 2s infinite ease-in;
+        }
+        @keyframes rise {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-80px) scale(1.5); opacity: 0; }
+        }
+        
+        .precipitate {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 10px;
+            background: #fff; /* 흰색 앙금 */
+            opacity: 0;
+            transition: opacity 2s;
+        }
+
+        /* 결과 분석 및 입자 모형 */
+        .analysis-section { margin-top: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        .data-log, .particle-model { background: #fff; border: 1px solid #ddd; padding: 15px; border-radius: 10px; height: 200px; overflow-y: auto; }
+        .particle-model { display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 0.9rem; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: center; }
+        th { background-color: #f2f2f2; }
+        
+        .feedback-box { grid-column: 1 / -1; padding: 15px; background: #e8f5e9; border-radius: 5px; display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚖️ 질량 보존 법칙 가상 실험실</h1>
+    <p style="text-align: center; color: #666;">실험 조건을 선택하고 반응 전후의 질량 변화를 관찰하세요.</p>
+
+    <div class="controls">
+        <div class="control-group">
+            <label for="reactionType">1. 반응 선택</label>
+            <select id="reactionType">
+                <option value="precipitate">① 앙금 생성 (탄산 나트륨 + 염화 칼슘)</option>
+                <option value="gas">② 기체 발생 (탄산 수소 나트륨 + 식초)</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="systemType">2. 용기 상태 (계)</label>
+            <select id="systemType">
+                <option value="open">열린 용기 (뚜껑 없음)</option>
+                <option value="closed">닫힌 용기 (뚜껑 있음)</option>
+            </select>
+        </div>
+    </div>
+    <div style="text-align: center; margin-bottom: 20px;">
+        <button id="btnMeasure" class="primary" onclick="measureInitial()">반응 전 질량 측정</button>
+        <button id="btnReact" class="primary" onclick="runReaction()" disabled>반응 시작 (섞기)</button>
+        <button id="btnReset" onclick="resetLab()">실험 초기화</button>
+    </div>
+
+    <div class="lab-bench">
+        <div class="flask-container" id="flaskContainer">
+            <div class="lid" id="lid"></div>
+            <div class="flask">
+                <div class="liquid" id="flaskLiquid"></div>
+                <div class="precipitate" id="precipitateLayer"></div>
+                <div class="test-tube" id="testTube">
+                    <div class="test-tube-liquid" id="tubeLiquid"></div>
+                </div>
+            </div>
+        </div>
+        <div class="scale">
+            <span id="scaleDisplay">0.0 g</span>
+        </div>
+    </div>
+
+    <div class="analysis-section">
+        <div class="data-log">
+            <h3>📝 실험 기록</h3>
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>반응 종류</th>
+                        <th>용기</th>
+                        <th>반응 전</th>
+                        <th>반응 후</th>
+                        <th>결과</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
+        <div class="particle-model" id="particleArea">
+            <h3>⚛️ 입자 모형 보기</h3>
+            <p style="color:#777; font-size: 0.9rem;">실험을 완료하면 이곳에 입자 모형 설명이 나타납니다.</p>
+        </div>
+        <div class="feedback-box" id="feedbackBox"></div>
+    </div>
+</div>
+
+<script>
+    // 상태 변수
+    let currentMass = 0;
+    let isReacted = false;
+    let currentReaction = 'precipitate';
+    let currentSystem = 'open';
+    const initialMassBase = 250.5; // 비커 + 시약 기본 무게
+
+    // DOM 요소
+    const scaleDisplay = document.getElementById('scaleDisplay');
+    const flaskLiquid = document.getElementById('flaskLiquid');
+    const tubeLiquid = document.getElementById('tubeLiquid');
+    const testTube = document.getElementById('testTube');
+    const lid = document.getElementById('lid');
+    const precipitateLayer = document.getElementById('precipitateLayer');
+    const feedbackBox = document.getElementById('feedbackBox');
+    const particleArea = document.getElementById('particleArea');
+
+    // 1. 초기 질량 측정
+    function measureInitial() {
+        if (isReacted) return;
+        
+        currentReaction = document.getElementById('reactionType').value;
+        currentSystem = document.getElementById('systemType').value;
+
+        // 시각적 설정
+        lid.style.display = currentSystem === 'closed' ? 'block' : 'none';
+        
+        // 반응물 색상 설정
+        if (currentReaction === 'precipitate') {
+            flaskLiquid.style.background = '#E0F7FA'; // 탄산 나트륨 수용액
+            tubeLiquid.style.background = '#E3F2FD'; // 염화 칼슘 수용액
+        } else {
+            flaskLiquid.style.background = '#FFF3E0'; // 식초
+            tubeLiquid.style.background = '#ffffff'; // 탄산 수소 나트륨 (고체 가루 느낌)
+        }
+
+        // 질량 표시 (소수점 첫째자리)
+        currentMass = initialMassBase; 
+        // 닫힌 계일 경우 뚜껑 무게 추가
+        if (currentSystem === 'closed') currentMass += 5.0;
+
+        updateScale(currentMass);
+        document.getElementById('btnMeasure').disabled = true;
+        document.getElementById('btnReact').disabled = false;
+        document.getElementById('reactionType').disabled = true;
+        document.getElementById('systemType').disabled = true;
+
+        showFeedback("준비 완료! 이제 '반응 시작' 버튼을 눌러 두 물질을 섞어보세요.");
+    }
+
+    // 2. 반응 실행
+    function runReaction() {
+        isReacted = true;
+        document.getElementById('btnReact').disabled = true;
+
+        // 애니메이션: 시험관 기울이기
+        testTube.style.transform = "rotate(130deg) translate(10px, 20px)";
+        testTube.style.transition = "transform 1s";
+
+        // 액체 섞임 효과
+        setTimeout(() => {
+            tubeLiquid.style.opacity = 0; // 시험관 내용물 비우기
+            
+            if (currentReaction === 'precipitate') {
+                handlePrecipitateReaction();
+            } else {
+                handleGasReaction();
+            }
+        }, 800);
+    }
+
+    // 앙금 생성 반응 로직
+    function handlePrecipitateReaction() {
+        flaskLiquid.style.background = "#E0F7FA"; 
+        precipitateLayer.style.opacity = 1; // 흰색 앙금 생성
+        
+        finishReaction(currentMass, "질량 변화 없음");
+        showParticleModel("precipitate");
+    }
+
+    // 기체 발생 반응 로직
+    function handleGasReaction() {
+        flaskLiquid.style.background = "#FFE0B2"; // 반응 후 색
+        createBubbles(); // 거품 애니메이션
+
+        let finalMass = currentMass;
+        let resultText = "질량 변화 없음";
+
+        if (currentSystem === 'open') {
+            // 열린 계에서는 기체가 날아가 질량 감소 (약 1.5g 감소 설정)
+            finalMass = currentMass - 1.5;
+            resultText = "질량 감소 (기체 탈출)";
+            
+            // 저울 서서히 감소하는 애니메이션
+            let tempMass = currentMass;
+            const interval = setInterval(() => {
+                tempMass -= 0.1;
+                updateScale(tempMass);
+                if (tempMass <= finalMass) clearInterval(interval);
+            }, 100);
+        } else {
+            // 닫힌 계
+            updateScale(finalMass);
+        }
+
+        setTimeout(() => {
+            finishReaction(finalMass, resultText);
+            showParticleModel("gas", currentSystem);
+        }, 2000);
+    }
+
+    // 결과 처리
+    function finishReaction(finalVal, resultMsg) {
+        const table = document.getElementById('resultTable').querySelector('tbody');
+        const row = table.insertRow();
+        
+        let rName = currentReaction === 'precipitate' ? '앙금 생성' : '기체 발생';
+        let sName = currentSystem === 'open' ? '열린 용기' : '닫힌 용기';
+        let initialDisplay = currentSystem === 'closed' ? (initialMassBase + 5).toFixed(1) : initialMassBase.toFixed(1);
+
+        row.innerHTML = `
+            <td>${rName}</td>
+            <td>${sName}</td>
+            <td>${initialDisplay} g</td>
+            <td style="font-weight:bold; color:${finalVal < parseFloat(initialDisplay) ? 'red' : 'green'}">${finalVal.toFixed(1)} g</td>
+            <td>${resultMsg}</td>
+        `;
+
+        let feedback = "";
+        if (currentReaction === 'gas' && currentSystem === 'open') {
+            feedback = "⚠️ <strong>질량이 줄어들었나요?</strong><br>생성된 이산화 탄소 기체가 공기 중으로 날아갔기 때문입니다. 하지만 사라진 기체의 질량까지 합치면 전체 질량은 보존됩니다.";
+        } else {
+            feedback = "✅ <strong>질량이 변하지 않았습니다!</strong><br>화학 반응이 일어나도 원자의 종류와 수는 변하지 않으므로 전체 질량은 보존됩니다.";
+        }
+        showFeedback(feedback);
+    }
+
+    // 기체 거품 생성 (시각 효과)
+    function createBubbles() {
+        const flask = document.querySelector('.flask');
+        for(let i=0; i<10; i++) {
+            let b = document.createElement('div');
+            b.className = 'bubble';
+            b.style.left = Math.random() * 60 + 10 + 'px';
+            b.style.width = Math.random() * 5 + 5 + 'px';
+            b.style.height = b.style.width;
+            b.style.animationDuration = (Math.random() * 1 + 1) + 's';
+            flask.appendChild(b);
+            
+            // 기체가 날아가는 효과 (열린 계일 때만 화면 밖으로)
+            if (currentSystem === 'open') {
+                setTimeout(() => b.remove(), 1000);
+            } else {
+                // 닫힌 계면 뚜껑에 부딪혀 사라짐
+                setTimeout(() => b.remove(), 1000); 
+            }
+        }
+    }
+
+    // 입자 모형 시각화 (SVG/설명)
+    function showParticleModel(type, system) {
+        let content = "";
+        if (type === 'precipitate') {
+            content = `
+                <div style="font-size:2rem;">⚪⚫ + 🔵🔴 → ⚪🔴(↓) + 🔵⚫</div>
+                <p><strong>앙금 생성 반응식:</strong><br>Na₂CO₃ + CaCl₂ → CaCO₃(↓) + 2NaCl</p>
+                <p>원자들은 파트너만 바꾸었을 뿐, 사라지거나 새로 생기지 않았습니다.</p>
+            `;
+        } else {
+            let extra = system === 'open' ? "<br><span style='color:red'>(개방계: 기체 분자가 용기 밖으로 탈출!)</span>" : "";
+            content = `
+                <div style="font-size:2rem;">🟠⚪ + 🟣 → ⚫⚪⚪(g) + 💧</div>
+                <p><strong>기체 발생 반응식:</strong><br>NaHCO₃ + HAc → CO₂ + H₂O + NaAc</p>
+                <p>발생한 이산화 탄소(CO₂) 분자도 질량을 가지고 있습니다.${extra}</p>
+            `;
+        }
+        particleArea.innerHTML = content;
+    }
+
+    function updateScale(val) {
+        scaleDisplay.innerText = val.toFixed(1) + " g";
+    }
+
+    function showFeedback(msg) {
+        feedbackBox.style.display = 'block';
+        feedbackBox.innerHTML = msg;
+    }
+
+    function resetLab() {
+        isReacted = false;
+        document.getElementById('btnMeasure').disabled = false;
+        document.getElementById('btnReact').disabled = true;
+        document.getElementById('reactionType').disabled = false;
+        document.getElementById('systemType').disabled = false;
+        
+        // 시각화 초기화
+        testTube.style.transform = "rotate(0deg)";
+        tubeLiquid.style.opacity = 1;
+        flaskLiquid.style.background = "#AEC6CF";
+        precipitateLayer.style.opacity = 0;
+        document.querySelectorAll('.bubble').forEach(b => b.remove());
+        
+        scaleDisplay.innerText = "0.0 g";
+        feedbackBox.style.display = 'none';
+        particleArea.innerHTML = "<h3>⚛️ 입자 모형 보기</h3><p style='color:#777;'>실험을 완료하면 이곳에 입자 모형 설명이 나타납니다.</p>";
+    }
+</script>
+
+</body>
+</html>

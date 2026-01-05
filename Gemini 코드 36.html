@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이온의 이동 실험실</title>
+    <style>
+        body { font-family: 'Nanum Gothic', sans-serif; background-color: #f0f4f8; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .lab-container { background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 800px; width: 100%; text-align: center; }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .description { color: #555; margin-bottom: 20px; font-size: 1.1em; }
+        
+        /* 실험 영역 스타일 */
+        .experiment-area { position: relative; width: 600px; height: 300px; background: #e0e0e0; margin: 0 auto 20px; border-radius: 10px; border: 2px solid #bdc3c7; overflow: hidden; }
+        .paper { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; height: 150px; background: #fffdf0; border: 1px dashed #ccc; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        .electrode { position: absolute; top: 50%; transform: translateY(-50%); width: 40px; height: 80px; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 24px; color: white; border-radius: 5px; }
+        .electrode.positive { right: 10px; background: #e74c3c; } /* (+)극 */
+        .electrode.negative { left: 10px; background: #3498db; }  /* (-)극 */
+        
+        /* 이온 시각화 */
+        .ion-spot { width: 40px; height: 40px; border-radius: 50%; position: absolute; opacity: 0.8; filter: blur(5px); transition: transform 0.1s linear; }
+        
+        /* 컨트롤 패널 */
+        .controls { background: #ecf0f1; padding: 20px; border-radius: 10px; display: flex; justify-content: space-around; align-items: center; flex-wrap: wrap; gap: 15px; }
+        button { padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; font-size: 16px; font-weight: bold; transition: 0.2s; }
+        .btn-copper { background: #3498db; color: white; } /* 황산구리 */
+        .btn-perm { background: #9b59b6; color: white; } /* 과망가니즈산 */
+        .btn-reset { background: #95a5a6; color: white; }
+        
+        input[type=range] { width: 150px; }
+        
+        /* 피드백 영역 */
+        .feedback-box { margin-top: 20px; padding: 15px; background: #fff3cd; border: 1px solid #ffeeba; border-radius: 8px; color: #856404; display: none; }
+        
+        .label { font-size: 14px; margin-top: 5px; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="lab-container">
+    <h1>⚡ 이온의 이동과 전하 확인</h1>
+    <p class="description">이온이 들어있는 용액을 떨어뜨리고 전압을 걸어 이동 방향을 관찰해보세요.</p>
+
+    <div class="experiment-area">
+        <div class="electrode negative">(-)</div>
+        <div class="electrode positive">(+)</div>
+        <div class="paper" id="paper">
+            <span style="color:#aaa; font-size:12px;">질산 칼륨 수용액 처리됨</span>
+            <div id="ionSpot" class="ion-spot" style="display:none;"></div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div>
+            <label class="label">1. 시약 선택</label>
+            <button class="btn-copper" onclick="selectIon('Cu')">황산 구리(II)<br>(파란색)</button>
+            <button class="btn-perm" onclick="selectIon('Mn')">과망가니즈산 칼륨<br>(보라색)</button>
+        </div>
+        
+        <div>
+            <label class="label">2. 전압 조절 (속도)</label>
+            <input type="range" id="voltage" min="0" max="24" value="0" step="12" oninput="updateVoltage()">
+            <span id="voltageVal">0V</span>
+        </div>
+
+        <div>
+            <label class="label">3. 제어</label>
+            <button class="btn-reset" onclick="resetExp()">초기화</button>
+        </div>
+    </div>
+
+    <div id="feedback" class="feedback-box"></div>
+</div>
+
+<script>
+    let currentIon = null; // 'Cu' or 'Mn'
+    let voltage = 0;
+    let positionX = 0;
+    let animationId = null;
+    const ionSpot = document.getElementById('ionSpot');
+    const feedback = document.getElementById('feedback');
+
+    function selectIon(type) {
+        resetExp(false);
+        currentIon = type;
+        ionSpot.style.display = 'block';
+        ionSpot.style.transform = 'translate(0px, 0px)';
+        
+        if (type === 'Cu') {
+            ionSpot.style.backgroundColor = 'blue';
+            feedback.innerHTML = "<strong>황산 구리(II) 수용액</strong>을 떨어뜨렸습니다.<br>전압을 올리면 파란색 성분은 어디로 갈까요?";
+        } else {
+            ionSpot.style.backgroundColor = 'purple';
+            feedback.innerHTML = "<strong>과망가니즈산 칼륨 수용액</strong>을 떨어뜨렸습니다.<br>전압을 올리면 보라색 성분은 어디로 갈까요?";
+        }
+        feedback.style.display = 'block';
+    }
+
+    function updateVoltage() {
+        voltage = parseInt(document.getElementById('voltage').value);
+        document.getElementById('voltageVal').innerText = voltage + "V";
+        
+        if (voltage > 0 && currentIon) {
+            startAnimation();
+        } else {
+            stopAnimation();
+        }
+    }
+
+    function startAnimation() {
+        if (animationId) cancelAnimationFrame(animationId);
+        
+        function animate() {
+            // 속도는 전압에 비례
+            let speed = voltage * 0.05; 
+            
+            // Cu(2+)는 양이온이므로 (-)극(왼쪽)으로 이동
+            if (currentIon === 'Cu') {
+                positionX -= speed;
+                if (positionX < -210) positionX = -210; // 전극 도달
+            } 
+            // MnO4(-)는 음이온이므로 (+)극(오른쪽)으로 이동
+            else if (currentIon === 'Mn') {
+                positionX += speed;
+                if (positionX > 210) positionX = 210; // 전극 도달
+            }
+
+            ionSpot.style.transform = `translate(${positionX}px, 0px)`;
+            
+            // 결과 피드백
+            updateFeedback();
+
+            if (voltage > 0) {
+                animationId = requestAnimationFrame(animate);
+            }
+        }
+        animate();
+    }
+
+    function updateFeedback() {
+        if (currentIon === 'Cu' && positionX < -50) {
+            feedback.innerHTML = "🔎 <strong>관찰 결과:</strong> 파란색(구리 이온, Cu²⁺)이 <strong>(-)극</strong>으로 이동합니다.<br>👉 <strong>결론:</strong> 구리 이온은 <strong>(+)전하</strong>를 띠고 있습니다.";
+            feedback.style.background = "#d1ecf1";
+            feedback.style.color = "#0c5460";
+        } else if (currentIon === 'Mn' && positionX > 50) {
+            feedback.innerHTML = "🔎 <strong>관찰 결과:</strong> 보라색(과망가니즈산 이온, MnO₄⁻)이 <strong>(+)극</strong>으로 이동합니다.<br>👉 <strong>결론:</strong> 과망가니즈산 이온은 <strong>(-)전하</strong>를 띠고 있습니다.";
+            feedback.style.background = "#e2e3e5";
+            feedback.style.color = "#383d41";
+        }
+    }
+
+    function stopAnimation() {
+        if (animationId) cancelAnimationFrame(animationId);
+    }
+
+    function resetExp(full = true) {
+        stopAnimation();
+        positionX = 0;
+        ionSpot.style.transform = 'translate(0,0)';
+        
+        if (full) {
+            currentIon = null;
+            ionSpot.style.display = 'none';
+            document.getElementById('voltage').value = 0;
+            document.getElementById('voltageVal').innerText = "0V";
+            feedback.style.display = 'none';
+        }
+    }
+</script>
+
+</body>
+</html>

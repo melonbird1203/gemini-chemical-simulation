@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 원소의 불꽃 반응 가상 실험실</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --panel-color: #16213e;
+            --text-color: #e94560;
+            --accent-color: #0f3460;
+            --white: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--white);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+        header {
+            width: 100%;
+            background-color: var(--panel-color);
+            padding: 1rem;
+            text-align: center;
+            border-bottom: 3px solid var(--text-color);
+        }
+        h1 { margin: 0; font-size: 1.5rem; }
+        .subtitle { font-size: 0.9rem; color: #ccc; margin-top: 5px; }
+
+        /* Main Layout */
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            width: 95%;
+            max-width: 1200px;
+            margin-top: 20px;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        /* Control Panel */
+        .panel {
+            background-color: var(--panel-color);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .controls { flex: 1; min-width: 250px; }
+        .experiment-stage { flex: 2; min-width: 300px; display: flex; flex-direction: column; align-items: center; position: relative; min-height: 400px; }
+        .concept-view { flex: 1; min-width: 250px; }
+
+        h2 { border-bottom: 2px solid var(--text-color); padding-bottom: 5px; font-size: 1.2rem; }
+
+        /* Sample Buttons */
+        .sample-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 5px 0;
+            background-color: var(--accent-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: 0.3s;
+            text-align: left;
+            font-size: 1rem;
+        }
+        .sample-btn:hover { background-color: var(--text-color); }
+        .sample-btn.active { background-color: var(--text-color); font-weight: bold; border-left: 5px solid white; }
+
+        /* Bunsen Burner & Flame */
+        .burner-base {
+            width: 60px;
+            height: 100px;
+            background: linear-gradient(90deg, #555, #999, #555);
+            position: absolute;
+            bottom: 20px;
+            border-radius: 5px;
+        }
+        .flame {
+            width: 60px;
+            height: 120px;
+            background: rgba(0, 100, 255, 0.4);
+            border-radius: 50% 50% 20% 20%;
+            position: absolute;
+            bottom: 120px;
+            filter: blur(5px);
+            animation: flicker 0.5s infinite alternate;
+            transition: background 0.5s, box-shadow 0.5s;
+            box-shadow: 0 0 20px rgba(0, 100, 255, 0.6);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+        .flame-core {
+            width: 20px;
+            height: 40px;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            filter: blur(2px);
+        }
+
+        @keyframes flicker {
+            0% { transform: scale(1); opacity: 0.9; }
+            100% { transform: scale(1.05) skewX(2deg); opacity: 1; }
+        }
+
+        /* Wire Loop */
+        .wire-loop {
+            width: 300px;
+            height: 10px;
+            background-color: silver;
+            position: absolute;
+            right: -300px; /* Start outside */
+            bottom: 180px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            transition: right 1s ease-in-out;
+        }
+        .wire-tip {
+            width: 20px;
+            height: 20px;
+            background-color: #ccc;
+            border-radius: 50%;
+            margin-left: 10px;
+            border: 2px solid #999;
+        }
+
+        /* Micro View (Electron Model) */
+        .atom-container {
+            width: 200px;
+            height: 200px;
+            position: relative;
+            margin: 20px auto;
+            border-radius: 50%;
+            border: 1px dashed rgba(255,255,255,0.3);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .nucleus { width: 30px; height: 30px; background: red; border-radius: 50%; z-index: 2; text-align: center; line-height: 30px; font-size: 0.8rem; font-weight: bold;}
+        .shell {
+            position: absolute;
+            border: 1px solid rgba(255,255,255,0.5);
+            border-radius: 50%;
+        }
+        .shell-1 { width: 80px; height: 80px; }
+        .shell-2 { width: 160px; height: 160px; }
+        
+        .electron {
+            width: 10px;
+            height: 10px;
+            background: cyan;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.5s;
+            box-shadow: 0 0 5px cyan;
+        }
+
+        /* Result Text */
+        #result-display {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 5px;
+            min-height: 60px;
+            text-align: center;
+        }
+        .highlight { color: #ffeb3b; font-weight: bold; font-size: 1.2rem; }
+
+        /* Quiz Mode */
+        .quiz-mode-btn {
+            background-color: #e94560;
+            width: 100%;
+            padding: 15px;
+            color: white;
+            font-weight: bold;
+            border: none;
+            cursor: pointer;
+            margin-top: 20px;
+            border-radius: 5px;
+        }
+        .quiz-feedback { margin-top: 10px; font-weight: bold; min-height: 24px; text-align: center;}
+        
+        .spectrum-bar {
+            width: 100%;
+            height: 30px;
+            background: black;
+            margin-top: 10px;
+            position: relative;
+            display: none;
+        }
+        .spectral-line {
+            position: absolute;
+            height: 100%;
+            width: 4px;
+            background: white;
+            top: 0;
+            box-shadow: 0 0 5px white;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 원소의 불꽃 반응 실험실</h1>
+    <div class="subtitle">중학교 2학년 과학 > 물질의 구성 > 원소의 확인</div>
+</header>
+
+<div class="container">
+    <div class="panel controls">
+        <h2>1. 시료 선택 (Sample)</h2>
+        <p style="font-size:0.9rem; color:#aaa;">니크롬선에 묻힐 시료를 선택하세요.</p>
+        <div id="sample-list">
+            <button class="sample-btn" onclick="selectSample('Li', '리튬', '#ff0000', '빨간색')">1. 염화 리튬 (LiCl)</button>
+            <button class="sample-btn" onclick="selectSample('Na', '나트륨', '#ffdd00', '노란색')">2. 염화 나트륨 (NaCl)</button>
+            <button class="sample-btn" onclick="selectSample('K', '칼륨', '#b866ff', '보라색')">3. 질산 칼륨 (KNO₃)</button>
+            <button class="sample-btn" onclick="selectSample('Cu', '구리', '#00ffaa', '청록색')">4. 황산 구리 (CuSO₄)</button>
+            <button class="sample-btn" onclick="selectSample('Sr', '스트론튬', '#dc143c', '짙은 빨간색')">5. 질산 스트론튬 (Sr(NO₃)₂)</button>
+        </div>
+
+        <button class="quiz-mode-btn" onclick="startQuiz()">❓ 미지 시료 맞추기 (퀴즈)</button>
+        <div id="quiz-options" style="display:none; margin-top:10px;">
+            </div>
+        <div class="quiz-feedback" id="quiz-feedback"></div>
+    </div>
+
+    <div class="panel experiment-stage">
+        <h2>2. 가상 실험대</h2>
+        
+        <div id="result-display">
+            시료를 선택하면 실험이 시작됩니다.
+        </div>
+
+        <div class="flame" id="flame">
+            <div class="flame-core"></div>
+        </div>
+        <div class="burner-base"></div>
+        
+        <div class="wire-loop" id="wire-loop">
+            <div style="flex:1;"></div>
+            <div class="wire-tip" id="wire-tip"></div>
+        </div>
+    </div>
+
+    <div class="panel concept-view">
+        <h2>3. 원리 탐구 (Micro View)</h2>
+        <p style="font-size:0.8rem; line-height:1.4;">
+            불꽃의 열에너지를 받으면 전자가 <span style="color:#ff6b6b">들뜬상태</span>가 되고,
+            다시 <span style="color:#4ecdc4">바닥상태</span>로 돌아올 때 특유의 빛을 냅니다.
+        </p>
+
+        <div class="atom-container">
+            <div class="shell shell-1"></div>
+            <div class="shell shell-2"></div>
+            <div class="nucleus" id="nucleus">Nucleus</div>
+            <div class="electron" id="electron"></div>
+        </div>
+
+        <div id="energy-text" style="text-align:center; font-size:0.9rem; color:#aaa;">상태: 대기 중</div>
+        
+        <div style="margin-top:20px;">
+            <h3>스펙트럼 (빛의 파장)</h3>
+            <div class="spectrum-bar" id="spectrum-bar">
+                </div>
+            <p id="spectrum-desc" style="font-size:0.8rem; color:#ccc; display:none;">
+                * 리튬과 스트론튬은 눈으로 보기에 비슷하지만 스펙트럼은 다릅니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentSample = null;
+    let isQuizMode = false;
+    let quizAnswer = null;
+
+    const samples = {
+        'Li': { name: '리튬', colorCode: 'rgba(255, 0, 0, 0.8)', glow: 'rgba(255, 0, 0, 1)', desc: '빨간색', lines: [10, 20, 80] },
+        'Na': { name: '나트륨', colorCode: 'rgba(255, 221, 0, 0.8)', glow: 'rgba(255, 221, 0, 1)', desc: '노란색', lines: [45, 46] },
+        'K': { name: '칼륨', colorCode: 'rgba(184, 102, 255, 0.8)', glow: 'rgba(184, 102, 255, 1)', desc: '보라색', lines: [5, 90] },
+        'Cu': { name: '구리', colorCode: 'rgba(0, 255, 170, 0.8)', glow: 'rgba(0, 255, 170, 1)', desc: '청록색', lines: [30, 35, 60] },
+        'Sr': { name: '스트론튬', colorCode: 'rgba(220, 20, 60, 0.8)', glow: 'rgba(220, 20, 60, 1)', desc: '짙은 빨간색', lines: [15, 25, 75, 85] }
+    };
+
+    function resetExperiment() {
+        const flame = document.getElementById('flame');
+        const wireLoop = document.getElementById('wire-loop');
+        const wireTip = document.getElementById('wire-tip');
+        const resultText = document.getElementById('result-display');
+        
+        // 초기화
+        flame.style.background = 'rgba(0, 100, 255, 0.4)';
+        flame.style.boxShadow = '0 0 20px rgba(0, 100, 255, 0.6)';
+        wireLoop.style.right = '-300px';
+        wireTip.style.backgroundColor = '#ccc';
+        
+        stopElectronAnimation();
+        
+        // 스펙트럼 숨김
+        document.getElementById('spectrum-bar').style.display = 'none';
+        document.getElementById('spectrum-desc').style.display = 'none';
+
+        if(!isQuizMode) {
+            resultText.innerHTML = "시료를 선택하여 실험을 시작하세요.";
+        }
+    }
+
+    function selectSample(code, name, hexColor, desc) {
+        if(isQuizMode) return; // 퀴즈 모드일 땐 작동 안 함
+
+        // 버튼 활성화 스타일
+        document.querySelectorAll('.sample-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+
+        currentSample = samples[code];
+        runExperiment(currentSample, false);
+    }
+
+    function runExperiment(sampleData, isHidden) {
+        const wireLoop = document.getElementById('wire-loop');
+        const wireTip = document.getElementById('wire-tip');
+        const flame = document.getElementById('flame');
+        const resultText = document.getElementById('result-display');
+        const nucleus = document.getElementById('nucleus');
+
+        // 1. 니크롬선 이동 애니메이션
+        wireTip.style.backgroundColor = '#fff'; // 시료 묻음
+        wireLoop.style.right = '50px'; // 불꽃 중앙으로 이동
+
+        resultText.innerHTML = "가열 중... 불꽃 색 변화를 관찰하세요.";
+
+        // 2. 불꽃 반응 (1초 딜레이 후 색 변화)
+        setTimeout(() => {
+            flame.style.background = sampleData.colorCode;
+            flame.style.boxShadow = `0 0 40px ${sampleData.glow}`;
+            
+            if(!isHidden) {
+                resultText.innerHTML = `검출된 원소: <span class="highlight">${sampleData.name}</span><br>불꽃색: <span class="highlight" style="color:${sampleData.glow}">${sampleData.desc}</span>`;
+                nucleus.innerText = Object.keys(samples).find(key => samples[key] === sampleData);
+                drawSpectrum(sampleData.lines, sampleData.glow);
+            } else {
+                resultText.innerHTML = `이 불꽃색을 나타내는 원소는 무엇일까요?<br><span class="highlight" style="color:${sampleData.glow}">???</span>`;
+                nucleus.innerText = "?";
+            }
+
+            // 전자 애니메이션 시작
+            animateElectron();
+
+        }, 1000);
+
+        // 3. 실험 종료 (5초 후 복귀)
+        setTimeout(() => {
+            if(!isQuizMode || isHidden) { // 퀴즈 중 정답 공개 전에는 리셋 안함
+               // resetExperiment(); // 자동 리셋을 원하면 주석 해제
+            }
+        }, 6000);
+    }
+
+    // 전자 전이 애니메이션
+    function animateElectron() {
+        const electron = document.getElementById('electron');
+        const label = document.getElementById('energy-text');
+
+        // 바닥 상태 (안쪽 껍질)
+        electron.style.transform = 'translate(-50%, -50%) translate(40px, 0)'; 
+        
+        let cycle = 0;
+        const interval = setInterval(() => {
+            cycle++;
+            if(cycle % 2 !== 0) {
+                // 들뜬 상태 (바깥 껍질로 점프 + 열 에너지 흡수)
+                electron.style.transition = 'all 0.3s ease-out';
+                electron.style.transform = 'translate(-50%, -50%) translate(80px, 0)'; 
+                electron.style.background = 'white';
+                label.innerHTML = "🔥 열 흡수 → <span style='color:#ff6b6b'>들뜬 상태</span> (에너지↑)";
+            } else {
+                // 바닥 상태 복귀 (빛 방출)
+                electron.style.transition = 'all 0.8s ease-in';
+                electron.style.transform = 'translate(-50%, -50%) translate(40px, 0)';
+                electron.style.background = currentSample ? currentSample.glow : 'cyan';
+                label.innerHTML = "✨ 빛 방출 → <span style='color:#4ecdc4'>바닥 상태</span> (에너지↓)";
+            }
+        }, 1500);
+
+        window.electronInterval = interval;
+    }
+
+    function stopElectronAnimation() {
+        clearInterval(window.electronInterval);
+        const electron = document.getElementById('electron');
+        const label = document.getElementById('energy-text');
+        electron.style.transform = 'translate(-50%, -50%) translate(40px, 0)'; // 바닥상태 위치
+        electron.style.background = 'cyan';
+        label.innerText = "상태: 대기 중";
+    }
+
+    // 스펙트럼 그리기
+    function drawSpectrum(lines, color) {
+        const bar = document.getElementById('spectrum-bar');
+        const desc = document.getElementById('spectrum-desc');
+        bar.style.display = 'block';
+        desc.style.display = 'block';
+        bar.innerHTML = ''; // 초기화
+
+        lines.forEach(pos => {
+            const line = document.createElement('div');
+            line.className = 'spectral-line';
+            line.style.left = pos + '%';
+            line.style.background = color;
+            line.style.boxShadow = `0 0 5px ${color}`;
+            bar.appendChild(line);
+        });
+    }
+
+    // --- 퀴즈 로직 ---
+    function startQuiz() {
+        resetExperiment();
+        isQuizMode = true;
+        document.getElementById('sample-list').style.display = 'none';
+        document.getElementById('quiz-options').style.display = 'block';
+        document.getElementById('quiz-feedback').innerText = "실험대 위 불꽃색을 보고 원소를 맞혀보세요!";
+
+        // 랜덤 시료 선정
+        const keys = Object.keys(samples);
+        const randomKey = keys[Math.floor(Math.random() * keys.length)];
+        currentSample = samples[randomKey];
+        quizAnswer = randomKey;
+
+        // 퀴즈 보기 버튼 생성
+        const quizContainer = document.getElementById('quiz-options');
+        quizContainer.innerHTML = '';
+        keys.forEach(key => {
+            const btn = document.createElement('button');
+            btn.className = 'sample-btn';
+            btn.innerText = samples[key].name;
+            btn.onclick = () => checkAnswer(key);
+            quizContainer.appendChild(btn);
+        });
+
+        // 실험 실행 (이름 숨김)
+        runExperiment(currentSample, true);
+    }
+
+    function checkAnswer(userKey) {
+        const feedback = document.getElementById('quiz-feedback');
+        const resultText = document.getElementById('result-display');
+
+        if(userKey === quizAnswer) {
+            feedback.innerHTML = "✅ 정답입니다! 참 잘했어요.";
+            feedback.style.color = "#4ecdc4";
+            resultText.innerHTML = `정답! 이 원소는 <span class="highlight">${samples[quizAnswer].name}</span>입니다.`;
+            
+            // 2초 후 일반 모드로 복귀
+            setTimeout(() => {
+                endQuiz();
+            }, 3000);
+        } else {
+            feedback.innerHTML = "❌ 다시 생각해보세요. 불꽃색을 잘 관찰해보세요!";
+            feedback.style.color = "#ff6b6b";
+        }
+    }
+
+    function endQuiz() {
+        isQuizMode = false;
+        resetExperiment();
+        document.getElementById('sample-list').style.display = 'block';
+        document.getElementById('quiz-options').style.display = 'none';
+        document.getElementById('quiz-feedback').innerText = "";
+    }
+
+</script>
+
+</body>
+</html>

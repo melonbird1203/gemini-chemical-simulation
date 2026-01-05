@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 입자의 운동과 확산</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --accent-color: #FF6B6B;
+            --bg-color: #F0F4F8;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            width: 100%;
+            max-width: 800px;
+        }
+
+        h1 { margin: 0 0 10px 0; color: var(--primary-color); }
+        p { margin: 0; color: #666; }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .controls {
+            flex: 1;
+            min-width: 250px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .value-display {
+            float: right;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-bottom: 10px;
+        }
+
+        button:hover { background-color: #357ABD; }
+        button.reset { background-color: #95a5a6; }
+
+        .simulation-area {
+            position: relative;
+            width: 500px;
+            height: 500px;
+            background: white;
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+
+        #simCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .stats-panel {
+            flex: 1;
+            min-width: 250px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .stat-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            border-left: 5px solid var(--accent-color);
+        }
+
+        .feedback-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 0.9em;
+            line-height: 1.5;
+        }
+
+        /* Graph Placeholder */
+        .graph-container {
+            width: 100%;
+            height: 150px;
+            background: #fafafa;
+            border: 1px solid #eee;
+            margin-top: 10px;
+            position: relative;
+        }
+        
+        .source-indicator {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 50%;
+            border: 2px dashed #999;
+            pointer-events: none;
+            z-index: 1;
+        }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🧪 기체 입자의 확산 실험실</h1>
+        <p>석고 방향제의 향기가 어떻게 교실로 퍼져나가는지 입자의 운동으로 확인해 보세요.</p>
+    </header>
+
+    <div class="container">
+        <div class="controls">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>🌡️ 온도 (입자 속도) <span id="tempVal" class="value-display">25°C</span></label>
+                <input type="range" id="tempSlider" min="0" max="80" value="25">
+                <small style="color:#888;">온도가 높을수록 입자는 에너지를 얻습니다.</small>
+            </div>
+
+            <div class="control-group">
+                <label>✨ 입자 수 (향기 농도) <span id="countVal" class="value-display">100개</span></label>
+                <input type="range" id="countSlider" min="50" max="500" step="50" value="100">
+            </div>
+
+            <button id="startBtn">실험 시작 (방향제 개봉)</button>
+            <button id="resetBtn" class="reset">초기화</button>
+
+            <div class="feedback-box" id="feedbackText">
+                💡 <b>실험 팁:</b><br>
+                먼저 온도를 25°C로 두고 실험을 시작해 보세요. 그 후 온도를 높여 변화를 관찰해 보세요.
+            </div>
+        </div>
+
+        <div class="simulation-area">
+            <div class="source-indicator"></div> <canvas id="simCanvas" width="500" height="500"></canvas>
+        </div>
+
+        <div class="stats-panel">
+            <h3>📊 실시간 분석</h3>
+            
+            <div class="stat-box">
+                <strong>평균 확산 거리</strong>
+                <div id="diffusionRadius" style="font-size: 1.5em; margin-top:5px;">0 cm</div>
+            </div>
+
+            <div class="stat-box">
+                <strong>경과 시간</strong>
+                <div id="timer" style="font-size: 1.5em; margin-top:5px;">0.0 초</div>
+            </div>
+
+            <label>📈 확산 거리 그래프</label>
+            <div class="graph-container">
+                <canvas id="graphCanvas" width="250" height="150"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 설정 및 변수 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+
+        let particles = [];
+        let isRunning = false;
+        let animationId;
+        let startTime;
+        let elapsedTime = 0;
+        
+        // 실험 변수
+        let temperature = 25; // 0 ~ 80
+        let particleCount = 100;
+        const baseSpeed = 0.5; // 기본 속도 계수
+
+        // DOM 요소
+        const tempSlider = document.getElementById('tempSlider');
+        const countSlider = document.getElementById('countSlider');
+        const tempVal = document.getElementById('tempVal');
+        const countVal = document.getElementById('countVal');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const feedbackText = document.getElementById('feedbackText');
+        const radiusDisplay = document.getElementById('diffusionRadius');
+        const timerDisplay = document.getElementById('timer');
+
+        // 그래프 데이터
+        let graphData = []; // {time, radius}
+
+        // --- 2. 입자 클래스 (Particle) ---
+        class Particle {
+            constructor(x, y) {
+                this.x = x;
+                this.y = y;
+                // 랜덤 방향 설정
+                const angle = Math.random() * Math.PI * 2;
+                // 속도는 온도에 비례하여 설정될 것임 (update에서 계산)
+                this.vx = Math.cos(angle); 
+                this.vy = Math.sin(angle);
+                
+                // 색상은 보라색 계열 (라벤더 향기 느낌)
+                this.color = `rgba(${100 + Math.random()*50}, ${50 + Math.random()*50}, ${200 + Math.random()*55}, 0.8)`;
+                this.radius = 3;
+            }
+
+            update(tempMultiplier) {
+                // 브라운 운동 시뮬레이션: 약간의 무작위성 추가
+                this.vx += (Math.random() - 0.5) * 0.2;
+                this.vy += (Math.random() - 0.5) * 0.2;
+
+                // 속도 정규화 후 온도 적용
+                const speed = Math.sqrt(this.vx**2 + this.vy**2);
+                if (speed > 0) {
+                    // 온도가 높을수록 더 빠르게 (기본속도 + 온도계수)
+                    const currentSpeed = baseSpeed + (temperature / 20); 
+                    this.vx = (this.vx / speed) * currentSpeed;
+                    this.vy = (this.vy / speed) * currentSpeed;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 벽 충돌 (반사)
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.color;
+                ctx.fill();
+            }
+        }
+
+        // --- 3. 시뮬레이션 로직 ---
+        function initParticles() {
+            particles = [];
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+
+            for (let i = 0; i < particleCount; i++) {
+                // 중앙(방향제)에서 시작하되 약간의 산포도 가짐
+                const offsetX = (Math.random() - 0.5) * 20;
+                const offsetY = (Math.random() - 0.5) * 20;
+                particles.push(new Particle(centerX + offsetX, centerY + offsetY));
+            }
+        }
+
+        function calculateAvgDistance() {
+            if (particles.length === 0) return 0;
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            
+            let totalDist = 0;
+            particles.forEach(p => {
+                const dist = Math.sqrt((p.x - centerX)**2 + (p.y - centerY)**2);
+                totalDist += dist;
+            });
+            // 픽셀을 cm로 대략 환산 (10px = 1cm 가정)
+            return (totalDist / particles.length / 10).toFixed(1);
+        }
+
+        function drawGraph() {
+            if (graphData.length < 2) return;
+
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            graphCtx.beginPath();
+            graphCtx.strokeStyle = '#4A90E2';
+            graphCtx.lineWidth = 2;
+
+            // X축: 시간 (최대 60초 기준 스케일링), Y축: 거리 (최대 25cm 기준)
+            const maxTime = 60; 
+            const maxRadius = 25;
+
+            graphCtx.moveTo(0, graphCanvas.height); // 시작점
+
+            graphData.forEach((point) => {
+                const x = (point.time / maxTime) * graphCanvas.width;
+                const y = graphCanvas.height - ((point.radius / maxRadius) * graphCanvas.height);
+                graphCtx.lineTo(x, y);
+            });
+
+            graphCtx.stroke();
+        }
+
+        function animate() {
+            if (!isRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 그리드 그리기 (배경)
+            ctx.strokeStyle = '#eee';
+            ctx.beginPath();
+            for(let i=0; i<canvas.width; i+=50) { ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); }
+            for(let i=0; i<canvas.height; i+=50) { ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); }
+            ctx.stroke();
+
+            // 입자 업데이트 및 그리기
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // 데이터 업데이트
+            const now = Date.now();
+            elapsedTime = (now - startTime) / 1000;
+            timerDisplay.textContent = elapsedTime.toFixed(1) + " 초";
+
+            const avgRadius = calculateAvgDistance();
+            radiusDisplay.textContent = avgRadius + " cm";
+
+            // 그래프 데이터 수집 (0.2초마다)
+            if (graphData.length === 0 || elapsedTime - graphData[graphData.length-1].time > 0.2) {
+                graphData.push({ time: elapsedTime, radius: avgRadius });
+                drawGraph();
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- 4. 이벤트 리스너 ---
+        tempSlider.addEventListener('input', (e) => {
+            temperature = parseInt(e.target.value);
+            tempVal.textContent = temperature + "°C";
+            updateFeedback();
+        });
+
+        countSlider.addEventListener('input', (e) => {
+            particleCount = parseInt(e.target.value);
+            countVal.textContent = particleCount + "개";
+            if (!isRunning) initParticles(); // 실행 중이 아닐 때만 리셋 없이 적용
+        });
+
+        startBtn.addEventListener('click', () => {
+            if (isRunning) return;
+            isRunning = true;
+            if (particles.length === 0) initParticles();
+            startTime = Date.now() - (elapsedTime * 1000); // 멈췄던 시간부터 계속
+            animate();
+            startBtn.textContent = "실험 진행 중...";
+            startBtn.style.backgroundColor = "#2ecc71";
+            updateFeedback();
+        });
+
+        resetBtn.addEventListener('click', () => {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            
+            elapsedTime = 0;
+            graphData = [];
+            particles = [];
+            
+            timerDisplay.textContent = "0.0 초";
+            radiusDisplay.textContent = "0 cm";
+            startBtn.textContent = "실험 시작 (방향제 개봉)";
+            startBtn.style.backgroundColor = ""; // 원래 색으로
+            
+            // 초기화 시 설정값대로 입자 다시 생성
+            initParticles();
+            // 화면에 멈춘 입자 보여주기
+            particles.forEach(p => p.draw());
+            
+            feedbackText.innerHTML = "💡 <b>준비 완료:</b><br>실험 조건이 초기화되었습니다. 조건을 변경하고 다시 시작해보세요.";
+        });
+
+        function updateFeedback() {
+            if (temperature < 15) {
+                feedbackText.innerHTML = "❄️ <b>관찰 포인트:</b><br>온도가 낮으면 입자의 움직임이 둔해집니다. 향기가 멀리 퍼지는 데 시간이 오래 걸리겠죠?";
+            } else if (temperature > 50) {
+                feedbackText.innerHTML = "🔥 <b>관찰 포인트:</b><br>온도가 매우 높습니다! 입자들이 에너지를 얻어 맹렬하게 움직이는 것을 확인해보세요. 확산 속도가 급격히 빨라집니다.";
+            } else {
+                feedbackText.innerHTML = "👀 <b>관찰 포인트:</b><br>입자들이 사방으로 퍼져나가는 '무작위 운동'을 관찰하세요. 특정 방향이 아니라 모든 방향으로 퍼져나갑니다.";
+            }
+        }
+
+        // 초기 화면 렌더링
+        initParticles();
+        particles.forEach(p => p.draw());
+
+    </script>
+</body>
+</html>

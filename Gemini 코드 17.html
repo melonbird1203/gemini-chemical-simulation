@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 실험실: 물의 기화와 액화</title>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f4f8; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+        .container { bg-white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 800px; width: 100%; display: flex; gap: 20px; flex-wrap: wrap; }
+        .canvas-area { position: relative; width: 400px; height: 400px; background: #e0e0e0; border-radius: 10px; overflow: hidden; border: 2px solid #ccc; }
+        canvas { display: block; }
+        .controls { flex: 1; display: flex; flex-direction: column; gap: 15px; }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .control-group { background: #fff; padding: 15px; border-radius: 8px; border: 1px solid #ddd; }
+        label { font-weight: bold; display: block; margin-bottom: 5px; color: #555; }
+        input[type="range"] { width: 100%; }
+        button { background: #3498db; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; font-size: 14px; transition: 0.3s; }
+        button:hover { background: #2980b9; }
+        button.active { background: #27ae60; }
+        .feedback-box { margin-top: 20px; padding: 15px; background: #fff3cd; border-left: 5px solid #ffc107; border-radius: 4px; line-height: 1.6; }
+        .status-bar { display: flex; justify-content: space-between; font-size: 0.9em; color: #666; margin-top: 5px; }
+        
+        /* 시각적 요소 스타일 */
+        .watch-glass { position: absolute; top: 50px; left: 50px; width: 300px; height: 20px; background: rgba(255,255,255,0.6); border: 2px solid #aaa; border-radius: 50% 50% 0 0; display: none; text-align: center; line-height: 20px; font-size: 12px; color: #333; pointer-events: none; }
+        .paper { position: absolute; top: 20px; right: 20px; width: 60px; height: 80px; background: #a2d2ff; border: 1px solid #666; transition: background 1s; display: flex; align-items: center; justify-content: center; font-size: 10px; text-align: center; cursor: grab; }
+        .paper.dry { background: #a2d2ff; } /* 푸른색 (건조) */
+        .paper.wet { background: #ffadad; } /* 붉은색 (물 반응) */
+    </style>
+</head>
+<body>
+
+    <h1>💧 물의 상태 변화 실험실</h1>
+
+    <div class="container">
+        <div class="canvas-area">
+            <canvas id="simCanvas" width="400" height="400"></canvas>
+            <div id="watchGlass" class="watch-glass">시계 접시 (차가움)</div>
+            <div id="cobaltPaper" class="paper dry" draggable="true" style="display:none;">염화<br>코발트<br>종이</div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="tempSlider">🔥 온도 조절: <span id="tempVal">25</span>℃</label>
+                <input type="range" id="tempSlider" min="10" max="100" value="25">
+                <div class="status-bar">
+                    <span>차가움</span>
+                    <span>끓는점(100℃)</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>🛠️ 실험 도구</label>
+                <div style="display:flex; gap:10px;">
+                    <button id="btnWatchGlass" onclick="toggleWatchGlass()">시계 접시 덮기</button>
+                    <button id="btnPaper" onclick="togglePaper()">염화 코발트 종이</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>📊 상태 관찰</label>
+                <p id="stateDesc">현재 물은 <strong>액체</strong> 상태입니다. 입자들이 서로 뭉쳐 있습니다.</p>
+            </div>
+
+            <button onclick="resetSim()" style="background:#e74c3c;">🔄 실험 초기화</button>
+        </div>
+    </div>
+
+    <div class="feedback-box" id="feedback">
+        👨‍🏫 <strong>선생님:</strong> 비커에 물이 담겨 있습니다. 온도를 천천히 올려보며 입자들의 움직임이 어떻게 변하는지 관찰해보세요!
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const tempSlider = document.getElementById('tempSlider');
+        const tempVal = document.getElementById('tempVal');
+        const feedback = document.getElementById('feedback');
+        const watchGlassEl = document.getElementById('watchGlass');
+        const cobaltPaper = document.getElementById('cobaltPaper');
+
+        let particles = [];
+        let temperature = 25;
+        let isCovered = false;
+        let isPaperActive = false;
+        let waterLevel = 300; // Y coordinate
+        
+        // 입자 클래스
+        class Particle {
+            constructor() {
+                this.x = Math.random() * 200 + 100; // 비커 내부
+                this.y = Math.random() * 100 + 250; // 액체 영역
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.state = 'liquid'; // liquid, gas, condensed
+                this.radius = 4;
+            }
+
+            update() {
+                // 온도에 따른 속도 계수
+                let speedFactor = temperature / 30;
+                
+                // 상태별 움직임
+                if (this.state === 'liquid') {
+                    this.x += this.vx * speedFactor * 0.5;
+                    this.y += this.vy * speedFactor * 0.5;
+
+                    // 비커 벽 충돌 (액체)
+                    if (this.x < 100 || this.x > 300) this.vx *= -1;
+                    if (this.y > 380) this.vy *= -1; // 바닥
+                    
+                    // 표면 장력 / 기화 로직
+                    if (this.y < waterLevel) {
+                        // 온도가 높을수록 탈출 확률 증가 (기화)
+                        if (Math.random() * 100 < (temperature - 50)) {
+                            this.state = 'gas';
+                        } else {
+                            this.y = waterLevel;
+                            this.vy *= -1;
+                        }
+                    }
+                } else if (this.state === 'gas') {
+                    this.x += this.vx * speedFactor * 1.5;
+                    this.y += this.vy * speedFactor * 1.5 - 1; // 위로 상승 경향
+
+                    // 벽 충돌 (기체는 자유로움)
+                    if (this.x < 20 || this.x > 380) this.vx *= -1;
+                    if (this.y < 20) this.vy *= -1; // 천장
+
+                    // 시계 접시(액화) 로직
+                    if (isCovered && this.y < 80 && this.x > 50 && this.x < 350) {
+                         this.state = 'condensed';
+                         this.y = 80; // 접시에 붙음
+                    }
+                } else if (this.state === 'condensed') {
+                    // 맺혀있다가 떨어짐
+                    if (Math.random() < 0.02) {
+                        this.state = 'liquid'; // 다시 액체로 떨어짐
+                        this.vy = 2; 
+                    }
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                if (this.state === 'liquid') ctx.fillStyle = '#3498db'; // 진한 파랑
+                else if (this.state === 'gas') ctx.fillStyle = 'rgba(52, 152, 219, 0.4)'; // 연한 파랑 (수증기)
+                else ctx.fillStyle = '#2980b9'; // 맺힌 물방울
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // 초기화
+        function init() {
+            particles = [];
+            for (let i = 0; i < 80; i++) {
+                particles.push(new Particle());
+            }
+        }
+
+        function drawBeaker() {
+            ctx.strokeStyle = '#333';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(100, 50);
+            ctx.lineTo(100, 380);
+            ctx.lineTo(300, 380);
+            ctx.lineTo(300, 50);
+            ctx.stroke();
+            
+            // 핫플레이트
+            ctx.fillStyle = temperature > 50 ? '#e74c3c' : '#bdc3c7';
+            ctx.fillRect(80, 385, 240, 15);
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            drawBeaker();
+            
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // 시계 접시 물방울 효과
+            if(isCovered) {
+                let condensedCount = particles.filter(p => p.state === 'condensed').length;
+                if(condensedCount > 5) {
+                   feedback.innerHTML = "👨‍🏫 <strong>관찰 포인트:</strong> 차가운 시계 접시에 기체 입자가 부딪혀 에너지를 잃고 다시 <strong>액체(물방울)</strong>로 변하고 있어요! 이것이 <strong>액화</strong>입니다.";
+                }
+            }
+
+            // 염화 코발트 종이 효과
+            if(isPaperActive) {
+                // 기체 입자가 종이 근처(우상단)에 많으면 색 변화
+                let gasNearPaper = particles.filter(p => p.state === 'gas' && p.y < 150).length;
+                if(gasNearPaper > 3 || (isCovered && particles.some(p=>p.state==='condensed'))) {
+                     cobaltPaper.className = 'paper wet';
+                     cobaltPaper.innerHTML = "붉은색<br>(물 확인)";
+                } else {
+                     cobaltPaper.className = 'paper dry';
+                     cobaltPaper.innerHTML = "푸른색<br>(건조)";
+                }
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        // 이벤트 리스너
+        tempSlider.addEventListener('input', (e) => {
+            temperature = parseInt(e.target.value);
+            tempVal.innerText = temperature;
+            
+            if(temperature < 50) {
+                document.getElementById('stateDesc').innerHTML = "상태: <strong>액체</strong> 위주. 입자 움직임이 둔합니다.";
+            } else if(temperature < 90) {
+                document.getElementById('stateDesc').innerHTML = "상태: <strong>기화 활발</strong>. 표면의 입자가 공기 중으로 날아갑니다.";
+                 feedback.innerHTML = "👨‍🏫 <strong>선생님:</strong> 온도가 올라가니 입자들이 에너지를 얻어 활발해졌죠? 표면에서 튀어 나가는 입자가 바로 <strong>수증기</strong>입니다.";
+            } else {
+                document.getElementById('stateDesc').innerHTML = "상태: <strong>끓음</strong>. 내부에서도 기화가 일어납니다.";
+            }
+        });
+
+        function toggleWatchGlass() {
+            isCovered = !isCovered;
+            watchGlassEl.style.display = isCovered ? 'block' : 'none';
+            document.getElementById('btnWatchGlass').classList.toggle('active');
+            if(isCovered) {
+                feedback.innerHTML = "👨‍🏫 시계 접시를 덮었습니다. 위로 올라간 입자들이 어떻게 되는지 지켜보세요.";
+            }
+        }
+
+        function togglePaper() {
+            isPaperActive = !isPaperActive;
+            cobaltPaper.style.display = isPaperActive ? 'flex' : 'none';
+            document.getElementById('btnPaper').classList.toggle('active');
+            if(isPaperActive) {
+                feedback.innerHTML = "👨‍🏫 염화 코발트 종이를 가져왔습니다. 물과 닿으면 <strong>푸른색</strong>에서 <strong>붉은색</strong>으로 변합니다.";
+            }
+        }
+
+        function resetSim() {
+            temperature = 25;
+            tempSlider.value = 25;
+            tempVal.innerText = 25;
+            isCovered = false;
+            isPaperActive = false;
+            watchGlassEl.style.display = 'none';
+            cobaltPaper.style.display = 'none';
+            document.getElementById('btnWatchGlass').classList.remove('active');
+            document.getElementById('btnPaper').classList.remove('active');
+            feedback.innerHTML = "👨‍🏫 <strong>선생님:</strong> 처음 상태로 돌아왔습니다.";
+            init();
+        }
+
+        init();
+        animate();
+    </script>
+</body>
+</html>

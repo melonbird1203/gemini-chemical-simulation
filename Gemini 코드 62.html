@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 열평형과 열의 이동</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            width: 100%;
+        }
+        .control-panel {
+            flex: 1;
+            min-width: 250px;
+            padding: 15px;
+            background-color: #eef2f5;
+            border-radius: 10px;
+        }
+        .visual-panel {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 300px;
+        }
+        .graph-panel {
+            flex: 2;
+            min-width: 300px;
+            height: 300px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            position: relative;
+        }
+        .input-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #555; }
+        input[type="range"] { width: 100%; }
+        .value-display { float: right; color: #007bff; font-weight: bold; }
+        
+        button {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.3s;
+            margin-bottom: 10px;
+        }
+        .btn-start { background-color: #28a745; color: white; }
+        .btn-start:hover { background-color: #218838; }
+        .btn-reset { background-color: #6c757d; color: white; }
+        .btn-reset:hover { background-color: #5a6268; }
+
+        canvas { width: 100%; height: 100%; }
+        
+        .feedback-box {
+            width: 100%;
+            padding: 15px;
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            margin-top: 15px;
+            border-radius: 5px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        .temp-readout {
+            display: flex;
+            justify-content: space-around;
+            width: 100%;
+            margin-bottom: 10px;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        .hot-text { color: #dc3545; }
+        .cold-text { color: #007bff; }
+
+        /* Sim Visuals */
+        #simCanvas {
+            border-radius: 10px;
+            background: #fff;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🧪 열평형 가상 실험실</h1>
+    <p>뜨거운 물과 차가운 물이 만나면 온도가 어떻게 변할까요?</p>
+
+    <div class="container">
+        <div class="control-panel">
+            <h3>🔬 실험 조건 설정</h3>
+            
+            <div class="input-group">
+                <label>🔥 뜨거운 물 온도 (플라스크) <span id="val-hot-temp" class="value-display">80°C</span></label>
+                <input type="range" id="hot-temp" min="50" max="95" value="80">
+            </div>
+            <div class="input-group">
+                <label>⚖️ 뜨거운 물 양 (질량) <span id="val-hot-mass" class="value-display">200g</span></label>
+                <input type="range" id="hot-mass" min="50" max="400" step="50" value="200">
+            </div>
+            
+            <hr>
+            
+            <div class="input-group">
+                <label>❄️ 차가운 물 온도 (비커) <span id="val-cold-temp" class="value-display">20°C</span></label>
+                <input type="range" id="cold-temp" min="5" max="40" value="20">
+            </div>
+            <div class="input-group">
+                <label>⚖️ 차가운 물 양 (질량) <span id="val-cold-mass" class="value-display">200g</span></label>
+                <input type="range" id="cold-mass" min="50" max="400" step="50" value="200">
+            </div>
+
+            <button class="btn-start" id="btn-start" onclick="startExperiment()">실험 시작 ▶</button>
+            <button class="btn-reset" onclick="resetExperiment()">초기화 ↺</button>
+            
+            <div style="margin-top: 10px; font-size: 0.9em; color: #666;">
+                * ⚠️ 안전 안내: 실제 실험 시에는 뜨거운 물에 화상을 입지 않도록 장갑을 착용하세요.
+            </div>
+        </div>
+
+        <div class="visual-panel">
+            <div class="temp-readout">
+                <span class="hot-text">플라스크: <span id="display-hot">80.0</span>°C</span>
+                <span class="cold-text">비커: <span id="display-cold">20.0</span>°C</span>
+            </div>
+            <canvas id="simCanvas" width="300" height="300"></canvas>
+            <div id="feedback" class="feedback-box">설정을 마치고 [실험 시작]을 눌러보세요.</div>
+        </div>
+
+        <div class="graph-panel">
+            <canvas id="graphCanvas" width="400" height="300"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // DOM Elements
+        const controls = {
+            hTemp: document.getElementById('hot-temp'),
+            hMass: document.getElementById('hot-mass'),
+            cTemp: document.getElementById('cold-temp'),
+            cMass: document.getElementById('cold-mass'),
+            startBtn: document.getElementById('btn-start')
+        };
+        const displays = {
+            hTemp: document.getElementById('val-hot-temp'),
+            hMass: document.getElementById('val-hot-mass'),
+            cTemp: document.getElementById('val-cold-temp'),
+            cMass: document.getElementById('val-cold-mass'),
+            curHot: document.getElementById('display-hot'),
+            curCold: document.getElementById('display-cold'),
+            feedback: document.getElementById('feedback')
+        };
+        const simCanvas = document.getElementById('simCanvas');
+        const simCtx = simCanvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+
+        // State Variables
+        let state = {
+            isRunning: false,
+            time: 0,
+            hotTemp: 80,
+            coldTemp: 20,
+            hotMass: 200,
+            coldMass: 200,
+            finalTemp: 0,
+            history: [],
+            animationFrame: null
+        };
+
+        // Initialize
+        function init() {
+            updateDisplays();
+            drawSimulation();
+            drawGraphBase();
+        }
+
+        // Event Listeners for Sliders
+        Object.values(controls).forEach(el => {
+            if(el.type === 'range') {
+                el.addEventListener('input', () => {
+                    if(!state.isRunning) {
+                        updateDisplays();
+                        drawSimulation();
+                    }
+                });
+            }
+        });
+
+        function updateDisplays() {
+            state.hotTemp = parseFloat(controls.hTemp.value);
+            state.hotMass = parseFloat(controls.hMass.value);
+            state.coldTemp = parseFloat(controls.cTemp.value);
+            state.coldMass = parseFloat(controls.cMass.value);
+
+            displays.hTemp.innerText = state.hotTemp + "°C";
+            displays.hMass.innerText = state.hotMass + "g";
+            displays.cTemp.innerText = state.coldTemp + "°C";
+            displays.cMass.innerText = state.coldMass + "g";
+
+            if (!state.isRunning) {
+                displays.curHot.innerText = state.hotTemp.toFixed(1);
+                displays.curCold.innerText = state.coldTemp.toFixed(1);
+                
+                // Calculate theoretical final temp (Weighted Average)
+                // T_final = (m1*T1 + m2*T2) / (m1 + m2)
+                state.finalTemp = ((state.hotMass * state.hotTemp) + (state.coldMass * state.coldTemp)) / (state.hotMass + state.coldMass);
+            }
+        }
+
+        function startExperiment() {
+            if (state.isRunning) return;
+            state.isRunning = true;
+            controls.startBtn.disabled = true;
+            Object.values(controls).forEach(el => { if(el.type==='range') el.disabled = true; });
+            
+            displays.feedback.innerHTML = "열이 이동하고 있습니다... <br> 그래프의 변화를 관찰하세요!";
+            
+            animate();
+        }
+
+        function resetExperiment() {
+            cancelAnimationFrame(state.animationFrame);
+            state.isRunning = false;
+            state.time = 0;
+            state.history = [];
+            controls.startBtn.disabled = false;
+            Object.values(controls).forEach(el => { if(el.type==='range') el.disabled = false; });
+            
+            updateDisplays(); // Reset values to slider positions
+            drawSimulation();
+            drawGraphBase();
+            displays.feedback.innerHTML = "설정을 마치고 [실험 시작]을 눌러보세요.";
+        }
+
+        // Physics & Animation Loop
+        function animate() {
+            // Newton's Law of Cooling (Simplified approximation)
+            // Rate of change is proportional to temp difference
+            const k = 0.05; // Heat transfer coefficient factor
+            
+            // Calculate current temp based on decay towards final temp
+            // T(t) = T_final + (T_start - T_final) * e^(-kt)
+            const currentHot = state.finalTemp + (state.hotTemp - state.finalTemp) * Math.exp(-k * state.time);
+            const currentCold = state.finalTemp + (state.coldTemp - state.finalTemp) * Math.exp(-k * state.time);
+
+            // Update UI
+            displays.curHot.innerText = currentHot.toFixed(1);
+            displays.curCold.innerText = currentCold.toFixed(1);
+            
+            // Store history for graph
+            state.history.push({ t: state.time, h: currentHot, c: currentCold });
+
+            drawSimulation(currentHot, currentCold);
+            drawGraph(state.history);
+
+            // Check Equilibrium
+            if (Math.abs(currentHot - currentCold) < 0.1) {
+                displays.curHot.innerText = state.finalTemp.toFixed(1);
+                displays.curCold.innerText = state.finalTemp.toFixed(1);
+                displays.feedback.innerHTML = `✅ <b>열평형 도달!</b><br>두 물의 온도가 <b>${state.finalTemp.toFixed(1)}°C</b>로 같아졌습니다.`;
+                state.isRunning = false;
+                return; 
+            }
+
+            state.time += 0.2; // Time step
+            state.animationFrame = requestAnimationFrame(animate);
+        }
+
+        // Drawing Functions
+        function drawSimulation(currHot = state.hotTemp, currCold = state.coldTemp) {
+            simCtx.clearRect(0, 0, 300, 300);
+
+            // Beaker (Cold Water Container)
+            simCtx.fillStyle = getColor(currCold);
+            simCtx.beginPath();
+            simCtx.fillRect(50, 100, 200, 180); // Water
+            simCtx.strokeRect(50, 50, 200, 230); // Glass
+            
+            // Beaker Label
+            simCtx.fillStyle = "#000";
+            simCtx.font = "14px Arial";
+            simCtx.fillText("비커 (찬물)", 60, 290);
+
+            // Flask (Hot Water Container)
+            simCtx.fillStyle = getColor(currHot);
+            simCtx.beginPath();
+            // Simple Flask shape
+            simCtx.moveTo(130, 100);
+            simCtx.lineTo(170, 100);
+            simCtx.lineTo(190, 250);
+            simCtx.lineTo(110, 250);
+            simCtx.closePath();
+            simCtx.fill();
+            simCtx.stroke();
+            
+            // Flask Label
+            simCtx.fillStyle = "#fff";
+            simCtx.fillText("플라스크", 125, 240);
+
+            // Heat Flow Visualization (Arrows or Glow)
+            if (state.isRunning && Math.abs(currHot - currCold) > 1) {
+                simCtx.strokeStyle = "rgba(255, 100, 0, 0.5)";
+                simCtx.lineWidth = 3;
+                simCtx.beginPath();
+                // Arrows pointing out from flask
+                simCtx.moveTo(180, 200); simCtx.lineTo(210, 200);
+                simCtx.moveTo(120, 200); simCtx.lineTo(90, 200);
+                simCtx.stroke();
+                simCtx.fillStyle = "rgba(255, 100, 0, 0.8)";
+                simCtx.fillText("열 이동 ➡", 190, 190);
+            }
+        }
+
+        function getColor(temp) {
+            // Map temp 0-100 to Blue-Red
+            // 0 = Blue (0,0,255), 100 = Red (255,0,0)
+            const r = Math.min(255, Math.max(0, (temp / 100) * 255));
+            const b = Math.min(255, Math.max(0, 255 - (temp / 100) * 255));
+            return `rgba(${r}, 0, ${b}, 0.6)`;
+        }
+
+        function drawGraphBase() {
+            graphCtx.clearRect(0, 0, 400, 300);
+            graphCtx.strokeStyle = "#ccc";
+            graphCtx.lineWidth = 1;
+            
+            // Grid
+            graphCtx.beginPath();
+            for(let i=0; i<=300; i+=30) {
+                graphCtx.moveTo(i, 0); graphCtx.lineTo(i, 300);
+                graphCtx.moveTo(0, i); graphCtx.lineTo(400, i);
+            }
+            graphCtx.stroke();
+
+            // Labels
+            graphCtx.fillStyle = "#666";
+            graphCtx.fillText("온도 (°C)", 10, 20);
+            graphCtx.fillText("시간 ➡", 350, 290);
+        }
+
+        function drawGraph(data) {
+            drawGraphBase();
+            
+            if (data.length === 0) return;
+
+            // Mapping: Temp 0-100 => Y 300-0, Time => X
+            const mapY = (t) => 300 - (t * 3);
+            const mapX = (t) => t * 4; // Scale time to fit
+
+            // Draw Hot Line
+            graphCtx.beginPath();
+            graphCtx.strokeStyle = "#dc3545";
+            graphCtx.lineWidth = 2;
+            graphCtx.moveTo(0, mapY(state.hotTemp)); // Start point
+            data.forEach(p => {
+                graphCtx.lineTo(mapX(p.t), mapY(p.h));
+            });
+            graphCtx.stroke();
+
+            // Draw Cold Line
+            graphCtx.beginPath();
+            graphCtx.strokeStyle = "#007bff";
+            graphCtx.lineWidth = 2;
+            graphCtx.moveTo(0, mapY(state.coldTemp));
+            data.forEach(p => {
+                graphCtx.lineTo(mapX(p.t), mapY(p.c));
+            });
+            graphCtx.stroke();
+        }
+
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 톰슨의 음극선 실험</title>
+    <style>
+        :root {
+            --primary-color: #4CAF50;
+            --bg-color: #1a1a1a;
+            --panel-bg: #2d2d2d;
+            --text-color: #e0e0e0;
+            --beam-color: #00ff00;
+        }
+
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            border-bottom: 2px solid var(--primary-color);
+            padding-bottom: 10px;
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Canvas Area */
+        .lab-view {
+            position: relative;
+            background: #000;
+            border: 4px solid #555;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.1);
+        }
+
+        canvas {
+            display: block;
+            background: radial-gradient(circle at center, #222 0%, #000 100%);
+        }
+
+        /* UI overlay for labels */
+        .label {
+            position: absolute;
+            color: white;
+            font-size: 12px;
+            pointer-events: none;
+            background: rgba(0,0,0,0.7);
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+
+        /* Controls */
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        h2, h3 { margin-top: 0; color: var(--primary-color); }
+
+        .control-group {
+            background: rgba(0,0,0,0.2);
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .checkbox-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+        }
+
+        /* Feedback & Quiz */
+        .feedback-panel, .quiz-panel {
+            width: 100%;
+            max-width: 1000px;
+            background-color: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .feedback-text { font-size: 1.1em; line-height: 1.5; }
+        .highlight { color: var(--primary-color); font-weight: bold; }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: #388E3C; }
+
+        .quiz-options button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            text-align: left;
+            background-color: #444;
+        }
+        .quiz-options button:hover { background-color: #555; }
+        
+        /* Report Modal */
+        #reportModal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8);
+            z-index: 1000;
+            justify-content: center;
+            align-items: center;
+        }
+        .modal-content {
+            background: white;
+            color: black;
+            padding: 30px;
+            border-radius: 10px;
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 톰슨의 음극선 실험실</h1>
+    <p>학습 목표: 음극선의 전기적·자기적 성질을 관찰하여 전자의 특징을 밝혀봅시다.</p>
+</header>
+
+<div class="container">
+    <div class="lab-view">
+        <canvas id="simCanvas" width="600" height="400"></canvas>
+        <div id="labels"></div>
+    </div>
+
+    <div class="controls">
+        <h3>🎛️ 실험 장치 조작</h3>
+        
+        <div class="control-group">
+            <label>⚡ 전압 세기 (음극선 방출량)</label>
+            <input type="range" id="intensitySlider" min="0" max="100" value="80">
+        </div>
+
+        <div class="control-group">
+            <label>🔋 전기장 (전압 조절)</label>
+            <small>위쪽이 (+), 아래쪽이 (-)</small>
+            <input type="range" id="electricSlider" min="-100" max="100" value="0">
+            <div id="electricValue">0 V</div>
+        </div>
+
+        <div class="control-group">
+            <label>🧲 자기장 (자석 세기)</label>
+            <small>자석의 위치 조절</small>
+            <input type="range" id="magneticSlider" min="-100" max="100" value="0">
+            <div id="magneticValue">0 T</div>
+        </div>
+
+        <div class="control-group checkbox-group">
+            <input type="checkbox" id="paddleCheck">
+            <label for="paddleCheck">⚙️ 바람개비 설치 (질량 확인)</label>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 20px;">
+            <button onclick="resetExperiment()">🔄 초기화</button>
+            <button onclick="generateReport()">📄 결과 리포트 저장</button>
+        </div>
+    </div>
+</div>
+
+<div class="feedback-panel">
+    <h3>📢 관찰 결과 및 AI 분석</h3>
+    <p id="feedbackText" class="feedback-text">실험을 시작해 보세요! 전압을 높여 음극선을 발생시키고, 전기장이나 자기장을 조작하여 궤적을 관찰하세요.</p>
+</div>
+
+<div class="quiz-panel">
+    <h3>📝 개념 확인 퀴즈</h3>
+    <div id="quizContainer">
+        <p id="quizQuestion">질문이 여기에 표시됩니다.</p>
+        <div class="quiz-options" id="quizOptions"></div>
+        <p id="quizResult" style="margin-top: 10px; font-weight: bold;"></p>
+    </div>
+    <button onclick="nextQuiz()" style="margin-top: 10px;">다음 문제</button>
+</div>
+
+<div id="reportModal">
+    <div class="modal-content">
+        <h2>🔬 실험 결과 리포트</h2>
+        <div id="reportContent"></div>
+        <button onclick="closeReport()" style="margin-top: 20px;">닫기</button>
+        <button onclick="window.print()" style="margin-top: 20px; background-color: #333;">인쇄 / PDF 저장</button>
+    </div>
+</div>
+
+<script>
+    // --- Simulation Constants & State ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    let state = {
+        intensity: 80,      // Beam visibility/strength
+        electricField: 0,   // -100 to 100 (Up is positive plate)
+        magneticField: 0,   // -100 to 100
+        hasPaddle: false,
+        paddleAngle: 0,
+        time: 0
+    };
+
+    // --- Drawing Functions ---
+    function drawTube() {
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 4;
+        
+        // Glass Bulb Outline
+        ctx.beginPath();
+        ctx.moveTo(50, 150);
+        ctx.lineTo(150, 150); // Neck
+        ctx.bezierCurveTo(300, 50, 500, 50, 550, 100); // Top curve
+        ctx.lineTo(550, 300); // Screen
+        ctx.bezierCurveTo(500, 350, 300, 350, 150, 250); // Bottom curve
+        ctx.lineTo(50, 250); // Neck
+        ctx.closePath();
+        ctx.stroke();
+
+        // Cathode (-)
+        ctx.fillStyle = '#888';
+        ctx.fillRect(40, 180, 20, 40);
+        ctx.fillStyle = '#fff';
+        ctx.font = '14px Arial';
+        ctx.fillText('(-)', 45, 175);
+
+        // Anode (+)
+        ctx.fillStyle = '#888';
+        ctx.fillRect(120, 150, 10, 100); // Slit
+        ctx.clearRect(120, 195, 10, 10); // Hole for beam
+        ctx.fillText('(+)', 115, 145);
+    }
+
+    function drawPlates() {
+        // Electric Plates
+        const alpha = Math.abs(state.electricField) / 100;
+        const color = state.electricField > 0 ? `rgba(255, 100, 100, ${alpha + 0.2})` : `rgba(100, 100, 255, ${alpha + 0.2})`;
+        
+        // Top Plate
+        ctx.fillStyle = state.electricField > 0 ? '#ffcccc' : '#ccccff'; // + or - color
+        ctx.fillRect(180, 140, 150, 10);
+        if(state.electricField !== 0) {
+            ctx.fillStyle = '#fff';
+            ctx.fillText(state.electricField > 0 ? '+' : '-', 250, 135);
+        }
+
+        // Bottom Plate
+        ctx.fillStyle = state.electricField < 0 ? '#ffcccc' : '#ccccff';
+        ctx.fillRect(180, 250, 150, 10);
+        if(state.electricField !== 0) {
+            ctx.fillStyle = '#fff';
+            ctx.fillText(state.electricField < 0 ? '+' : '-', 250, 275);
+        }
+    }
+
+    function drawMagnet() {
+        if (state.magneticField === 0) return;
+        
+        // Simple visual representation of Magnet
+        ctx.save();
+        ctx.globalAlpha = Math.abs(state.magneticField) / 120;
+        // Draw a magnet graphic overlay
+        ctx.fillStyle = state.magneticField > 0 ? 'red' : 'blue';
+        ctx.font = '40px Arial';
+        // Position changes slightly to simulate N/S switching
+        ctx.fillText(state.magneticField > 0 ? 'N' : 'S', 240, 320); 
+        ctx.restore();
+    }
+
+    function drawPaddle() {
+        if (!state.hasPaddle) return;
+        
+        const px = 400;
+        const py = 200;
+        
+        ctx.save();
+        ctx.translate(px, py);
+        ctx.rotate(state.paddleAngle);
+        
+        ctx.fillStyle = '#DAA520'; // Gold color
+        ctx.beginPath();
+        // Draw blades
+        for(let i=0; i<4; i++) {
+            ctx.fillRect(-2, -25, 4, 50);
+            ctx.rotate(Math.PI/2);
+        }
+        ctx.beginPath();
+        ctx.arc(0,0, 5, 0, Math.PI*2);
+        ctx.fill();
+        
+        ctx.restore();
+        
+        // Stand
+        ctx.strokeStyle = '#888';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(px, py+5);
+        ctx.lineTo(px, 340); // Bottom of glass
+        ctx.stroke();
+    }
+
+    function drawBeam() {
+        if (state.intensity < 10) return; // Beam off
+
+        ctx.strokeStyle = `rgba(0, 255, 0, ${state.intensity/100})`;
+        ctx.lineWidth = 3;
+        ctx.shadowBlur = 10;
+        ctx.shadowColor = '#0f0';
+
+        ctx.beginPath();
+        ctx.moveTo(60, 200); // Cathode
+        ctx.lineTo(130, 200); // Anode hole
+
+        // Physics Simulation for Beam Path
+        // F = qE + qv x B
+        // Electron is negative (-).
+        // Electric Field (Up is +): Electron attracted to +, so goes UP if Field > 0.
+        // Magnetic Field: Simplified. Let's say Slider > 0 means force DOWN.
+        
+        const startX = 130;
+        const startY = 200;
+        const endX = 550;
+        
+        // Net vertical force factor
+        // Electric: +Slider -> Pulls Up (because top plate becomes +)
+        const forceE = -state.electricField * 1.5; // Negative because Y grows downward in Canvas
+        
+        // Magnetic: +Slider -> Pulls Down (Simplified Lorentz)
+        const forceB = state.magneticField * 1.5; 
+        
+        const netForceY = forceE + forceB; 
+        
+        // Quadratic Curve Control Point
+        // If force is 0, control point y is 200 (straight line)
+        const controlX = (startX + endX) / 2;
+        const controlY = startY + netForceY;
+
+        ctx.quadraticCurveTo(controlX, controlY, endX, startY + (netForceY * 1.8));
+        ctx.stroke();
+        ctx.shadowBlur = 0; // Reset
+
+        // Paddle Collision Logic
+        // If beam is roughly straight (low force) and paddle exists
+        if (state.hasPaddle && Math.abs(netForceY) < 30) {
+            state.paddleAngle += 0.1; // Spin!
+        }
+
+        // Spot on Screen
+        ctx.fillStyle = '#0f0';
+        ctx.shadowBlur = 15;
+        ctx.beginPath();
+        ctx.arc(endX, startY + (netForceY * 1.8), 5 + (state.intensity/20), 0, Math.PI*2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        drawTube();
+        drawPlates();
+        drawPaddle();
+        drawBeam();
+        drawMagnet();
+        
+        updateFeedback();
+        
+        requestAnimationFrame(animate);
+    }
+
+    // --- Logic & Interaction ---
+    const iSlider = document.getElementById('intensitySlider');
+    const eSlider = document.getElementById('electricSlider');
+    const mSlider = document.getElementById('magneticSlider');
+    const pCheck = document.getElementById('paddleCheck');
+    const eVal = document.getElementById('electricValue');
+    const mVal = document.getElementById('magneticValue');
+    const feedbackText = document.getElementById('feedbackText');
+
+    function updateState() {
+        state.intensity = parseInt(iSlider.value);
+        state.electricField = parseInt(eSlider.value);
+        state.magneticField = parseInt(mSlider.value);
+        state.hasPaddle = pCheck.checked;
+
+        eVal.innerText = state.electricField + " V";
+        mVal.innerText = state.magneticField + " (상대값)";
+    }
+
+    [iSlider, eSlider, mSlider, pCheck].forEach(el => {
+        el.addEventListener('input', updateState);
+    });
+
+    function updateFeedback() {
+        let msg = "";
+        
+        if (state.intensity < 10) {
+            msg = "전압이 너무 낮아 음극선이 보이지 않습니다. 전압 세기를 높여보세요.";
+        } else {
+            const e = state.electricField;
+            const b = state.magneticField;
+            
+            if (state.hasPaddle) {
+                if (Math.abs(e) < 20 && Math.abs(b) < 20) {
+                    msg = "<span class='highlight'>발견!</span> 음극선이 바람개비를 때려 회전시키고 있습니다. <br>→ <strong>결론: 음극선은 질량을 가진 입자다.</strong>";
+                } else {
+                    msg = "음극선이 휘어져 바람개비를 맞추지 못하고 있습니다. 전기장/자기장을 0으로 맞춰보세요.";
+                }
+            } else if (Math.abs(e) > 10) {
+                const dir = e > 0 ? "위쪽(+)극" : "아래쪽(+)극";
+                msg = `음극선이 <strong>${dir}</strong>으로 휘어지고 있습니다.<br>→ <strong>결론: 음극선은 (-)전하를 띤다.</strong> (다른 전하끼리는 인력 작용)`;
+            } else if (Math.abs(b) > 10) {
+                msg = "자기장에 의해 음극선이 휘어지고 있습니다. <br>→ <strong>결론: 전하를 띤 입자가 움직이면 자기장의 힘을 받는다.</strong>";
+            } else {
+                msg = "음극선이 직진하고 있습니다. 전기장이나 자기장을 걸어보거나 바람개비를 설치해보세요.";
+            }
+        }
+        feedbackText.innerHTML = msg;
+    }
+
+    function resetExperiment() {
+        iSlider.value = 80;
+        eSlider.value = 0;
+        mSlider.value = 0;
+        pCheck.checked = false;
+        updateState();
+    }
+
+    // --- Assessment Logic ---
+    const quizzes = [
+        {
+            q: "1. 음극선이 (+)극 쪽으로 휘어지는 현상을 통해 알 수 있는 사실은?",
+            options: ["음극선은 (+)전하를 띤다", "음극선은 (-)전하를 띤다", "음극선은 중성이다"],
+            a: 1
+        },
+        {
+            q: "2. 바람개비가 회전하는 현상은 음극선의 어떤 성질 때문인가?",
+            options: ["질량을 가진 입자다", "빛과 같은 파동이다", "매우 뜨거운 열을 가지고 있다"],
+            a: 0
+        },
+        {
+            q: "3. 톰슨은 이 실험을 통해 원자 내부에 무엇이 존재함을 밝혔는가?",
+            options: ["원자핵", "전자", "중성자"],
+            a: 1
+        }
+    ];
+    let currentQuiz = 0;
+
+    function loadQuiz() {
+        const qData = quizzes[currentQuiz];
+        document.getElementById('quizQuestion').innerText = qData.q;
+        const optsDiv = document.getElementById('quizOptions');
+        optsDiv.innerHTML = "";
+        document.getElementById('quizResult').innerText = "";
+        
+        qData.options.forEach((opt, idx) => {
+            const btn = document.createElement('button');
+            btn.innerText = opt;
+            btn.onclick = () => checkAnswer(idx);
+            optsDiv.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(idx) {
+        const res = document.getElementById('quizResult');
+        if (idx === quizzes[currentQuiz].a) {
+            res.innerText = "✅ 정답입니다! 다음 문제로 넘어가보세요.";
+            res.style.color = "#4CAF50";
+        } else {
+            res.innerText = "❌ 다시 생각해보세요. 시뮬레이션을 다시 조작해보는 건 어떨까요?";
+            res.style.color = "#ff6b6b";
+        }
+    }
+
+    function nextQuiz() {
+        currentQuiz = (currentQuiz + 1) % quizzes.length;
+        loadQuiz();
+    }
+
+    // --- Reporting ---
+    function generateReport() {
+        const modal = document.getElementById('reportModal');
+        const content = document.getElementById('reportContent');
+        const date = new Date().toLocaleString();
+        
+        let observation = feedbackText.innerText.replace(/<[^>]*>/g, '');
+        
+        content.innerHTML = `
+            <p><strong>일시:</strong> ${date}</p>
+            <p><strong>실험 주제:</strong> 톰슨의 음극선 실험 (전자의 발견)</p>
+            <hr>
+            <h3>[실험 설정 값]</h3>
+            <ul>
+                <li>음극선 세기: ${state.intensity}</li>
+                <li>인가 전압(전기장): ${state.electricField} V</li>
+                <li>자기장 세기: ${state.magneticField}</li>
+                <li>바람개비 설치: ${state.hasPaddle ? '예' : '아니오'}</li>
+            </ul>
+            <h3>[관찰 결과 및 해석]</h3>
+            <p>${observation}</p>
+            <h3>[학습 핵심]</h3>
+            <p>본 실험을 통해 음극선은 질량을 가지고 (-)전하를 띤 입자(전자)의 흐름임을 확인하였습니다.</p>
+        `;
+        modal.style.display = 'flex';
+    }
+
+    function closeReport() {
+        document.getElementById('reportModal').style.display = 'none';
+    }
+
+    // Initialize
+    updateState();
+    animate();
+    loadQuiz();
+
+</script>
+</body>
+</html>

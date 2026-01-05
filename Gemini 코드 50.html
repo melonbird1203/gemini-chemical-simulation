@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물과 에탄올의 분리 (증류)</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            width: 100%;
+            max-width: 1200px;
+        }
+        
+        /* 제어 패널 스타일 */
+        .control-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 300px;
+        }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="range"], select { width: 100%; }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-top: 5px;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: #e74c3c; margin-top: 10px; }
+        
+        /* 실험 장치 시각화 */
+        .lab-view {
+            background: white;
+            width: 400px;
+            height: 400px;
+            border-radius: 15px;
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+            border-bottom: 5px solid #ccc; /* 실험대 */
+        }
+        
+        /* 플라스크 및 구성품 */
+        .flask {
+            width: 80px;
+            height: 80px;
+            border: 3px solid #333;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 60px;
+            left: 50px;
+            background: rgba(255,255,255,0.5);
+            z-index: 2;
+        }
+        .flask::before { /* 플라스크 목 */
+            content: '';
+            position: absolute;
+            top: -40px;
+            left: 25px;
+            width: 30px;
+            height: 40px;
+            border-left: 3px solid #333;
+            border-right: 3px solid #333;
+            background: rgba(255,255,255,0.5);
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 50%;
+            background: linear-gradient(to top, #a1c4fd 0%, #c2e9fb 100%);
+            border-bottom-left-radius: 50%;
+            border-bottom-right-radius: 50%;
+            transition: height 0.5s;
+        }
+        .boiling-chips {
+            position: absolute;
+            bottom: 5px;
+            left: 20px;
+            width: 40px;
+            height: 10px;
+            display: none;
+        }
+        .chip {
+            width: 6px;
+            height: 6px;
+            background: #555;
+            border-radius: 50%;
+            display: inline-block;
+            margin: 1px;
+        }
+        
+        /* 냉각기 및 수집기 */
+        .condenser {
+            position: absolute;
+            top: 120px;
+            left: 130px;
+            width: 150px;
+            height: 20px;
+            background: #dfe6e9;
+            border: 2px solid #333;
+            transform: rotate(15deg);
+            z-index: 1;
+        }
+        .collector {
+            position: absolute;
+            bottom: 60px;
+            right: 50px;
+            width: 50px;
+            height: 70px;
+            border: 3px solid #333;
+            border-top: none;
+            background: rgba(255,255,255,0.5);
+        }
+        .collected-liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background: rgba(255, 200, 200, 0.7); /* 에탄올 색상 구분 */
+            transition: height 0.2s;
+        }
+
+        /* 불꽃 */
+        .flame {
+            position: absolute;
+            bottom: 20px;
+            left: 80px;
+            width: 20px;
+            height: 30px;
+            background: radial-gradient(ellipse at center, yellow 0%, red 100%);
+            border-radius: 50% 50% 20% 20%;
+            display: none;
+            animation: flicker 0.1s infinite alternate;
+        }
+        @keyframes flicker { from { transform: scale(1); } to { transform: scale(1.1); } }
+
+        /* 분자 애니메이션 */
+        .bubble {
+            position: absolute;
+            border-radius: 50%;
+            animation: rise 2s infinite;
+            opacity: 0.7;
+        }
+        @keyframes rise {
+            0% { transform: translateY(0); opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+
+        /* 그래프 영역 */
+        .graph-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 400px;
+            display: flex;
+            flex-direction: column;
+        }
+        canvas {
+            background-color: #fff;
+            border: 1px solid #ddd;
+            width: 100%;
+            height: 250px;
+        }
+
+        /* 알림 및 튜터 */
+        .tutor-box {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #e8f4fd;
+            border-left: 5px solid var(--primary-color);
+            font-size: 14px;
+        }
+        .status-display {
+            font-weight: bold;
+            color: #d35400;
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 물과 에탄올의 분리 (가상 실험실)</h1>
+
+    <div class="container">
+        <div class="control-panel">
+            <h3>🎛️ 실험 설정</h3>
+            
+            <div class="control-group">
+                <label>에탄올 농도: <span id="concVal">50</span>%</label>
+                <input type="range" id="concentration" min="10" max="90" value="50">
+            </div>
+
+            <div class="control-group">
+                <label>가열 속도</label>
+                <select id="heatSpeed">
+                    <option value="0.05">느림 (안전)</option>
+                    <option value="0.1" selected>보통</option>
+                    <option value="0.2">빠름 (주의)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="boilingChips"> 끓임쪽 넣기 (필수!)
+                </label>
+            </div>
+
+            <button id="startBtn" onclick="startExperiment()">🔥 가열 시작</button>
+            <button class="reset" onclick="resetExperiment()">🔄 초기화</button>
+
+            <div class="tutor-box">
+                <strong>👩‍🏫 선생님의 팁:</strong><br>
+                <span id="tutorMsg">실험을 시작하기 전에 반드시 '끓임쪽'을 넣어주세요.</span>
+            </div>
+        </div>
+
+        <div class="lab-view">
+            <div class="status-display" id="tempDisplay">온도: 20.0℃</div>
+            
+            <div class="flask">
+                <div class="liquid" id="flaskLiquid"></div>
+                <div class="boiling-chips" id="chipsVisual">
+                    <span class="chip"></span><span class="chip"></span><span class="chip"></span>
+                </div>
+            </div>
+            
+            <div class="flame" id="flame"></div>
+
+            <div class="condenser"></div>
+
+            <div class="collector">
+                <div class="collected-liquid" id="collectedLiquid"></div>
+            </div>
+
+            <div id="bubblesArea"></div>
+        </div>
+
+        <div class="graph-panel">
+            <h3>📈 온도-시간 그래프</h3>
+            <canvas id="graphCanvas"></canvas>
+            <div style="margin-top: 10px; font-size: 14px;">
+                <p>💧 수집된 액체: <span id="collectedVol">0</span> mL</p>
+                <p>🧪 현재 분리 구간: <span id="phaseDisplay">-</span></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 변수 설정
+        let isRunning = false;
+        let temperature = 20;
+        let time = 0;
+        let ethanolAmount = 50; // 초기값
+        let waterAmount = 50;
+        let collectedAmount = 0;
+        let animationId;
+        
+        // 상수
+        const BOILING_POINT_ETHANOL = 78.3;
+        const BOILING_POINT_WATER = 100;
+        
+        // DOM 요소
+        const canvas = document.getElementById('graphCanvas');
+        const ctx = canvas.getContext('2d');
+        const tutorMsg = document.getElementById('tutorMsg');
+        const tempDisplay = document.getElementById('tempDisplay');
+        const flaskLiquid = document.getElementById('flaskLiquid');
+        const collectedLiquid = document.getElementById('collectedLiquid');
+        const flame = document.getElementById('flame');
+        const bubblesArea = document.getElementById('bubblesArea');
+        const startBtn = document.getElementById('startBtn');
+        
+        // 캔버스 초기화
+        canvas.width = 360;
+        canvas.height = 250;
+        
+        // 슬라이더 이벤트
+        document.getElementById('concentration').addEventListener('input', (e) => {
+            document.getElementById('concVal').innerText = e.target.value;
+            ethanolAmount = parseInt(e.target.value);
+            waterAmount = 100 - ethanolAmount;
+            if(!isRunning) resetLiquidVisuals();
+        });
+
+        document.getElementById('boilingChips').addEventListener('change', (e) => {
+            document.getElementById('chipsVisual').style.display = e.target.checked ? 'block' : 'none';
+        });
+
+        function resetLiquidVisuals() {
+            flaskLiquid.style.height = '50%';
+            flaskLiquid.style.background = `linear-gradient(to top, #a1c4fd 0%, #c2e9fb ${100-ethanolAmount}%, #ffecd2 ${100}%)`;
+            collectedLiquid.style.height = '0%';
+        }
+
+        function startExperiment() {
+            const hasChips = document.getElementById('boilingChips').checked;
+            
+            if (!hasChips) {
+                alert("⚠️ 위험!\n끓임쪽을 넣지 않으면 액체가 갑자기 튀어 오를 수 있습니다.\n안전을 위해 끓임쪽을 넣어주세요!");
+                tutorMsg.innerText = "안전 사고 예방을 위해 끓임쪽 체크박스를 선택해주세요.";
+                return;
+            }
+
+            if (isRunning) return;
+            isRunning = true;
+            startBtn.disabled = true;
+            flame.style.display = 'block';
+            tutorMsg.innerText = "가열이 시작되었습니다. 온도 변화를 관찰하세요.";
+            
+            // 그래프 초기화
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            ctx.beginPath();
+            ctx.moveTo(30, 220); // 시작점
+
+            animate();
+        }
+
+        function animate() {
+            if (!isRunning) return;
+
+            const speed = parseFloat(document.getElementById('heatSpeed').value);
+            time += 0.5;
+
+            // --- 물리 엔진 로직 (간소화) ---
+            let phase = "";
+            let targetTemp = 0;
+
+            // 1. 가열 구간 (20도 -> 78도)
+            if (temperature < BOILING_POINT_ETHANOL) {
+                temperature += speed * 5; 
+                phase = "가열 중";
+            } 
+            // 2. 에탄올 끓는 구간 (약 78도 유지)
+            else if (ethanolAmount > 0) {
+                // 약간의 온도 변화(현실감)
+                temperature = BOILING_POINT_ETHANOL + (Math.random() * 0.5); 
+                ethanolAmount -= speed * 2; // 에탄올 감소
+                collectedAmount += speed * 2; // 수집량 증가
+                phase = "에탄올 분리 중 (78℃)";
+                createBubble('ethanol'); // 붉은 기포
+                tutorMsg.innerText = "📢 관찰하세요! 온도가 일정하게 유지되며 에탄올이 기화되고 있습니다.";
+                document.getElementById('phaseDisplay').innerText = "에탄올 끓는점 구간";
+                document.getElementById('phaseDisplay').style.color = "red";
+            }
+            // 3. 중간 상승 구간 (78도 -> 100도)
+            else if (temperature < BOILING_POINT_WATER) {
+                temperature += speed * 5;
+                phase = "온도 상승 중";
+                tutorMsg.innerText = "에탄올이 모두 분리되었습니다. 다시 온도가 올라갑니다.";
+                document.getElementById('phaseDisplay').innerText = "전이 구간";
+                document.getElementById('phaseDisplay').style.color = "black";
+            }
+            // 4. 물 끓는 구간 (100도)
+            else if (waterAmount > 0) {
+                temperature = BOILING_POINT_WATER + (Math.random() * 0.5);
+                waterAmount -= speed * 2;
+                // 물은 수집하지 않는 것으로 시나리오 설정 (혹은 섞임)
+                phase = "물 끓는 중 (100℃)";
+                createBubble('water'); // 파란 기포
+                tutorMsg.innerText = "이제 물이 끓기 시작합니다.";
+                document.getElementById('phaseDisplay').innerText = "물 끓는점 구간";
+                 document.getElementById('phaseDisplay').style.color = "blue";
+            } else {
+                finishExperiment();
+            }
+
+            // 시각적 업데이트
+            updateVisuals();
+            drawGraph();
+
+            if (isRunning) animationId = requestAnimationFrame(animate);
+        }
+
+        function updateVisuals() {
+            tempDisplay.innerText = `온도: ${temperature.toFixed(1)}℃`;
+            
+            // 플라스크 수위 조절 (단순화)
+            let totalVol = ethanolAmount + waterAmount;
+            flaskLiquid.style.height = `${totalVol / 2}%`; // 초기 100일때 50%
+            
+            // 수집병 수위 조절
+            collectedLiquid.style.height = `${collectedAmount / 1.5}%`;
+            document.getElementById('collectedVol').innerText = collectedAmount.toFixed(1);
+        }
+
+        function createBubble(type) {
+            const bubble = document.createElement('div');
+            bubble.classList.add('bubble');
+            const size = Math.random() * 10 + 5;
+            bubble.style.width = `${size}px`;
+            bubble.style.height = `${size}px`;
+            bubble.style.left = `${50 + Math.random() * 40}px`; // 플라스크 위치
+            bubble.style.bottom = '80px';
+            
+            // 색상 구분 (교육적 요소)
+            bubble.style.background = type === 'ethanol' ? 'red' : 'blue';
+            
+            document.querySelector('.lab-view').appendChild(bubble);
+            
+            // 애니메이션 후 제거
+            setTimeout(() => { bubble.remove(); }, 1500);
+        }
+
+        function drawGrid() {
+            ctx.strokeStyle = '#eee';
+            ctx.lineWidth = 1;
+            // 가로선 (온도)
+            for(let i=0; i<=120; i+=20) {
+                let y = 220 - (i * 1.8);
+                ctx.strokeText(i, 5, y);
+                ctx.beginPath(); ctx.moveTo(30, y); ctx.lineTo(360, y); ctx.stroke();
+            }
+            // 축 그리기
+            ctx.strokeStyle = '#333';
+            ctx.beginPath(); ctx.moveTo(30, 10); ctx.lineTo(30, 220); ctx.lineTo(360, 220); ctx.stroke();
+        }
+
+        function drawGraph() {
+            // 시간(x)과 온도(y)를 캔버스 좌표로 변환
+            let x = 30 + (time * 0.5);
+            let y = 220 - (temperature * 1.8);
+            
+            if (x > 360) { // 그래프가 넘어가면 멈춤 (혹은 스크롤 로직 필요)
+                isRunning = false;
+                tutorMsg.innerText = "그래프 기록 범위가 끝났습니다.";
+                return;
+            }
+
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = '#e74c3c';
+            ctx.lineTo(x, y);
+            ctx.stroke();
+        }
+
+        function finishExperiment() {
+            isRunning = false;
+            flame.style.display = 'none';
+            alert("실험 종료! \n모든 액체가 기화되었습니다.");
+            tutorMsg.innerText = "실험이 종료되었습니다. 그래프의 두 수평 구간을 비교해보세요.";
+            startBtn.disabled = false;
+        }
+
+        function resetExperiment() {
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            time = 0;
+            temperature = 20;
+            ethanolAmount = parseInt(document.getElementById('concentration').value);
+            waterAmount = 100 - ethanolAmount;
+            collectedAmount = 0;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGrid();
+            ctx.beginPath(); // 경로 초기화
+            
+            resetLiquidVisuals();
+            flame.style.display = 'none';
+            tutorMsg.innerText = "다시 실험할 준비가 되었습니다. 설정값을 변경해보세요.";
+            tempDisplay.innerText = "온도: 20.0℃";
+            document.getElementById('collectedVol').innerText = "0";
+            document.getElementById('phaseDisplay').innerText = "-";
+            startBtn.disabled = false;
+        }
+
+        // 초기 실행
+        drawGrid();
+        resetLiquidVisuals();
+
+    </script>
+</body>
+</html>

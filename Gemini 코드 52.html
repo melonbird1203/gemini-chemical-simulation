@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물과 식용유 분리하기</title>
+    <style>
+        /* --- 기본 스타일 설정 --- */
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            height: 100vh;
+            color: #333;
+        }
+
+        h1 { margin: 15px 0; color: #2c3e50; font-size: 1.5rem; }
+        
+        /* --- 레이아웃 --- */
+        .container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            max-width: 900px;
+            width: 95%;
+            height: 80vh;
+        }
+
+        /* --- 왼쪽: 설명 및 제어 패널 --- */
+        .control-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            border-right: 2px solid #eee;
+            padding-right: 20px;
+        }
+
+        .guide-box {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid #2196f3;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+
+        .status-display {
+            font-weight: bold;
+            color: #e67e22;
+            min-height: 20px;
+        }
+
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            background: #fafafa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .control-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-stopper { background: #607d8b; color: white; }
+        .btn-stopper.open { background: #4caf50; }
+        .btn-reset { background: #ff5722; color: white; margin-top: auto;}
+
+        input[type="range"] { width: 60%; cursor: pointer; }
+
+        /* --- 오른쪽: 시뮬레이션 영역 --- */
+        .sim-area {
+            flex: 1.5;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+            padding-top: 20px;
+            background: radial-gradient(circle at center, #ffffff 0%, #f0f0f0 100%);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        /* --- 분별깔때기 그래픽 --- */
+        .stand {
+            position: absolute;
+            width: 10px;
+            height: 90%;
+            background: #555;
+            left: 30%;
+            bottom: 0;
+        }
+        .stand-clamp {
+            position: absolute;
+            width: 60px;
+            height: 10px;
+            background: #555;
+            left: 30%;
+            top: 180px;
+        }
+
+        .funnel-container {
+            position: relative;
+            width: 120px;
+            height: 250px;
+            z-index: 2;
+        }
+
+        /* 깔때기 몸체 */
+        .funnel-body {
+            position: relative;
+            width: 100px;
+            height: 140px;
+            margin: 0 auto;
+            border: 3px solid #aaa;
+            border-top: none;
+            border-radius: 10% 10% 50% 50% / 10% 10% 90% 90%;
+            background: rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+            box-shadow: inset 5px 0 10px rgba(255,255,255,0.5);
+        }
+
+        /* 액체 층 */
+        .liquid-oil {
+            position: absolute;
+            top: 0;
+            width: 100%;
+            background: rgba(255, 235, 59, 0.8); /* 노란색 식용유 */
+            transition: height 0.1s linear;
+        }
+        .liquid-water {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            background: rgba(33, 150, 243, 0.8); /* 파란색 물 */
+            transition: height 0.1s linear;
+        }
+
+        /* 마개 (Stopper) */
+        .stopper {
+            width: 40px;
+            height: 20px;
+            background: #795548;
+            margin: -20px auto 0;
+            border-radius: 5px 5px 0 0;
+            transition: transform 0.3s;
+            cursor: pointer;
+            z-index: 5;
+        }
+        .stopper.open {
+            transform: translateY(-15px) rotate(15deg);
+        }
+
+        /* 콕 (Valve) */
+        .stem {
+            width: 10px;
+            height: 80px;
+            background: rgba(200,200,200,0.3);
+            border-left: 2px solid #aaa;
+            border-right: 2px solid #aaa;
+            margin: 0 auto;
+            position: relative;
+        }
+        
+        .valve-handle {
+            width: 40px;
+            height: 10px;
+            background: #d32f2f;
+            position: absolute;
+            top: 20px;
+            left: -15px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.1s;
+        }
+
+        /* 흐르는 물줄기 */
+        .stream {
+            position: absolute;
+            top: 250px; /* 깔때기 끝 */
+            left: 50%;
+            transform: translateX(-50%);
+            width: 4px;
+            background: #2196f3;
+            height: 0; /* 동적으로 변경 */
+            z-index: 1;
+            opacity: 0.8;
+        }
+
+        /* 비커 */
+        .beaker {
+            position: absolute;
+            bottom: 20px;
+            width: 100px;
+            height: 120px;
+            border: 2px solid #aaa;
+            border-top: none;
+            background: rgba(255,255,255,0.3);
+            border-radius: 0 0 10px 10px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column-reverse; /* 액체가 아래부터 차오름 */
+        }
+
+        .beaker-liquid {
+            width: 100%;
+            height: 0%;
+            background: #2196f3; /* 초기엔 물 */
+            transition: height 0.1s, background 0.5s;
+        }
+
+        .label {
+            position: absolute;
+            font-size: 0.8rem;
+            color: #666;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧪 실험 7: 물과 식용유 분리하기</h1>
+
+    <div class="container">
+        <div class="control-panel">
+            <div class="guide-box" id="guideText">
+                <strong>[1단계] 관찰하기</strong><br>
+                분별깔때기 안에 물(파랑)과 식용유(노랑)가 층을 이루고 있습니다. 어떤 것이 아래에 있나요?<br>
+                이제 분리를 준비해보세요.
+            </div>
+            
+            <div class="status-display" id="feedbackMsg">준비 완료</div>
+
+            <div class="controls">
+                <div class="control-item">
+                    <span>1. 위쪽 마개</span>
+                    <button class="btn-stopper" id="btnStopper" onclick="toggleStopper()">마개 닫힘 (Click)</button>
+                </div>
+
+                <div class="control-item">
+                    <span>2. 밸브(콕) 조절</span>
+                    <input type="range" id="valveSlider" min="0" max="100" value="0" oninput="updateValve()">
+                </div>
+                
+                <div style="font-size: 0.8rem; color: #666; text-align: right;">
+                    밸브 개방: <span id="valveValue">0</span>%
+                </div>
+            </div>
+
+            <div style="margin-top: 10px; font-size: 0.85rem; background: #eee; padding: 10px; border-radius: 5px;">
+                <strong>📊 현재 상태</strong><br>
+                - 물 잔여량: <span id="waterVolDisplay">50</span> mL<br>
+                - 식용유 잔여량: <span id="oilVolDisplay">50</span> mL
+            </div>
+
+            <button class="btn-reset" onclick="resetExperiment()">🔄 실험 다시하기</button>
+        </div>
+
+        <div class="sim-area">
+            <div class="stand"></div>
+            <div class="stand-clamp"></div>
+
+            <div class="funnel-container">
+                <div class="stopper" id="visualStopper" onclick="toggleStopper()"></div>
+                
+                <div class="funnel-body">
+                    <div class="liquid-oil" id="layerOil" style="height: 50%;"></div>
+                    <div class="liquid-water" id="layerWater" style="height: 50%;"></div>
+                    
+                    <div class="label" style="top: 20px; right: 10px;">식용유<br>(밀도 0.9)</div>
+                    <div class="label" style="bottom: 20px; right: 10px;">물<br>(밀도 1.0)</div>
+                </div>
+
+                <div class="stem">
+                    <div class="valve-handle" id="visualValve"></div>
+                </div>
+            </div>
+
+            <div class="stream" id="streamLine"></div>
+
+            <div class="beaker">
+                <div class="beaker-liquid" id="beakerLiquid"></div>
+                <div class="label" style="bottom: 5px; width:100%; text-align:center;">비커</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 상태 변수 ---
+        let state = {
+            stopperOpen: false,
+            valveOpen: 0, // 0 to 100
+            waterVol: 50, // mL
+            oilVol: 50,   // mL
+            beakerVol: 0,
+            isFailed: false,
+            isFinished: false
+        };
+
+        const TOTAL_HEIGHT_PX = 140; // 깔때기 액체 영역 픽셀 높이
+        const MAX_VOL = 100; // 총 부피
+
+        // --- DOM 요소 참조 ---
+        const ui = {
+            stopperBtn: document.getElementById('btnStopper'),
+            visualStopper: document.getElementById('visualStopper'),
+            valveSlider: document.getElementById('valveSlider'),
+            valveValue: document.getElementById('valveValue'),
+            visualValve: document.getElementById('visualValve'),
+            feedback: document.getElementById('feedbackMsg'),
+            guide: document.getElementById('guideText'),
+            layerWater: document.getElementById('layerWater'),
+            layerOil: document.getElementById('layerOil'),
+            beakerLiquid: document.getElementById('beakerLiquid'),
+            stream: document.getElementById('streamLine'),
+            waterDisplay: document.getElementById('waterVolDisplay'),
+            oilDisplay: document.getElementById('oilVolDisplay')
+        };
+
+        // --- 조작 함수 ---
+
+        function toggleStopper() {
+            state.stopperOpen = !state.stopperOpen;
+            
+            // UI 업데이트
+            if (state.stopperOpen) {
+                ui.stopperBtn.textContent = "마개 열림";
+                ui.stopperBtn.classList.add('open');
+                ui.visualStopper.classList.add('open');
+                ui.feedback.textContent = "마개가 열렸습니다. 공기가 통합니다.";
+                ui.feedback.style.color = "#4caf50";
+            } else {
+                ui.stopperBtn.textContent = "마개 닫힘";
+                ui.stopperBtn.classList.remove('open');
+                ui.visualStopper.classList.remove('open');
+                ui.feedback.textContent = "마개가 닫혔습니다.";
+                ui.feedback.style.color = "#333";
+            }
+        }
+
+        function updateValve() {
+            state.valveOpen = parseInt(ui.valveSlider.value);
+            ui.valveValue.textContent = state.valveOpen;
+            
+            // 밸브 시각적 회전 (90도가 열림)
+            const rotation = state.valveOpen * 0.9; 
+            ui.visualValve.style.transform = `rotate(${rotation}deg)`;
+
+            // 마개 안 열고 밸브 열었을 때 피드백
+            if (state.valveOpen > 0 && !state.stopperOpen) {
+                ui.feedback.textContent = "⚠️ 주의: 마개를 열지 않으면 액체가 잘 나오지 않습니다!";
+                ui.feedback.style.color = "red";
+            } else if (state.valveOpen > 0) {
+                ui.feedback.textContent = "밸브가 열렸습니다. 분리 중...";
+                ui.feedback.style.color = "#2196f3";
+            }
+        }
+
+        function resetExperiment() {
+            state = { stopperOpen: false, valveOpen: 0, waterVol: 50, oilVol: 50, beakerVol: 0, isFailed: false, isFinished: false };
+            ui.valveSlider.value = 0;
+            ui.valveSlider.disabled = false;
+            toggleStopper(); // Reset UI calls
+            toggleStopper(); // Double toggle to ensure false state logic runs or manual reset
+            
+            // Force reset visuals
+            state.stopperOpen = false;
+            ui.stopperBtn.classList.remove('open');
+            ui.stopperBtn.textContent = "마개 닫힘";
+            ui.visualStopper.classList.remove('open');
+            
+            updateValve();
+            updateVisuals();
+            
+            ui.beakerLiquid.style.backgroundColor = "#2196f3"; // Reset color
+            ui.guide.innerHTML = "<strong>[실험 초기화]</strong><br>다시 처음부터 시도해보세요.<br>1. 마개 열기 -> 2. 밸브 조심스럽게 열기";
+            ui.feedback.textContent = "준비 완료";
+        }
+
+        // --- 물리 엔진 루프 (Animation Loop) ---
+        function loop() {
+            if (state.valveOpen > 0 && !state.isFinished) {
+                
+                // 흐름 로직
+                // 마개가 닫혀있으면 흐름이 아주 미세하거나 없음 (여기서는 0으로 처리하여 교육적 효과 강조)
+                let flowFactor = state.stopperOpen ? 1 : 0; 
+                
+                // 밸브 열림 정도에 따른 속도 (최대 0.5 unit/frame)
+                let speed = (state.valveOpen / 100) * 0.5 * flowFactor;
+
+                if (speed > 0) {
+                    // 흐르는 애니메이션 표시
+                    let streamHeight = 160; // 깔때기 끝에서 비커까지
+                    ui.stream.style.height = `${streamHeight}px`;
+
+                    // 액체 감소/증가 로직
+                    if (state.waterVol > 0) {
+                        state.waterVol -= speed;
+                        state.beakerVol += speed;
+                        if (state.waterVol < 0) state.waterVol = 0;
+                    } else if (state.oilVol > 0) {
+                        // 물이 다 빠지고 기름이 나오기 시작함 (실패 상황)
+                        state.oilVol -= speed;
+                        state.beakerVol += speed;
+                        
+                        if (!state.isFailed) {
+                            state.isFailed = true;
+                            failExperiment();
+                        }
+                    }
+
+                    // 모든 액체 소진
+                    if (state.waterVol <= 0 && state.oilVol <= 0) {
+                        state.isFinished = true;
+                        ui.stream.style.height = "0px";
+                    }
+
+                } else {
+                    // 밸브는 열렸으나 마개가 닫혀 안나오는 상황
+                     ui.stream.style.height = "0px";
+                     // 시각적 꿀렁임 효과 등을 추가할 수 있으나 여기선 텍스트 경고로 대체
+                }
+
+            } else {
+                ui.stream.style.height = "0px";
+            }
+            
+            // 성공 판정 (물만 다 빼고 밸브 닫음)
+            if (!state.isFinished && !state.isFailed && state.waterVol <= 0.5 && state.valveOpen === 0) {
+                state.isFinished = true;
+                successExperiment();
+            }
+
+            updateVisuals();
+            requestAnimationFrame(loop);
+        }
+
+        function updateVisuals() {
+            // 깔때기 내부 높이 계산 (비율)
+            let waterH = (state.waterVol / MAX_VOL) * 100; // %
+            let oilH = (state.oilVol / MAX_VOL) * 100; // %
+
+            // 실제 DOM 적용 (깔때기 내부는 div 2개로 구성)
+            // 전체 높이 중 비율만큼 차지하도록 조정. 
+            // 단, CSS flex나 % height는 부모 기준이므로 약간의 계산 필요
+            // 여기서는 심플하게 전체 100% 중 비율 할당
+            let totalCurrentVol = state.waterVol + state.oilVol;
+            if(totalCurrentVol === 0) totalCurrentVol = 1; // div/0 방지
+
+            // 깔때기 모양상 높이를 단순 비례로 하면 좀 이상하지만, 교육용 단순화를 위해 선형 비례 적용
+            ui.layerWater.style.height = `${(state.waterVol / 100) * 100}%`;
+            ui.layerOil.style.height = `${(state.oilVol / 100) * 100}%`;
+            ui.layerOil.style.top = '0'; // 기름은 항상 위
+            
+            // 비커 높이
+            // 비커 최대 용량 100mL 가정
+            let beakerH = (state.beakerVol / 100) * 100;
+            if (beakerH > 95) beakerH = 95; // 넘침 방지 시각화
+            ui.beakerLiquid.style.height = `${beakerH}%`;
+            
+            // 텍스트 업데이트
+            ui.waterDisplay.textContent = Math.round(state.waterVol);
+            ui.oilDisplay.textContent = Math.round(state.oilVol);
+        }
+
+        function failExperiment() {
+            ui.feedback.textContent = "앗! 밸브를 너무 늦게 잠가 식용유가 섞여 나왔습니다.";
+            ui.feedback.style.color = "red";
+            ui.beakerLiquid.style.backgroundColor = "#8bc34a"; // 섞인 색 (연두색)
+            ui.stream.style.backgroundColor = "#cddc39"; // 섞인 물줄기
+            ui.guide.innerHTML = "<strong>[실험 실패]</strong><br>순수한 물 분리에 실패했습니다.<br>경계면이 콕에 닿기 직전에 잠가야 합니다. <br>→ '실험 다시하기'를 눌러주세요.";
+        }
+
+        function successExperiment() {
+            ui.feedback.textContent = "🎉 성공! 물과 식용유를 완벽하게 분리했습니다!";
+            ui.feedback.style.color = "#E91E63";
+            ui.guide.innerHTML = "<strong>[학습 완료]</strong><br>훌륭합니다! 밀도 차이를 이용해 아래층의 물만 분리해냈습니다.<br>밀도가 큰 물질(물)이 먼저 나오는 것을 확인했나요?";
+            ui.valveSlider.disabled = true; // 조작 완료
+        }
+
+        // 시뮬레이션 시작
+        requestAnimationFrame(loop);
+
+    </script>
+</body>
+</html>

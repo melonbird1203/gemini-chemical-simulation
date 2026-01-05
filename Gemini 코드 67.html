@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 마그네슘의 연소와 물질의 변화</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #27ae60;
+            --warning-color: #f39c12;
+            --danger-color: #e74c3c;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        /* 레이아웃 */
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 1.8rem; }
+        header p { margin: 10px 0 0; opacity: 0.9; }
+
+        .lab-bench {
+            background: var(--panel-bg);
+            border-radius: 15px;
+            padding: 30px;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.05);
+            position: relative;
+            min-height: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            overflow: hidden;
+        }
+
+        /* 실험 도구 및 재료 스타일 */
+        .sample-container {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            width: 100%;
+            margin-bottom: 20px;
+        }
+
+        .sample-box {
+            text-align: center;
+            padding: 10px;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            min-width: 150px;
+            position: relative;
+        }
+
+        .magnesium-strip {
+            width: 100px;
+            height: 15px;
+            background: linear-gradient(90deg, #d7d7d7, #ffffff, #d7d7d7);
+            border: 1px solid #999;
+            margin: 20px auto;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.5s ease;
+            cursor: pointer;
+        }
+
+        /* 상태 변화 스타일 */
+        .magnesium-strip.cut {
+            width: 45px;
+            box-shadow: none;
+        }
+        
+        .magnesium-strip.cut::after {
+            content: '';
+            display: block;
+            width: 45px;
+            height: 15px;
+            background: linear-gradient(90deg, #d7d7d7, #ffffff, #d7d7d7);
+            border: 1px solid #999;
+            position: absolute;
+            left: 110%; /* 옆으로 이동 */
+            top: -1px;
+        }
+
+        .magnesium-strip.burned {
+            background: #f0f0f0;
+            border: 1px solid #e0e0e0;
+            border-radius: 50%;
+            width: 60px;
+            height: 30px;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.05);
+            /* 가루 느낌 */
+            background-image: radial-gradient(#ccc 10%, transparent 10%),
+                              radial-gradient(#ddd 10%, transparent 10%);
+            background-size: 5px 5px;
+        }
+
+        /* 애니메이션 효과 */
+        @keyframes flash {
+            0% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0.7); background: white; }
+            50% { box-shadow: 0 0 50px 50px rgba(255, 255, 255, 1); background: #fff; }
+            100% { box-shadow: 0 0 0 0 rgba(255, 255, 255, 0); }
+        }
+
+        .burning-anim {
+            animation: flash 1.5s ease-in-out;
+        }
+
+        @keyframes bubbles {
+            0% { transform: translateY(0) scale(0.5); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-20px) scale(1.2); opacity: 0; }
+        }
+
+        .bubble {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            background: rgba(173, 216, 230, 0.8);
+            border-radius: 50%;
+            pointer-events: none;
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: transform 0.1s, background 0.2s;
+            font-weight: bold;
+        }
+
+        button:active { transform: scale(0.95); }
+        
+        .btn-scissors { background-color: #3498db; color: white; }
+        .btn-burner { background-color: #e67e22; color: white; }
+        .btn-acid { background-color: #9b59b6; color: white; }
+        .btn-reset { background-color: #95a5a6; color: white; }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        /* 정보 및 로그 패널 */
+        .info-panel {
+            background: white;
+            padding: 20px;
+            margin-top: 20px;
+            border-radius: 10px;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .observation-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+            background: white;
+        }
+
+        .observation-table th, .observation-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: center;
+        }
+
+        .observation-table th { background-color: #f9f9f9; }
+
+        /* 퀴즈 섹션 */
+        .quiz-section {
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: none; /* 실험 완료 후 표시 */
+        }
+
+        .quiz-feedback {
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .safe-badge {
+            display: inline-block;
+            background: var(--success-color);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            margin-left: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 마그네슘의 연소와 물질의 변화</h1>
+        <p>물리 변화와 화학 변화의 차이를 가상 실험을 통해 관찰해봅시다.</p>
+        <div style="margin-top:10px; font-size: 0.9rem;">
+            <span class="safe-badge">안전 실험실</span>
+            <span>중학교 3학년 | 1. 화학 반응의 규칙과 에너지 변화</span>
+        </div>
+    </header>
+
+    <div class="lab-bench" id="labArea">
+        <div class="sample-container">
+            <div class="sample-box">
+                <h3>실험군 A</h3>
+                <p style="font-size:0.8rem; color:#666;">(가위로 자르기)</p>
+                <div id="sampleA" class="magnesium-strip" title="마그네슘 리본"></div>
+                <div id="reactionA" style="height: 30px; font-size:0.8rem; color:var(--primary-color);"></div>
+            </div>
+
+            <div class="sample-box">
+                <h3>실험군 B</h3>
+                <p style="font-size:0.8rem; color:#666;">(연소 시키기)</p>
+                <div id="sampleB" class="magnesium-strip" title="마그네슘 리본"></div>
+                <div id="reactionB" style="height: 30px; font-size:0.8rem; color:var(--primary-color);"></div>
+            </div>
+        </div>
+
+        <div id="statusMessage" style="text-align: center; font-weight: bold; min-height: 50px; color: var(--primary-color);">
+            실험을 시작하려면 아래 도구를 선택하세요.
+        </div>
+
+        <div class="controls">
+            <button class="btn-scissors" onclick="performPhysicalChange()">✂️ 가위 (자르기)</button>
+            <button class="btn-burner" onclick="performChemicalChange()">🔥 불 (연소)</button>
+            <button class="btn-acid" onclick="addAcid()" id="btnAcid" disabled>🧪 묽은 염산 (반응 확인)</button>
+            <button class="btn-reset" onclick="resetExperiment()">🔄 실험 초기화</button>
+        </div>
+    </div>
+
+    <div class="info-panel">
+        <h3>📝 관찰 기록</h3>
+        <table class="observation-table">
+            <thead>
+                <tr>
+                    <th>구분</th>
+                    <th>겉보기 성질 (색깔/모양)</th>
+                    <th>묽은 염산과의 반응</th>
+                    <th>변화의 종류</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>실험군 A (자른 마그네슘)</td>
+                    <td id="obs-A-prop">-</td>
+                    <td id="obs-A-acid">-</td>
+                    <td id="obs-A-type">-</td>
+                </tr>
+                <tr>
+                    <td>실험군 B (연소 후 마그네슘)</td>
+                    <td id="obs-B-prop">-</td>
+                    <td id="obs-B-acid">-</td>
+                    <td id="obs-B-type">-</td>
+                </tr>
+            </tbody>
+        </table>
+        <p style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+            💡 힌트: 염산과 반응하여 기포가 생기는 것은 마그네슘(Mg)의 성질입니다.
+        </p>
+    </div>
+
+    <div class="quiz-section" id="quizSection">
+        <h3>🧠 개념 확인 퀴즈</h3>
+        <p>Q. 마그네슘을 연소시켰을 때 기체가 발생하지 않는 이유는 무엇인가요?</p>
+        <div style="margin: 10px 0;">
+            <label><input type="radio" name="quiz1" value="wrong"> 마그네슘이 사라졌기 때문이다.</label><br>
+            <label><input type="radio" name="quiz1" value="correct"> 성질이 다른 새로운 물질(산화 마그네슘)로 변했기 때문이다.</label><br>
+            <label><input type="radio" name="quiz1" value="wrong"> 마그네슘이 단순히 뜨거워졌기 때문이다.</label>
+        </div>
+        <button onclick="checkQuiz()">정답 확인</button>
+        <p id="quizFeedback" class="quiz-feedback"></p>
+    </div>
+</div>
+
+<script>
+    // 상태 변수
+    let stateA = 'raw'; // raw, cut
+    let stateB = 'raw'; // raw, burned
+    let acidAdded = false;
+
+    // DOM 요소
+    const sampleA = document.getElementById('sampleA');
+    const sampleB = document.getElementById('sampleB');
+    const msgBox = document.getElementById('statusMessage');
+    const btnAcid = document.getElementById('btnAcid');
+    const quizSection = document.getElementById('quizSection');
+
+    // 테이블 셀
+    const tableCells = {
+        A_prop: document.getElementById('obs-A-prop'),
+        A_acid: document.getElementById('obs-A-acid'),
+        A_type: document.getElementById('obs-A-type'),
+        B_prop: document.getElementById('obs-B-prop'),
+        B_acid: document.getElementById('obs-B-acid'),
+        B_type: document.getElementById('obs-B-type'),
+    };
+
+    // 1. 물리 변화 (자르기)
+    function performPhysicalChange() {
+        if (acidAdded) return alert("이미 염산을 넣었습니다. 초기화 후 다시 시도하세요.");
+        
+        stateA = 'cut';
+        sampleA.classList.add('cut');
+        msgBox.innerHTML = "가위로 마그네슘 리본을 잘랐습니다.<br>모양은 변했지만 은백색 광택은 그대로입니다.";
+        
+        // 기록
+        tableCells.A_prop.textContent = "은백색, 작아짐";
+        tableCells.A_type.textContent = "물리 변화";
+        
+        checkReadyForAcid();
+    }
+
+    // 2. 화학 변화 (연소)
+    function performChemicalChange() {
+        if (acidAdded) return alert("이미 염산을 넣었습니다. 초기화 후 다시 시도하세요.");
+
+        msgBox.innerHTML = "⚠️ 주의: 마그네슘 연소 시 발생하는 강한 빛을 직접 보지 마세요.<br>가열 중...";
+        
+        // 연소 애니메이션
+        sampleB.classList.add('burning-anim');
+        
+        setTimeout(() => {
+            stateB = 'burned';
+            sampleB.classList.remove('burning-anim');
+            sampleB.classList.add('burned');
+            sampleB.title = "산화 마그네슘 (흰색 가루)";
+            
+            msgBox.innerHTML = "연소가 끝났습니다. 은백색 리본이 <strong>흰색 가루(산화 마그네슘)</strong>로 변했습니다.<br>화학 반응식: 2Mg + O₂ → 2MgO";
+
+            // 기록
+            tableCells.B_prop.textContent = "흰색 가루, 부서짐";
+            tableCells.B_type.textContent = "화학 변화";
+            
+            checkReadyForAcid();
+        }, 1500);
+    }
+
+    // 염산 버튼 활성화 체크
+    function checkReadyForAcid() {
+        if (stateA === 'cut' && stateB === 'burned') {
+            btnAcid.disabled = false;
+            btnAcid.style.animation = "pulse 1s infinite";
+        }
+    }
+
+    // 3. 염산 반응 테스트
+    function addAcid() {
+        acidAdded = true;
+        btnAcid.disabled = true;
+        btnAcid.style.animation = "none";
+        msgBox.innerHTML = "두 물질에 묽은 염산을 떨어뜨립니다...";
+
+        // A 반응 (기포 발생)
+        createBubbles(sampleA, true);
+        document.getElementById('reactionA').textContent = "기포 발생 (수소 기체)";
+        tableCells.A_acid.textContent = "반응함 (기체 발생)";
+
+        // B 반응 (반응 없음)
+        createBubbles(sampleB, false); // 시각적 효과만 살짝 주고 기포 X
+        document.getElementById('reactionB').textContent = "반응 없음";
+        tableCells.B_acid.textContent = "반응하지 않음";
+
+        setTimeout(() => {
+            msgBox.innerHTML = "결과 확인: <br><strong>자른 마그네슘</strong>은 여전히 마그네슘 성질을 가져 산과 반응하지만,<br><strong>연소된 마그네슘</strong>은 성질이 변해 산과 반응하지 않습니다.";
+            quizSection.style.display = "block"; // 퀴즈 보이기
+        }, 2000);
+    }
+
+    // 기포 애니메이션 생성 함수
+    function createBubbles(element, isActive) {
+        if (!isActive) return;
+
+        const count = 15;
+        for (let i = 0; i < count; i++) {
+            const bubble = document.createElement('div');
+            bubble.className = 'bubble';
+            
+            // 랜덤 위치 및 속도
+            const left = Math.random() * 50 + 20; // 요소 중앙 근처
+            const delay = Math.random() * 2;
+            
+            bubble.style.left = left + '%';
+            bubble.style.top = '50%';
+            bubble.style.animation = `bubbles 1.5s ease-in ${delay}s infinite`;
+            
+            element.appendChild(bubble);
+        }
+    }
+
+    // 실험 초기화
+    function resetExperiment() {
+        stateA = 'raw';
+        stateB = 'raw';
+        acidAdded = false;
+
+        sampleA.classList.remove('cut');
+        sampleA.innerHTML = ''; // 기포 제거
+        
+        sampleB.classList.remove('burned', 'burning-anim');
+        sampleB.innerHTML = '';
+        sampleB.title = "마그네슘 리본";
+
+        document.getElementById('reactionA').textContent = "";
+        document.getElementById('reactionB').textContent = "";
+
+        msgBox.textContent = "실험을 시작하려면 아래 도구를 선택하세요.";
+        
+        // 테이블 초기화
+        for (let key in tableCells) {
+            tableCells[key].textContent = "-";
+        }
+
+        btnAcid.disabled = true;
+        quizSection.style.display = "none";
+        document.getElementById('quizFeedback').textContent = "";
+        
+        // 라디오 버튼 초기화
+        const radios = document.getElementsByName('quiz1');
+        for(let r of radios) r.checked = false;
+    }
+
+    // 퀴즈 확인
+    function checkQuiz() {
+        const radios = document.getElementsByName('quiz1');
+        let val = null;
+        for (const radio of radios) {
+            if (radio.checked) val = radio.value;
+        }
+
+        const feedback = document.getElementById('quizFeedback');
+        if (val === 'correct') {
+            feedback.style.color = "var(--success-color)";
+            feedback.innerHTML = "✅ 정답입니다! <br>화학 변화는 물질의 원자 배열이 바뀌어 본래의 성질을 잃고 새로운 성질을 가진 물질이 되는 것입니다.";
+        } else if (val === 'wrong') {
+            feedback.style.color = "var(--danger-color)";
+            feedback.innerHTML = "❌ 다시 생각해보세요. <br>마그네슘 원자가 사라진 것이 아니라, 산소와 결합하여 '산화 마그네슘'이라는 새로운 화합물이 된 것입니다.";
+        } else {
+            feedback.textContent = "답을 선택해주세요.";
+        }
+    }
+</script>
+
+</body>
+</html>

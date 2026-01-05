@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 온도와 입자 운동</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --accent-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        h1 { margin: 0; color: #2c3e50; }
+        p.subtitle { color: #7f8c8d; margin-top: 5px; }
+
+        .container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* 캔버스 영역 */
+        .canvas-wrapper {
+            position: relative;
+        }
+        
+        canvas {
+            border: 2px solid #bdc3c7;
+            border-radius: 8px;
+            background: #ffffff;
+            cursor: pointer;
+        }
+
+        /* 컨트롤 및 정보 패널 */
+        .controls {
+            width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        label { font-weight: bold; display: block; margin-bottom: 5px; }
+        
+        /* 온도 슬라이더 커스텀 */
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .temp-display {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .status-box {
+            padding: 10px;
+            border-left: 4px solid var(--primary-color);
+            background: #eaf2f8;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+
+        .graph-container {
+            margin-top: 10px;
+            height: 120px;
+            border: 1px solid #ddd;
+            background: #fff;
+            position: relative;
+        }
+        
+        /* 퀴즈 영역 */
+        .quiz-section {
+            margin-top: 20px;
+            width: 100%;
+            max-width: 800px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357abd; }
+
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .feedback.correct { background: #d4edda; color: #155724; }
+        .feedback.wrong { background: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🔥 온도와 입자 운동 실험실</h1>
+        <p class="subtitle">중학교 2학년 과학: 온도가 변하면 입자는 어떻게 움직일까요?</p>
+    </header>
+
+    <div class="container">
+        <div class="canvas-wrapper">
+            <canvas id="simCanvas" width="400" height="400"></canvas>
+            <div style="text-align: center; font-size: 0.8em; color: #666; margin-top: 5px;">
+                *입자 모형: 실제 분자보다 크기를 확대하여 표현함
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>🌡️ 온도 조절기</label>
+                <input type="range" id="tempSlider" min="0" max="100" value="20">
+                <div class="temp-display"><span id="tempValue">20</span> ℃</div>
+                <div class="status-box" id="statusText">
+                    현재 온도는 20℃입니다. 입자들이 천천히 움직이고 있습니다.
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>📊 입자 속력 분포 (에너지)</label>
+                <canvas id="graphCanvas" width="270" height="100"></canvas>
+            </div>
+            
+            <button onclick="resetSimulation()">🔄 실험 초기화</button>
+        </div>
+    </div>
+
+    <div class="quiz-section">
+        <h3>📝 학습 확인 퀴즈</h3>
+        <p>Q. 온도를 80℃ 이상으로 높였을 때, 입자의 운동은 어떻게 변했나요?</p>
+        <div style="display: flex; gap: 10px; margin-bottom: 10px;">
+            <button onclick="checkAnswer(1)">점점 느려진다</button>
+            <button onclick="checkAnswer(2)">변화가 없다</button>
+            <button onclick="checkAnswer(3)">더 빠르고 활발해진다</button>
+        </div>
+        <div id="quizFeedback" class="feedback"></div>
+    </div>
+
+    <script>
+        // --- 1. 시뮬레이션 설정 변수 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const graphCanvas = document.getElementById('graphCanvas');
+        const graphCtx = graphCanvas.getContext('2d');
+        
+        const PARTICLE_COUNT = 50;
+        const PARTICLE_RADIUS = 6;
+        let particles = [];
+        let temperature = 20; // 초기 온도
+        let animationId;
+
+        // --- 2. 입자 클래스 정의 ---
+        class Particle {
+            constructor() {
+                this.x = Math.random() * (canvas.width - PARTICLE_RADIUS * 2) + PARTICLE_RADIUS;
+                this.y = Math.random() * (canvas.height - PARTICLE_RADIUS * 2) + PARTICLE_RADIUS;
+                
+                // 방향은 랜덤 (-1 ~ 1)
+                this.dx = (Math.random() - 0.5) * 2;
+                this.dy = (Math.random() - 0.5) * 2;
+                
+                // 온도에 따른 기본 속도 보정값
+                this.speedFactor = 0; 
+                this.updateSpeed();
+            }
+
+            // 온도에 따라 속력 재설정
+            updateSpeed() {
+                // 물리적 정확도보다는 시각적 이해를 돕기 위한 보정식 (v ~ sqrt(T))
+                // 0도일 때도 약간은 움직임 (절대영도가 아니므로)
+                const baseSpeed = 0.5 + (temperature / 100) * 4; 
+                this.speedFactor = baseSpeed;
+            }
+
+            move() {
+                this.x += this.dx * this.speedFactor;
+                this.y += this.dy * this.speedFactor;
+
+                // 벽 충돌 처리 (반사)
+                if (this.x - PARTICLE_RADIUS < 0 || this.x + PARTICLE_RADIUS > canvas.width) {
+                    this.dx = -this.dx;
+                    this.x = Math.max(PARTICLE_RADIUS, Math.min(this.x, canvas.width - PARTICLE_RADIUS));
+                }
+                if (this.y - PARTICLE_RADIUS < 0 || this.y + PARTICLE_RADIUS > canvas.height) {
+                    this.dy = -this.dy;
+                    this.y = Math.max(PARTICLE_RADIUS, Math.min(this.y, canvas.height - PARTICLE_RADIUS));
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, PARTICLE_RADIUS, 0, Math.PI * 2);
+                
+                // 온도에 따른 색상 변화 (차가움: 파랑 -> 뜨거움: 빨강)
+                const red = Math.min(255, (temperature / 100) * 255);
+                const blue = Math.min(255, 255 - (temperature / 100) * 255);
+                
+                ctx.fillStyle = `rgb(${red}, 50, ${blue})`;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // --- 3. 초기화 및 루프 함수 ---
+        function init() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+            animate();
+        }
+
+        function animate() {
+            // 화면 지우기 (잔상 효과 없이 깔끔하게)
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 모든 입자 업데이트 및 그리기
+            particles.forEach(p => {
+                p.move();
+                p.draw();
+            });
+
+            drawGraph(); // 그래프 업데이트
+            animationId = requestAnimationFrame(animate);
+        }
+
+        // --- 4. 그래프 그리기 (속도 분포 시각화) ---
+        function drawGraph() {
+            graphCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+            
+            // 그래프 배경 라인
+            graphCtx.strokeStyle = '#eee';
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, 80); graphCtx.lineTo(270, 80);
+            graphCtx.stroke();
+
+            // 맥스웰-볼츠만 분포 흉내 (단순 시각화용)
+            // 온도가 높을수록 그래프가 오른쪽으로 이동하고 넓게 퍼짐
+            const peak = 20 + (temperature / 100) * 150; // 피크 위치 이동
+            const width = 30 + (temperature / 100) * 50; // 분산 증가
+            
+            graphCtx.beginPath();
+            graphCtx.moveTo(0, 100);
+            
+            for(let x=0; x<270; x+=5) {
+                // 가우시안 분포 공식 변형
+                let y = 90 * Math.exp(-Math.pow(x - peak, 2) / (2 * Math.pow(width, 2)));
+                graphCtx.lineTo(x, 100 - y);
+            }
+            
+            graphCtx.strokeStyle = temperature > 50 ? '#e74c3c' : '#4a90e2';
+            graphCtx.lineWidth = 2;
+            graphCtx.stroke();
+            
+            // 축 라벨
+            graphCtx.fillStyle = '#666';
+            graphCtx.font = '10px sans-serif';
+            graphCtx.fillText('느림', 10, 95);
+            graphCtx.fillText('빠름', 240, 95);
+        }
+
+        // --- 5. 사용자 인터랙션 처리 ---
+        const slider = document.getElementById('tempSlider');
+        const tempDisplay = document.getElementById('tempValue');
+        const statusText = document.getElementById('statusText');
+
+        slider.addEventListener('input', (e) => {
+            temperature = parseInt(e.target.value);
+            tempDisplay.innerText = temperature;
+            
+            // 입자 속도 업데이트
+            particles.forEach(p => p.updateSpeed());
+
+            // 상태 텍스트 업데이트 (스캐폴딩)
+            if (temperature < 30) {
+                statusText.innerText = "온도가 낮습니다. 입자들이 둔하고 천천히 움직입니다.";
+            } else if (temperature < 70) {
+                statusText.innerText = "온도가 올라갔습니다. 입자들의 움직임이 점차 활발해집니다.";
+            } else {
+                statusText.innerText = "온도가 높습니다! 입자들이 매우 빠르고 격렬하게 움직입니다.";
+            }
+        });
+
+        function resetSimulation() {
+            slider.value = 20;
+            temperature = 20;
+            tempDisplay.innerText = 20;
+            statusText.innerText = "현재 온도는 20℃입니다. 입자들이 천천히 움직이고 있습니다.";
+            init();
+        }
+
+        // --- 6. 퀴즈 로직 ---
+        function checkAnswer(answerIdx) {
+            const feedback = document.getElementById('quizFeedback');
+            feedback.style.display = 'block';
+            
+            if (answerIdx === 3) {
+                feedback.className = 'feedback correct';
+                feedback.innerHTML = "✅ 정답입니다! 온도가 높다는 것은 입자 운동이 활발하다는 뜻입니다. (열에너지를 얻어 운동에너지가 증가함)";
+            } else {
+                feedback.className = 'feedback wrong';
+                feedback.innerHTML = "❌ 다시 관찰해보세요. 온도를 100도까지 올리면 입자가 천천히 움직이나요, 빠르게 움직이나요?";
+            }
+        }
+
+        // 실행 시작
+        init();
+
+    </script>
+</body>
+</html>

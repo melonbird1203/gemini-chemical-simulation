@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 오줌싸개 인형과 기체의 부피</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --hot-color: #ff6b6b;
+            --cold-color: #48dbfb;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 {
+            margin: 0;
+            color: var(--primary-color);
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            color: #666;
+        }
+
+        /* 메인 레이아웃 */
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* 왼쪽: 실험 화면 */
+        .experiment-panel {
+            flex: 2;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 300px;
+        }
+
+        canvas#mainCanvas {
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 10px;
+            cursor: pointer;
+        }
+
+        /* 오른쪽: 입자 모형 및 제어 */
+        .sidebar {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            min-width: 250px;
+        }
+
+        .particle-view {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+
+        canvas#particleCanvas {
+            background: #222;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+
+        .controls {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 버튼 스타일 */
+        button {
+            width: 100%;
+            padding: 12px;
+            margin: 5px 0;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: all 0.2s;
+            background-color: #e0e0e0;
+            color: #555;
+        }
+
+        button.active {
+            background-color: var(--primary-color);
+            color: white;
+            box-shadow: 0 4px 10px rgba(74, 144, 226, 0.3);
+        }
+
+        button:hover:not(:disabled) {
+            transform: translateY(-2px);
+        }
+
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .status-box {
+            margin-top: 15px;
+            padding: 15px;
+            background: #eef2f5;
+            border-left: 5px solid var(--primary-color);
+            border-radius: 4px;
+        }
+
+        .status-box h3 { margin-top: 0; font-size: 1rem; }
+        .status-box p { font-size: 0.9rem; line-height: 1.4; margin-bottom: 0; }
+
+        .temp-indicator {
+            font-size: 1.2rem;
+            font-weight: bold;
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .hot { color: var(--hot-color); }
+        .cold { color: var(--cold-color); }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 오줌싸개 인형 실험실</h1>
+    <div class="subtitle">중1 과학 > 기체의 성질 > 샤를의 법칙</div>
+</header>
+
+<div class="container">
+    <div class="experiment-panel">
+        <canvas id="mainCanvas" width="500" height="400"></canvas>
+        <div class="status-box" id="explanationBox">
+            <h3>실험 준비 완료</h3>
+            <p>오른쪽의 버튼을 눌러 실험을 단계별로 진행해보세요.</p>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <div class="particle-view">
+            <h3>🔍 인형 내부 기체 입자</h3>
+            <div class="temp-indicator" id="tempDisplay">25°C</div>
+            <canvas id="particleCanvas" width="200" height="150"></canvas>
+            <p style="font-size: 0.8rem; color: #666;">*온도가 높을수록 입자가 빨라져요!</p>
+        </div>
+
+        <div class="controls">
+            <h3>실험 단계</h3>
+            <button id="btnStep1" onclick="startStep(1)">1. 뜨거운 물에 넣기 (가열)</button>
+            <button id="btnStep2" onclick="startStep(2)" disabled>2. 찬물에 넣기 (냉각)</button>
+            <button id="btnStep3" onclick="startStep(3)" disabled>3. 뜨거운 물 붓기 (발사!)</button>
+            <button onclick="resetExperiment()" style="background-color: #666; color: white; margin-top: 15px;">🔄 실험 초기화</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    /* =========================================
+       1. 전역 변수 및 상태 관리
+       ========================================= */
+    const mainCanvas = document.getElementById('mainCanvas');
+    const mCtx = mainCanvas.getContext('2d');
+    const particleCanvas = document.getElementById('particleCanvas');
+    const pCtx = particleCanvas.getContext('2d');
+    const explainBox = document.getElementById('explanationBox');
+    const tempDisplay = document.getElementById('tempDisplay');
+
+    let currentStep = 0; // 0: 초기, 1: 가열, 2: 냉각, 3: 발사
+    let temperature = 25; // 섭씨
+    let waterInDoll = 0; // 인형 속 물의 양 (0 ~ 100)
+    let bubbles = []; // 기포 배열
+    let waterStream = []; // 물줄기 입자 배열
+    
+    // 입자 시뮬레이션 변수
+    const particles = [];
+    const NUM_PARTICLES = 30;
+
+    /* =========================================
+       2. 입자(Particle) 클래스 정의
+       ========================================= */
+    class Particle {
+        constructor() {
+            this.x = Math.random() * particleCanvas.width;
+            this.y = Math.random() * particleCanvas.height;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.radius = 3;
+        }
+
+        update(tempFactor) {
+            // 온도가 높을수록 속도 증가
+            this.x += this.vx * tempFactor;
+            this.y += this.vy * tempFactor;
+
+            // 벽 충돌 (튕기기)
+            if (this.x < 0 || this.x > particleCanvas.width) this.vx *= -1;
+            if (this.y < 0 || this.y > particleCanvas.height) this.vy *= -1;
+        }
+
+        draw(ctx, color) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = color;
+            ctx.fill();
+        }
+    }
+
+    // 초기 입자 생성
+    for (let i = 0; i < NUM_PARTICLES; i++) {
+        particles.push(new Particle());
+    }
+
+    /* =========================================
+       3. 메인 그리기 함수 (Main Drawing)
+       ========================================= */
+    function drawScene() {
+        mCtx.clearRect(0, 0, mainCanvas.width, mainCanvas.height);
+
+        // 배경 (책상)
+        mCtx.fillStyle = '#e0e0e0';
+        mCtx.fillRect(0, 300, 500, 100);
+
+        // 비커 그리기 (위치 및 상태에 따라 다르게)
+        if (currentStep === 1) {
+            drawBeaker(250, 280, '#ffdede', '뜨거운 물 (80°C)', true); // 인형 포함
+        } else if (currentStep === 2) {
+            drawBeaker(250, 280, '#def6ff', '차가운 물 (5°C)', true); // 인형 포함
+        } else if (currentStep === 3) {
+            drawDoll(250, 250, false); // 비커 없이 인형만 서 있음
+            drawWaterStream(); // 물줄기
+        } else {
+            drawDoll(250, 250, false); // 초기 상태
+        }
+
+        // 기포 애니메이션 (1단계)
+        if (currentStep === 1) {
+            drawBubbles();
+        }
+    }
+
+    function drawBeaker(x, y, color, label, hasDoll) {
+        // 비커 본체
+        mCtx.fillStyle = color;
+        mCtx.fillRect(x - 60, y - 100, 120, 120);
+        mCtx.strokeStyle = '#aaa';
+        mCtx.lineWidth = 2;
+        mCtx.strokeRect(x - 60, y - 100, 120, 120);
+        
+        // 라벨
+        mCtx.fillStyle = '#333';
+        mCtx.font = '14px sans-serif';
+        mCtx.textAlign = 'center';
+        mCtx.fillText(label, x, y + 40);
+
+        if (hasDoll) {
+            // 인형이 물 속에 잠김
+            drawDoll(x, y - 40, true);
+        }
+    }
+
+    function drawDoll(x, y, isSubmerged) {
+        // 인형 몸통 (단순화된 형태)
+        mCtx.fillStyle = '#f8c291'; // 살구색
+        mCtx.beginPath();
+        mCtx.arc(x, y, 30, 0, Math.PI * 2); // 머리
+        mCtx.fill();
+        
+        mCtx.beginPath(); // 몸통
+        mCtx.ellipse(x, y + 40, 35, 45, 0, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // 눈
+        mCtx.fillStyle = 'black';
+        mCtx.beginPath();
+        mCtx.arc(x - 10, y - 5, 2, 0, Math.PI * 2);
+        mCtx.arc(x + 10, y - 5, 2, 0, Math.PI * 2);
+        mCtx.fill();
+
+        // 입 (구멍)
+        mCtx.fillStyle = '#555';
+        mCtx.beginPath();
+        mCtx.arc(x, y + 10, 3, 0, Math.PI * 2); // 입 구멍
+        mCtx.fill();
+
+        // 내부 물 시각화 (반투명 파란색)
+        if (waterInDoll > 0) {
+            mCtx.save();
+            mCtx.globalAlpha = 0.6;
+            mCtx.fillStyle = '#00a8ff';
+            // 물이 차오르는 높이 계산
+            let height = (waterInDoll / 100) * 40;
+            mCtx.beginPath();
+            mCtx.arc(x, y + 40 + (40-height), height, 0, Math.PI * 2); // 대충 내부에 물 참
+            mCtx.fill();
+            mCtx.restore();
+        }
+    }
+
+    // 기포 로직 (1단계)
+    function createBubble() {
+        if(Math.random() > 0.9) {
+            bubbles.push({x: 250, y: 250, r: 2 + Math.random()*3, speed: 1 + Math.random()});
+        }
+    }
+
+    function drawBubbles() {
+        createBubble();
+        mCtx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        mCtx.strokeStyle = '#fff';
+        
+        for (let i = 0; i < bubbles.length; i++) {
+            let b = bubbles[i];
+            mCtx.beginPath();
+            mCtx.arc(b.x, b.y, b.r, 0, Math.PI * 2);
+            mCtx.fill();
+            mCtx.stroke();
+            
+            b.y -= b.speed; // 위로 상승
+            b.x += (Math.random() - 0.5) * 2; // 좌우 흔들림
+
+            // 화면 밖으로 나가면 제거
+            if (b.y < 180) { 
+                bubbles.splice(i, 1);
+                i--;
+            }
+        }
+    }
+
+    // 물줄기 로직 (3단계)
+    function drawWaterStream() {
+        // 물이 있으면 쏘기
+        if (waterInDoll > 0) {
+            mCtx.strokeStyle = '#00a8ff';
+            mCtx.lineWidth = 4;
+            mCtx.beginPath();
+            mCtx.moveTo(250, 260); // 입 위치
+            
+            // 포물선 그리기
+            mCtx.quadraticCurveTo(250 + 50, 200, 250 + 150, 300);
+            mCtx.stroke();
+
+            // 물 감소
+            waterInDoll -= 0.5;
+            
+            // 머리에 뜨거운 물 붓는 효과
+            mCtx.fillStyle = 'rgba(255,0,0,0.3)';
+            mCtx.fillRect(220, 200, 60, 20);
+            mCtx.fillStyle = 'red';
+            mCtx.font = "12px sans-serif";
+            mCtx.fillText("뜨거운 물 붓는 중!", 250, 190);
+        } else {
+            // 물 다 쏨
+            mCtx.fillStyle = '#333';
+            mCtx.fillText("발사 완료!", 250, 150);
+        }
+    }
+
+    /* =========================================
+       4. 입자 시뮬레이션 및 애니메이션 루프
+       ========================================= */
+    function animate() {
+        drawScene();
+
+        // 입자 캔버스 그리기
+        pCtx.fillStyle = 'rgba(0, 0, 0, 0.2)'; // 잔상 효과
+        pCtx.fillRect(0, 0, particleCanvas.width, particleCanvas.height);
+
+        let speedFactor = 1;
+        let particleColor = '#fff';
+
+        if (temperature > 50) {
+            speedFactor = 4.0; // 빠름
+            particleColor = '#ff6b6b'; // 빨강
+        } else if (temperature < 15) {
+            speedFactor = 0.5; // 느림
+            particleColor = '#48dbfb'; // 파랑
+        } else {
+            speedFactor = 1.5; // 보통
+            particleColor = '#fff';
+        }
+
+        particles.forEach(p => {
+            p.update(speedFactor);
+            p.draw(pCtx, particleColor);
+        });
+
+        requestAnimationFrame(animate);
+    }
+
+    /* =========================================
+       5. 실험 제어 로직 (Button Handlers)
+       ========================================= */
+    function startStep(step) {
+        currentStep = step;
+        
+        // 버튼 상태 업데이트
+        document.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+        document.getElementById(`btnStep${step}`).classList.add('active');
+
+        // 다음 단계 버튼 활성화 로직
+        if(step === 1) {
+            temperature = 80;
+            updateUI("🌡️ 가열 중 (80°C)", "hot", 
+                "<h3>1단계: 가열 (팽창)</h3><p>기체 온도가 올라가 입자 운동이 <b>활발</b>해집니다.<br>부피가 커져서 공기가 밖으로 <b>방울방울</b> 빠져나갑니다.</p>");
+            document.getElementById('btnStep2').disabled = false;
+        } 
+        else if (step === 2) {
+            temperature = 5;
+            waterInDoll = 50; // 물이 차오름 (시뮬레이션상 즉시 할당)
+            updateUI("❄️ 냉각 중 (5°C)", "cold", 
+                "<h3>2단계: 냉각 (수축)</h3><p>기체 온도가 내려가 입자 운동이 <b>둔해</b>집니다.<br>부피가 줄어들며 빈 공간으로 <b>물이 빨려 들어옵니다.</b></p>");
+            document.getElementById('btnStep3').disabled = false;
+        } 
+        else if (step === 3) {
+            temperature = 90;
+            updateUI("🔥 급가열 중 (90°C)", "hot", 
+                "<h3>3단계: 재가열 (발사!)</h3><p>갑자기 뜨거워지면 기체가 <b>급격히 팽창</b>합니다.<br>커진 기체 부피가 물을 밀어내어 <b>물줄기가 발사</b>됩니다!</p>");
+        }
+    }
+
+    function updateUI(tempText, tempClass, explainHtml) {
+        tempDisplay.innerText = tempText;
+        tempDisplay.className = `temp-indicator ${tempClass}`;
+        explainBox.innerHTML = explainHtml;
+    }
+
+    function resetExperiment() {
+        currentStep = 0;
+        temperature = 25;
+        waterInDoll = 0;
+        bubbles = [];
+        
+        document.getElementById('btnStep1').classList.remove('active');
+        document.getElementById('btnStep2').classList.remove('active');
+        document.getElementById('btnStep3').classList.remove('active');
+        document.getElementById('btnStep2').disabled = true;
+        document.getElementById('btnStep3').disabled = true;
+
+        updateUI("25°C", "", 
+            "<h3>실험 준비 완료</h3><p>초기화되었습니다. 다시 1단계부터 시작해보세요.</p>");
+    }
+
+    // 애니메이션 시작
+    animate();
+
+</script>
+
+</body>
+</html>

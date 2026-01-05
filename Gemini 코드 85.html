@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>탄소 화합물 가상 실험실 - Carbon Builder</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --secondary: #50e3c2;
+            --accent: #ff6b6b;
+            --bg: #f4f7f6;
+            --text: #333;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1, h2, h3 { margin-top: 0; color: #2c3e50; }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        /* 실험 영역 */
+        .lab-panel {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .viewer {
+            width: 100%;
+            height: 350px;
+            background: #eef2f5;
+            border-radius: 12px;
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px solid #ddd;
+        }
+        
+        #molecule-canvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        .controls {
+            display: grid;
+            gap: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 12px;
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        label { font-weight: bold; margin-right: 10px; }
+
+        input[type="range"] { flex: 1; margin: 0 10px; cursor: pointer; }
+        
+        .btn-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.2s;
+            background: #ddd;
+            color: #555;
+        }
+
+        button.active {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 2px 8px rgba(74, 144, 226, 0.4);
+        }
+
+        button:hover:not(.active) { background: #ccc; }
+
+        /* 정보 및 퀴즈 영역 */
+        .info-panel {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .molecule-card {
+            background: #f0f7ff;
+            border-left: 5px solid var(--primary);
+            padding: 15px;
+            border-radius: 4px;
+        }
+
+        .molecule-name { font-size: 1.5em; font-weight: bold; color: var(--primary); }
+        .molecule-formula { font-size: 1.2em; color: #666; font-family: monospace; }
+        
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.8em;
+            margin-right: 5px;
+            color: white;
+        }
+        .bg-saturated { background: var(--secondary); color: #005f4e; }
+        .bg-unsaturated { background: var(--accent); }
+        .bg-ring { background: #9b59b6; }
+
+        .real-life-box {
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px dashed #ccc;
+        }
+
+        .quiz-section {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ffeeba;
+        }
+
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+
+        /* 반응형 */
+        @media (max-width: 800px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <div style="text-align: center; margin-bottom: 20px;">
+        <h1>🧪 다양한 탄소 화합물 가상 실험실</h1>
+        <p>탄소 원자를 조립하여 나만의 분자를 만들고, 이름을 맞춰보세요!</p>
+    </div>
+
+    <div class="container">
+        <div class="lab-panel">
+            <div class="viewer">
+                <svg id="molecule-canvas" viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+                    </svg>
+                <div style="position: absolute; bottom: 10px; right: 10px; font-size: 0.8em; color: #999;">
+                    검은색: 탄소(C) / 흰색: 수소(H)
+                </div>
+            </div>
+
+            <div class="controls">
+                <div class="control-group">
+                    <label>탄소(C) 개수:</label>
+                    <input type="range" id="carbon-slider" min="1" max="5" value="1" step="1">
+                    <span id="carbon-val" style="font-weight:bold; color:var(--primary); width: 30px;">1</span>
+                </div>
+
+                <div class="control-group">
+                    <label>결합 방식:</label>
+                    <div class="btn-group">
+                        <button class="type-btn active" data-type="alkane">단일결합 (-ane)</button>
+                        <button class="type-btn" data-type="alkene">이중결합 (-ene)</button>
+                        <button class="type-btn" data-type="alkyne">삼중결합 (-yne)</button>
+                    </div>
+                </div>
+
+                <div class="control-group">
+                    <label>구조 형태:</label>
+                    <div class="btn-group">
+                        <button class="struct-btn active" data-struct="chain">사슬형 (Chain)</button>
+                        <button class="struct-btn" data-struct="ring">고리형 (Ring)</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="margin-top:10px; font-size: 0.9rem; color: #666;">
+                ⚠️ <strong>안내:</strong> 고리형은 탄소 3개 이상, 이중/삼중 결합은 탄소 2개 이상일 때만 가능합니다.
+            </div>
+        </div>
+
+        <div class="info-panel">
+            <div class="molecule-card">
+                <div id="mol-name" class="molecule-name">메테인 (Methane)</div>
+                <div id="mol-formula" class="molecule-formula">CH₄</div>
+                <div style="margin-top: 10px;">
+                    <span id="badge-sat" class="badge bg-saturated">포화 탄화수소</span>
+                    <span id="badge-shape" class="badge bg-saturated">사슬형</span>
+                </div>
+                
+                <div class="real-life-box">
+                    <strong>💡 실생활 활용:</strong>
+                    <p id="mol-desc">천연가스(LNG)의 주성분으로, 가정용 난방 및 조리용 연료로 사용됩니다.</p>
+                </div>
+            </div>
+
+            <div class="quiz-section">
+                <h3>📝 미니 퀴즈</h3>
+                <p id="quiz-question">이 화합물의 이름은 무엇일까요?</p>
+                <input type="text" id="quiz-input" placeholder="이름을 입력하세요 (예: 에테인)" style="width: 100%; padding: 8px; margin-top: 5px; box-sizing: border-box;">
+                <button onclick="checkAnswer()" style="margin-top: 10px; width: 100%; background: var(--secondary); color: #005f4e;">정답 확인</button>
+                <div id="quiz-feedback" class="feedback"></div>
+            </div>
+            
+            <button onclick="saveReport()" style="margin-top: auto; background: #2c3e50; color: white;">📄 실험 결과 PDF 저장(예시)</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 상태 관리 ---
+        const state = {
+            c: 1,
+            bond: 'alkane', // alkane, alkene, alkyne
+            struct: 'chain' // chain, ring
+        };
+
+        // --- 데이터베이스 (단순화) ---
+        const molData = {
+            getKey: (c, bond, struct) => `${c}-${bond}-${struct}`,
+            data: {
+                '1-alkane-chain': { name: '메테인', eng: 'Methane', f: 'CH₄', desc: '천연가스(LNG)의 주성분. 가장 간단한 탄소 화합물.' },
+                '2-alkane-chain': { name: '에테인', eng: 'Ethane', f: 'C₂H₆', desc: '천연가스에 포함되어 있으며, 에틸렌 제조의 원료로 쓰입니다.' },
+                '3-alkane-chain': { name: '프로페인', eng: 'Propane', f: 'C₃H₈', desc: '액화 석유 가스(LPG)의 주성분. 휴대용 가스레인지 연료.' },
+                '4-alkane-chain': { name: '뷰테인', eng: 'Butane', f: 'C₄H₁₀', desc: '부탄가스(휴대용 버너) 및 라이터의 연료.' },
+                '5-alkane-chain': { name: '펜테인', eng: 'Pentane', f: 'C₅H₁₂', desc: '발포제나 용매로 사용됩니다.' },
+                
+                '2-alkene-chain': { name: '에텐', eng: 'Ethene', f: 'C₂H₄', desc: '과일을 빨리 익게 하는 식물 호르몬. 플라스틱(PE)의 원료.' },
+                '3-alkene-chain': { name: '프로펜', eng: 'Propene', f: 'C₃H₆', desc: '플라스틱(PP)의 원료.' },
+                
+                '2-alkyne-chain': { name: '에타인', eng: 'Ethyne', f: 'C₂H₂', desc: '아세틸렌이라고도 하며, 높은 열을 내어 금속 용접에 쓰입니다.' },
+
+                '3-alkane-ring': { name: '사이클로프로페인', eng: 'Cyclopropane', f: 'C₃H₆', desc: '과거에는 마취제로 사용되었으나 폭발성 때문에 현재는 잘 안 씀.' },
+                '4-alkane-ring': { name: '사이클로뷰테인', eng: 'Cyclobutane', f: 'C₄H₈', desc: '고리 형태의 탄화수소.' },
+                '5-alkane-ring': { name: '사이클로펜테인', eng: 'Cyclopentane', f: 'C₅H₁₀', desc: '냉장고 단열재 발포제로 사용됨.' },
+                '6-alkane-ring': { name: '사이클로헥세인', eng: 'Cyclohexane', f: 'C₆H₁₂', desc: '나일론의 원료를 만드는데 사용됨.' }
+            }
+        };
+
+        // --- DOM 요소 ---
+        const svg = document.getElementById('molecule-canvas');
+        const cSlider = document.getElementById('carbon-slider');
+        const cVal = document.getElementById('carbon-val');
+        const typeBtns = document.querySelectorAll('.type-btn');
+        const structBtns = document.querySelectorAll('.struct-btn');
+        
+        // --- 이벤트 리스너 ---
+        cSlider.addEventListener('input', (e) => {
+            state.c = parseInt(e.target.value);
+            cVal.textContent = state.c;
+            validateState();
+            render();
+        });
+
+        typeBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                typeBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.bond = btn.dataset.type;
+                validateState();
+                render();
+            });
+        });
+
+        structBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                structBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                state.struct = btn.dataset.struct;
+                validateState();
+                render();
+            });
+        });
+
+        // --- 로직: 유효성 검사 ---
+        function validateState() {
+            // 1. 탄소 1개일 때는 alkane만 가능
+            if (state.c === 1) {
+                state.bond = 'alkane';
+                state.struct = 'chain';
+            }
+            // 2. 고리형은 탄소 3개 이상 필요
+            if (state.struct === 'ring' && state.c < 3) {
+                state.struct = 'chain';
+                // UI 업데이트
+                structBtns.forEach(b => b.classList.remove('active'));
+                document.querySelector('[data-struct="chain"]').classList.add('active');
+            }
+            // 3. 고리형일 때 현재 시뮬에서는 이중/삼중 결합 미구현 (복잡도 낮춤) -> alkane으로 고정
+            if (state.struct === 'ring') {
+                state.bond = 'alkane';
+            }
+
+            // 버튼 상태 반영
+            updateButtonStyles();
+        }
+
+        function updateButtonStyles() {
+            // 탄소 1개일 때 이중/삼중 비활성화 시각적 처리
+            typeBtns.forEach(btn => {
+                if (state.c === 1 && btn.dataset.type !== 'alkane') {
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                    if(btn.classList.contains('active')) btn.classList.remove('active');
+                } else if (state.struct === 'ring' && btn.dataset.type !== 'alkane') {
+                     // 고리형일 때 이중/삼중 비활성화
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                }
+                if (btn.dataset.type === state.bond) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+
+            // 탄소 3개 미만일 때 고리형 비활성화
+            structBtns.forEach(btn => {
+                if (state.c < 3 && btn.dataset.struct === 'ring') {
+                    btn.style.opacity = '0.5';
+                    btn.style.pointerEvents = 'none';
+                } else {
+                    btn.style.opacity = '1';
+                    btn.style.pointerEvents = 'auto';
+                }
+                if (btn.dataset.struct === state.struct) btn.classList.add('active');
+                else btn.classList.remove('active');
+            });
+        }
+
+        // --- 렌더링 (SVG Drawing) ---
+        function render() {
+            // 1. 데이터 가져오기
+            const key = molData.getKey(state.c, state.bond, state.struct);
+            const info = molData.data[key] || { 
+                name: '미지의 화합물', 
+                eng: 'Unknown', 
+                f: `C${state.c}H?`, 
+                desc: '현재 조건에서는 안정적인 구조를 만들기 어렵거나 이 시뮬레이션 범위 밖입니다.' 
+            };
+
+            // 2. 정보 패널 업데이트
+            document.getElementById('mol-name').innerHTML = `${info.name} <span style="font-size:0.6em; color:#888;">${info.eng}</span>`;
+            document.getElementById('mol-formula').textContent = info.f;
+            document.getElementById('mol-desc').textContent = info.desc;
+
+            // 뱃지 업데이트
+            const badgeSat = document.getElementById('badge-sat');
+            const badgeShape = document.getElementById('badge-shape');
+            
+            if (state.bond === 'alkane') {
+                badgeSat.textContent = '포화 탄화수소';
+                badgeSat.className = 'badge bg-saturated';
+            } else {
+                badgeSat.textContent = '불포화 탄화수소';
+                badgeSat.className = 'badge bg-unsaturated';
+            }
+
+            if (state.struct === 'ring') {
+                badgeShape.textContent = '고리형';
+                badgeShape.className = 'badge bg-ring';
+            } else {
+                badgeShape.textContent = '사슬형';
+                badgeShape.className = 'badge bg-saturated';
+                badgeShape.style.backgroundColor = '#4a90e2';
+            }
+
+            // 3. SVG 그리기 로직 (간소화된 2D 구조식)
+            drawStructure();
+            
+            // 퀴즈 초기화
+            document.getElementById('quiz-feedback').textContent = '';
+            document.getElementById('quiz-input').value = '';
+        }
+
+        function drawStructure() {
+            svg.innerHTML = ''; // 캔버스 초기화
+            const ns = "http://www.w3.org/2000/svg";
+            const cx = 200, cy = 150;
+            const bondLen = 60;
+            const cRadius = 15;
+            const hRadius = 8;
+
+            let coords = [];
+
+            // 탄소 좌표 계산
+            if (state.struct === 'chain') {
+                const startX = cx - ((state.c - 1) * bondLen) / 2;
+                for (let i = 0; i < state.c; i++) {
+                    coords.push({ x: startX + i * bondLen, y: cy });
+                }
+            } else { // ring (정다각형)
+                const r = bondLen / (2 * Math.sin(Math.PI / state.c));
+                for (let i = 0; i < state.c; i++) {
+                    const angle = (2 * Math.PI * i) / state.c - Math.PI / 2;
+                    coords.push({ x: cx + r * Math.cos(angle), y: cy + r * Math.sin(angle) });
+                }
+            }
+
+            // 결합 그리기 (선)
+            for (let i = 0; i < coords.length; i++) {
+                let nextIdx = i + 1;
+                // 사슬형이면 마지막은 연결 안 함, 고리형이면 마지막과 처음 연결
+                if (state.struct === 'chain' && i === coords.length - 1) continue;
+                if (state.struct === 'ring' && i === coords.length - 1) nextIdx = 0;
+
+                const p1 = coords[i];
+                const p2 = coords[nextIdx];
+
+                // 이중/삼중 결합 처리 (간단히 첫 번째 결합만 다중결합으로 표시 - 교육용 단순화)
+                let bondsToDraw = 1;
+                if (state.struct === 'chain' && i === 0) { // 사슬형의 첫번째 결합 위치에 다중결합 표시
+                    if (state.bond === 'alkene') bondsToDraw = 2;
+                    if (state.bond === 'alkyne') bondsToDraw = 3;
+                }
+
+                drawBond(svg, p1, p2, bondsToDraw);
+            }
+
+            // 탄소 원자 그리기
+            coords.forEach(p => {
+                const cCircle = document.createElementNS(ns, "circle");
+                cCircle.setAttribute("cx", p.x);
+                cCircle.setAttribute("cy", p.y);
+                cCircle.setAttribute("r", cRadius);
+                cCircle.setAttribute("fill", "#333");
+                svg.appendChild(cCircle);
+                
+                const txt = document.createElementNS(ns, "text");
+                txt.setAttribute("x", p.x);
+                txt.setAttribute("y", p.y + 5);
+                txt.setAttribute("text-anchor", "middle");
+                txt.setAttribute("fill", "white");
+                txt.setAttribute("font-size", "12px");
+                txt.setAttribute("font-weight", "bold");
+                txt.textContent = "C";
+                svg.appendChild(txt);
+            });
+
+            // 수소 원자 그리기 (매우 단순화: 공간 남는 곳에 배치 - 여기서는 시각적 복잡도를 줄이기 위해 생략하거나 간단히 개수만 표시할 수 있음.
+            // 하지만 교육적 효과를 위해 텍스트로 H 개수를 표시하는 방식이 깔끔함)
+        }
+
+        function drawBond(svg, p1, p2, count) {
+            const ns = "http://www.w3.org/2000/svg";
+            const offset = 4;
+            
+            const createLine = (ox, oy) => {
+                const line = document.createElementNS(ns, "line");
+                line.setAttribute("x1", p1.x + ox);
+                line.setAttribute("y1", p1.y + oy);
+                line.setAttribute("x2", p2.x + ox);
+                line.setAttribute("y2", p2.y + oy);
+                line.setAttribute("stroke", "#666");
+                line.setAttribute("stroke-width", "4");
+                svg.prepend(line); // 원자 뒤로 가도록
+            };
+
+            if (count === 1) createLine(0, 0);
+            else if (count === 2) {
+                createLine(0, -offset);
+                createLine(0, offset);
+            } else if (count === 3) {
+                createLine(0, -offset*1.5);
+                createLine(0, 0);
+                createLine(0, offset*1.5);
+            }
+        }
+
+        // --- 퀴즈 및 유틸리티 ---
+        function checkAnswer() {
+            const input = document.getElementById('quiz-input').value.trim();
+            const key = molData.getKey(state.c, state.bond, state.struct);
+            const correctName = molData.data[key].name;
+            const feedback = document.getElementById('quiz-feedback');
+
+            if (input === correctName) {
+                feedback.textContent = "✅ 정답입니다! 구조와 이름이 정확히 일치하네요.";
+                feedback.style.color = "green";
+            } else {
+                feedback.innerHTML = `❌ 아쉽네요.<br>힌트: 탄소가 ${state.c}개이면 '${getPrefix(state.c)}', ${getSuffix(state.bond)} 결합입니다.`;
+                feedback.style.color = "red";
+            }
+        }
+
+        function getPrefix(n) {
+            return ['메트', '에트', '프로프', '뷰트', '펜트'][n-1];
+        }
+        function getSuffix(type) {
+            if(type === 'alkane') return '단일(-에인)';
+            if(type === 'alkene') return '이중(-엔)';
+            if(type === 'alkyne') return '삼중(-아인)';
+        }
+
+        function saveReport() {
+            alert("학습 결과가 저장되었습니다! (실제 구현 시 PDF 다운로드 라이브러리 연동)");
+        }
+
+        // 초기 실행
+        validateState();
+        render();
+
+    </script>
+</body>
+</html>

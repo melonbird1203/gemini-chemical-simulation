@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 이온의 형성 과정</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --bg-color: #f7f9fc;
+            --text-color: #2c3e50;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        h1 { margin: 0 0 10px 0; color: var(--primary-color); }
+        .subtitle { color: #7f8c8d; font-size: 0.95em; }
+
+        .lab-bench {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 30px;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        /* 왼쪽 컨트롤 패널 */
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e1e4e8;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        button.action-btn {
+            margin-top: 10px;
+            font-weight: bold;
+            color: white;
+            border: none;
+        }
+
+        .btn-lose { background-color: var(--danger-color); }
+        .btn-gain { background-color: var(--primary-color); }
+        .btn-reset { background-color: #95a5a6; margin-top: 5px; }
+
+        button:hover { opacity: 0.9; transform: translateY(-2px); }
+        button:disabled { background-color: #ccc; cursor: not-allowed; transform: none; }
+
+        .status-panel {
+            background: white;
+            border: 2px solid var(--primary-color);
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 20px;
+        }
+
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 0.95rem;
+        }
+        
+        .result-display {
+            font-size: 1.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-top: 15px;
+            padding: 10px;
+            background: #eee;
+            border-radius: 5px;
+        }
+
+        /* 오른쪽 시각화 영역 */
+        .visualization {
+            flex: 1.5;
+            min-width: 350px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #atom-svg {
+            width: 100%;
+            max-width: 400px;
+            height: auto;
+            border: 1px solid #eee;
+            border-radius: 50%;
+            background: white;
+        }
+
+        .message-box {
+            margin-top: 20px;
+            padding: 15px;
+            background: #e8f4fd;
+            border-left: 5px solid var(--primary-color);
+            width: 100%;
+            box-sizing: border-box;
+            border-radius: 4px;
+        }
+
+        /* 퀴즈 영역 */
+        .quiz-section {
+            margin-top: 40px;
+            padding-top: 20px;
+            border-top: 2px dashed #ccc;
+        }
+        .quiz-options { display: flex; gap: 10px; margin-top: 10px; }
+        .quiz-btn { background: white; color: var(--text-color); border: 1px solid var(--primary-color); }
+        .quiz-btn.correct { background: var(--success-color); color: white; }
+        .quiz-btn.wrong { background: var(--danger-color); color: white; }
+
+        /* 애니메이션 */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        .electron { fill: var(--secondary-color); transition: all 0.5s ease-out; }
+        .electron.moving { animation: pulse 0.5s infinite; }
+        
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .lab-bench { flex-direction: column; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🔬 이온 형성 시뮬레이션</h1>
+        <div class="subtitle">중2 과학 > Ⅰ. 우리 몸과 화학 변화 > 이온의 형성</div>
+        <p><strong>학습 목표:</strong> 원자가 전자를 잃거나 얻어 이온이 되는 과정을 탐구해 봅시다.</p>
+    </header>
+
+    <div class="lab-bench">
+        <div class="controls">
+            <div class="control-group">
+                <label for="element-select">🧪 원소 선택</label>
+                <select id="element-select" onchange="initExperiment()">
+                    <option value="Na">나트륨 (Na) - 금속</option>
+                    <option value="Mg">마그네슘 (Mg) - 금속</option>
+                    <option value="Cl">염소 (Cl) - 비금속</option>
+                    <option value="O">산소 (O) - 비금속</option>
+                    <option value="F">플루오린 (F) - 비금속</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>⚡ 전자 이동 조작</label>
+                <button class="action-btn btn-lose" onclick="modifyElectron(-1)">➖ 전자 1개 잃기 (내보내기)</button>
+                <button class="action-btn btn-gain" onclick="modifyElectron(1)">➕ 전자 1개 얻기 (가져오기)</button>
+                <button class="action-btn btn-reset" onclick="initExperiment()">🔄 처음 상태로 되돌리기</button>
+            </div>
+
+            <div class="status-panel">
+                <div class="status-item"><span>원자핵 전하(양성자):</span> <strong id="proton-display">+11</strong></div>
+                <div class="status-item"><span>현재 전자 수:</span> <strong id="electron-display">11</strong></div>
+                <div class="status-item" style="border-top:1px solid #eee; padding-top:5px; margin-top:5px;">
+                    <span>총 전하량:</span> <strong id="charge-display">0</strong>
+                </div>
+            </div>
+
+            <div class="result-display" id="symbol-display">Na</div>
+        </div>
+
+        <div class="visualization">
+            <svg id="atom-svg" viewBox="0 0 400 400" xmlns="http://www.w3.org/2000/svg">
+                </svg>
+
+            <div class="message-box" id="feedback-msg">
+                실험을 시작해 볼까요? 원소를 선택하고 전자를 이동시켜 보세요.
+            </div>
+        </div>
+    </div>
+
+    <div class="quiz-section" id="quiz-area" style="display:none;">
+        <h3>📝 개념 확인 퀴즈</h3>
+        <p id="quiz-question">이 원자가 안정해지기 위해 가장 적절한 변화는?</p>
+        <div class="quiz-options" id="quiz-buttons">
+            </div>
+        <p id="quiz-feedback" style="font-weight:bold; margin-top:10px;"></p>
+    </div>
+</div>
+
+<script>
+    // 1. 데이터 정의 (Data Dictionary)
+    const elements = {
+        Na: { name: '나트륨', symbol: 'Na', atomicNumber: 11, goal: -1, type: 'metal' }, // goal: -1 (lose 1)
+        Mg: { name: '마그네슘', symbol: 'Mg', atomicNumber: 12, goal: -2, type: 'metal' },
+        Cl: { name: '염소', symbol: 'Cl', atomicNumber: 17, goal: 1, type: 'nonmetal' },
+        O:  { name: '산소', symbol: 'O', atomicNumber: 8, goal: 2, type: 'nonmetal' },
+        F:  { name: '플루오린', symbol: 'F', atomicNumber: 9, goal: 1, type: 'nonmetal' }
+    };
+
+    let currentElementKey = 'Na';
+    let currentElectrons = 11;
+    let initialElectrons = 11;
+
+    // 2. 초기화 및 렌더링
+    function initExperiment() {
+        const select = document.getElementById('element-select');
+        currentElementKey = select.value;
+        const data = elements[currentElementKey];
+        
+        initialElectrons = data.atomicNumber;
+        currentElectrons = data.atomicNumber;
+
+        updateDisplay();
+        generateQuiz();
+        document.getElementById('feedback-msg').innerHTML = 
+            `<strong>${data.name}(${data.symbol})</strong> 원자가 선택되었습니다.<br>이 원자는 ${data.type === 'metal' ? '전자(들)을 잃어 양이온이' : '전자(들)을 얻어 음이온이'} 되기 쉽습니다.`;
+        document.getElementById('feedback-msg').style.borderColor = "#4a90e2";
+        document.getElementById('feedback-msg').style.background = "#e8f4fd";
+    }
+
+    function updateDisplay() {
+        const data = elements[currentElementKey];
+        const netCharge = data.atomicNumber - currentElectrons;
+        
+        // 텍스트 업데이트
+        document.getElementById('proton-display').textContent = `+${data.atomicNumber}`;
+        document.getElementById('electron-display').textContent = currentElectrons;
+        
+        let chargeText = "0 (중성)";
+        if (netCharge > 0) chargeText = `+${netCharge} (양이온)`;
+        if (netCharge < 0) chargeText = `${netCharge} (음이온)`;
+        document.getElementById('charge-display').textContent = chargeText;
+        document.getElementById('charge-display').style.color = netCharge === 0 ? 'black' : (netCharge > 0 ? '#e74c3c' : '#2980b9');
+
+        // 화학식 표기
+        let symbolHtml = data.symbol;
+        if (netCharge !== 0) {
+            const absCharge = Math.abs(netCharge);
+            const sign = netCharge > 0 ? '+' : '-';
+            const num = absCharge > 1 ? absCharge : '';
+            symbolHtml += `<sup>${num}${sign}</sup>`;
+        }
+        document.getElementById('symbol-display').innerHTML = symbolHtml;
+
+        drawAtom(data.atomicNumber, currentElectrons);
+        checkStability(netCharge, data);
+    }
+
+    // 3. SVG 그리기 로직
+    function drawAtom(protons, electrons) {
+        const svg = document.getElementById('atom-svg');
+        svg.innerHTML = ''; // 초기화
+
+        const cx = 200, cy = 200;
+        
+        // 원자핵
+        const nucleus = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+        nucleus.setAttribute("cx", cx);
+        nucleus.setAttribute("cy", cy);
+        nucleus.setAttribute("r", 30);
+        nucleus.setAttribute("fill", "#e74c3c");
+        svg.appendChild(nucleus);
+
+        const nucleusText = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        nucleusText.setAttribute("x", cx);
+        nucleusText.setAttribute("y", cy + 5);
+        nucleusText.setAttribute("text-anchor", "middle");
+        nucleusText.setAttribute("fill", "white");
+        nucleusText.setAttribute("font-weight", "bold");
+        nucleusText.textContent = `+${protons}`;
+        svg.appendChild(nucleusText);
+
+        // 전자 껍질 및 전자 배치 (보어 모델)
+        const shells = [2, 8, 8, 18]; // K, L, M, N
+        let electronsLeft = electrons;
+        let currentRadius = 60;
+
+        for (let i = 0; i < shells.length; i++) {
+            if (electronsLeft <= 0) break;
+
+            let electronsInShell = Math.min(electronsLeft, shells[i]);
+            
+            // 껍질 그리기
+            const shellCircle = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+            shellCircle.setAttribute("cx", cx);
+            shellCircle.setAttribute("cy", cy);
+            shellCircle.setAttribute("r", currentRadius);
+            shellCircle.setAttribute("fill", "none");
+            shellCircle.setAttribute("stroke", "#bdc3c7");
+            shellCircle.setAttribute("stroke-width", "2");
+            svg.appendChild(shellCircle);
+
+            // 전자 그리기
+            for (let j = 0; j < electronsInShell; j++) {
+                const angle = (2 * Math.PI * j) / electronsInShell;
+                const ex = cx + currentRadius * Math.cos(angle - Math.PI/2);
+                const ey = cy + currentRadius * Math.sin(angle - Math.PI/2);
+
+                const electron = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                electron.setAttribute("cx", ex);
+                electron.setAttribute("cy", ey);
+                electron.setAttribute("r", 6);
+                electron.setAttribute("class", "electron");
+                
+                // 최외각 전자 강조 (마지막 껍질일 때)
+                if (electronsLeft <= shells[i]) {
+                     electron.setAttribute("fill", "#f1c40f");
+                }
+
+                svg.appendChild(electron);
+            }
+
+            electronsLeft -= electronsInShell;
+            currentRadius += 40;
+        }
+    }
+
+    // 4. 인터랙션 로직
+    function modifyElectron(change) {
+        // 안전 장치: 전자가 너무 적거나(0 이하) 너무 많지 않도록(최대 20) 제한
+        if (currentElectrons + change <= 0) {
+            alert("전자가 더 이상 없습니다!");
+            return;
+        }
+        if (currentElectrons + change > 20) {
+            alert("중학교 과정에서는 원자번호 20번까지만 다룹니다.");
+            return;
+        }
+
+        currentElectrons += change;
+        updateDisplay();
+    }
+
+    function checkStability(netCharge, data) {
+        const msgBox = document.getElementById('feedback-msg');
+        const goal = data.goal; // 목표 전하량 (예: Na는 +1이 목표, 즉 전자 -1개)
+        
+        // 현재 전하량과 목표 비교
+        // data.goal > 0 : 전자를 얻어야 함 (음이온 목표)
+        // data.goal < 0 : 전자를 잃어야 함 (양이온 목표)
+        
+        // 목표 상태 도달?
+        const currentChangeInElectrons = currentElectrons - initialElectrons; // 전자를 얻었으면 +, 잃었으면 -
+        // 목표: data.goal (예: Na는 -1)
+        // 실제 변화: currentChangeInElectrons
+        
+        // Na(goal: -1). 현재 전자를 1개 잃었다면 currentChangeInElectrons = -1. 성공.
+        
+        if (currentChangeInElectrons === data.goal) {
+            msgBox.innerHTML = `🎉 <strong>정답입니다!</strong><br>가장 바깥쪽 껍질이 전자로 꽉 차거나(8개) 비워져서 매우 <strong>안정한 이온</strong>이 되었습니다.`;
+            msgBox.style.backgroundColor = "#d4edda"; // 초록색 배경
+            msgBox.style.borderColor = "#28a745";
+            document.getElementById('symbol-display').style.color = "#27ae60";
+        } else if (currentChangeInElectrons === 0) {
+            msgBox.innerHTML = "원자는 중성 상태입니다. 안정해지려면 전자를 어떻게 해야 할까요?";
+            msgBox.style.backgroundColor = "#e8f4fd";
+            msgBox.style.borderColor = "#4a90e2";
+        } else {
+            // 방향은 맞는데 개수가 틀린 경우와, 방향이 틀린 경우 구분
+            const correctDirection = (data.goal < 0 && change < 0) || (data.goal > 0 && change > 0);
+            
+            if ((data.goal < 0 && currentChangeInElectrons > 0) || (data.goal > 0 && currentChangeInElectrons < 0)) {
+                 msgBox.innerHTML = `⚠️ <strong>불안정합니다.</strong><br>${data.name}은 ${data.type === 'metal' ? '금속이라 전자를 잃는 것' : '비금속이라 전자를 얻는 것'}을 좋아합니다.`;
+                 msgBox.style.backgroundColor = "#f8d7da";
+                 msgBox.style.borderColor = "#dc3545";
+            } else {
+                 msgBox.innerHTML = "방향은 맞지만, 아직 가장 안정한 상태(비활성 기체와 같은 전자 배치)는 아닙니다.";
+                 msgBox.style.backgroundColor = "#fff3cd";
+                 msgBox.style.borderColor = "#ffc107";
+            }
+        }
+    }
+    
+    // 5. 평가(퀴즈) 생성 로직
+    function generateQuiz() {
+        const quizArea = document.getElementById('quiz-area');
+        const quizBtns = document.getElementById('quiz-buttons');
+        const feedback = document.getElementById('quiz-feedback');
+        
+        quizArea.style.display = 'block';
+        quizBtns.innerHTML = '';
+        feedback.textContent = '';
+        
+        const data = elements[currentElementKey];
+        const correctIon = `${data.symbol}${Math.abs(data.goal) > 1 ? Math.abs(data.goal) : ''}${data.goal > 0 ? '-' : '+'}`;
+        
+        // 보기 생성 (정답, 중성원자, 오답이온)
+        const options = [
+            { text: `${data.symbol}`, correct: false },
+            { text: correctIon, correct: true }, // 정답 (예: Na+)
+            { text: `${data.symbol}${data.goal > 0 ? '+' : '-'}`, correct: false } // 오답 (반대 전하)
+        ];
+        
+        // 셔플
+        options.sort(() => Math.random() - 0.5);
+
+        document.getElementById('quiz-question').innerText = 
+            `문제: ${data.name} 원자가 가장 안정한 상태가 되었을 때의 이온식은?`;
+
+        options.forEach(opt => {
+            const btn = document.createElement('button');
+            btn.className = 'quiz-btn';
+            // sup 태그 처리를 위해 innerHTML 사용
+            // 텍스트 파싱: Na+ -> Na<sup>+</sup>
+            const formattedText = opt.text.replace(/([0-9]*)([+-])/, "<sup>$1$2</sup>");
+            btn.innerHTML = formattedText;
+            
+            btn.onclick = () => {
+                if(opt.correct) {
+                    btn.classList.add('correct');
+                    feedback.textContent = "⭕ 정답입니다! 전자 껍질이 안정된 구조를 갖췄습니다.";
+                    feedback.style.color = "green";
+                } else {
+                    btn.classList.add('wrong');
+                    feedback.textContent = "❌ 다시 생각해볼까요? 옥텟 규칙(8전자 규칙)을 떠올려보세요.";
+                    feedback.style.color = "red";
+                }
+            };
+            quizBtns.appendChild(btn);
+        });
+    }
+
+    // 초기 실행
+    initExperiment();
+</script>
+
+</body>
+</html>

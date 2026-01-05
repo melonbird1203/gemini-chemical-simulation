@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 발열/흡열 반응 장치 설계</title>
+    <style>
+        :root { --primary: #4A90E2; --success: #2ECC71; --danger: #E74C3C; --bg: #F5F7FA; }
+        body { font-family: 'Malgun Gothic', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        
+        .container { max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: 300px 1fr 300px; gap: 20px; }
+        
+        /* 패널 스타일 */
+        .panel { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h2 { font-size: 1.2rem; margin-top: 0; color: #2c3e50; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        
+        /* 컨트롤 패널 */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; font-size: 0.9rem; }
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; margin-bottom: 10px; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-start:hover { background: #357ABD; }
+        .btn-reset { background: #95a5a6; color: white; }
+        
+        /* 메인 실험 영역 */
+        .lab-area { display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; min-height: 400px; }
+        .beaker-container { position: relative; width: 200px; height: 250px; border: 4px solid #aaa; border-radius: 0 0 20px 20px; border-top: none; background: rgba(255,255,255,0.5); overflow: hidden; transition: border-color 0.5s; }
+        .liquid { position: absolute; bottom: 0; width: 100%; height: 0%; background: #aaddff; transition: height 1s, background-color 1s; opacity: 0.8; }
+        .particles { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; }
+        
+        /* 단열재 시각화 */
+        .insulation-layer { position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px; border: 10px solid transparent; border-radius: 0 0 30px 30px; pointer-events: none; opacity: 0.5; }
+        
+        /* 온도계 및 그래프 */
+        .thermometer-box { position: absolute; right: 20px; top: 20px; background: white; padding: 10px; border-radius: 8px; text-align: center; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        .temp-display { font-size: 2rem; font-weight: bold; color: var(--primary); }
+        canvas { width: 100%; height: 200px; background: #fff; border: 1px solid #eee; margin-top: 10px; }
+
+        /* 결과 및 피드백 */
+        .feedback-box { background: #e8f4fd; padding: 15px; border-radius: 8px; margin-top: 15px; font-size: 0.9rem; line-height: 1.5; }
+        .particle-legend { font-size: 0.8rem; color: #666; margin-top: 10px; text-align: center; }
+
+        /* 반응형 */
+        @media (max-width: 900px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <header style="text-align: center; margin-bottom: 20px;">
+        <h1>🧪 화학 반응 에너지 설계 실험실</h1>
+        <p>반응물과 조건을 조작하여 원하는 온도 변화 장치를 설계해보세요.</p>
+    </header>
+
+    <div class="container">
+        <div class="panel">
+            <h2>⚙️ 장치 설계 설정</h2>
+            
+            <div class="control-group">
+                <label>1. 반응 물질 선택</label>
+                <select id="reactant">
+                    <option value="none">선택하세요</option>
+                    <option value="CaO">산화 칼슘 (발열 반응)</option>
+                    <option value="NH4Cl">염화 암모늄 (흡열 반응)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>2. 물의 양 (mL)</label>
+                <input type="range" id="waterAmount" min="50" max="200" value="100" step="10" oninput="updateLabel('waterLabel', this.value + ' mL')">
+                <span id="waterLabel" style="float: right; font-size: 0.9rem; color: #666;">100 mL</span>
+            </div>
+
+            <div class="control-group">
+                <label>3. 용기 단열 등급</label>
+                <select id="insulation">
+                    <option value="1">낮음 (종이컵)</option>
+                    <option value="2">보통 (플라스틱 컵)</option>
+                    <option value="3">높음 (특수 보온 용기)</option>
+                </select>
+            </div>
+
+            <button class="btn-start" onclick="startSimulation()">⚗️ 실험 시작</button>
+            <button class="btn-reset" onclick="resetSimulation()">🔄 장치 초기화</button>
+        </div>
+
+        <div class="panel lab-area">
+            <h2>👁️ 실험 관찰</h2>
+            <div style="position: relative;">
+                <div class="beaker-container" id="beaker">
+                    <div class="liquid" id="liquid"></div>
+                    <canvas id="particleCanvas" width="200" height="250" class="particles"></canvas>
+                </div>
+                <div id="insulationVisual" class="insulation-layer"></div>
+            </div>
+            
+            <div class="thermometer-box">
+                <div>현재 온도</div>
+                <div id="tempDisplay" class="temp-display">25.0°C</div>
+            </div>
+            
+            <div class="particle-legend">
+                🔴 빨간색 입자: 활발한 열운동 (고온)<br>
+                🔵 파란색 입자: 둔해진 열운동 (저온)
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📊 데이터 및 분석</h2>
+            <canvas id="graphCanvas"></canvas>
+            
+            <div id="feedback" class="feedback-box" style="display: none;">
+                <strong>💡 실험 결과 분석</strong>
+                <p id="feedbackText"></p>
+            </div>
+            
+            <div style="margin-top: 20px;">
+                <label>📝 학습 퀴즈</label>
+                <div id="quizArea" style="font-size: 0.9rem; color: #555;">
+                    실험을 먼저 진행해주세요.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let animationId;
+        let currentTime = 0;
+        let currentTemp = 25;
+        let targetTemp = 25;
+        let isRunning = false;
+        
+        // 상수
+        const ROOM_TEMP = 25;
+        const SPECIFIC_HEAT_WATER = 4.18; // J/g°C
+        
+        // 입자 애니메이션 변수
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+
+        // 그래프 변수
+        const graphCanvas = document.getElementById('graphCanvas');
+        const gCtx = graphCanvas.getContext('2d');
+        let dataPoints = [];
+
+        function initParticles(count) {
+            particles = [];
+            for(let i=0; i<count; i++) {
+                particles.push({
+                    x: Math.random() * canvas.width,
+                    y: Math.random() * canvas.height,
+                    vx: (Math.random() - 0.5) * 2,
+                    vy: (Math.random() - 0.5) * 2,
+                    size: Math.random() * 3 + 2
+                });
+            }
+        }
+
+        function updateLabel(id, value) {
+            document.getElementById(id).innerText = value;
+        }
+
+        function resetSimulation() {
+            cancelAnimationFrame(animationId);
+            isRunning = false;
+            currentTime = 0;
+            currentTemp = ROOM_TEMP;
+            dataPoints = [];
+            
+            document.getElementById('tempDisplay').innerText = "25.0°C";
+            document.getElementById('tempDisplay').style.color = "#4A90E2";
+            document.getElementById('liquid').style.height = "0%";
+            document.getElementById('liquid').style.backgroundColor = "#aaddff";
+            document.getElementById('feedback').style.display = 'none';
+            document.getElementById('insulationVisual').style.borderColor = "transparent";
+            document.getElementById('quizArea').innerText = "실험을 먼저 진행해주세요.";
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            gCtx.clearRect(0, 0, graphCanvas.width, graphCanvas.height);
+        }
+
+        function startSimulation() {
+            if (isRunning) return;
+            
+            const reactant = document.getElementById('reactant').value;
+            const waterAmount = parseInt(document.getElementById('waterAmount').value);
+            const insulation = parseInt(document.getElementById('insulation').value);
+
+            if (reactant === 'none') {
+                alert("반응 물질을 선택해주세요!");
+                return;
+            }
+
+            isRunning = true;
+            dataPoints = [];
+            
+            // 시각적 설정
+            document.getElementById('liquid').style.height = (waterAmount / 200 * 90) + "%"; // 최대 90% 높이
+            
+            // 단열재 시각화
+            const insColor = insulation === 1 ? '#eee' : (insulation === 2 ? '#ddd' : '#aaa');
+            const insThickness = insulation * 5;
+            const insVisual = document.getElementById('insulationVisual');
+            insVisual.style.border = `${insThickness}px solid ${insColor}`;
+
+            // 목표 온도 계산 (간이 모델)
+            // Q = cmΔt => Δt = Q / cm
+            // 가정: 반응물 양은 일정하다고 가정 (비교를 위해 단순화)
+            let energy = 0; 
+            if (reactant === 'CaO') energy = 15000; // 발열 (J)
+            if (reactant === 'NH4Cl') energy = -8000; // 흡열 (J)
+
+            const mass = waterAmount; // 물의 밀도 1g/mL
+            const deltaT = energy / (SPECIFIC_HEAT_WATER * mass);
+            targetTemp = ROOM_TEMP + deltaT;
+
+            // 입자 생성
+            initParticles(30);
+            
+            animate();
+        }
+
+        function animate() {
+            if (!isRunning) return;
+
+            // 시간 경과에 따른 온도 변화 (지수적 접근)
+            // 반응 초기에는 목표 온도까지 빠르게 변하고, 이후 단열 수준에 따라 식거나 데워짐(상온 복귀)
+            
+            // 1. 반응 진행 (목표 온도 도달)
+            if (currentTime < 50) {
+                currentTemp += (targetTemp - currentTemp) * 0.1;
+            } 
+            // 2. 열 평형 (상온으로 복귀 - 단열 효과 반영)
+            else {
+                const insulationFactor = document.getElementById('insulation').value * 0.005; // 높을수록 천천히 변함
+                // 단열재가 좋을수록(값이 클수록) 상온으로 돌아가는 속도가 느려짐
+                const coolingRate = 0.05 / (parseInt(document.getElementById('insulation').value)); 
+                currentTemp += (ROOM_TEMP - currentTemp) * coolingRate;
+            }
+
+            currentTime++;
+            dataPoints.push(currentTemp);
+
+            // 화면 업데이트
+            updateDisplay();
+            drawParticles();
+            drawGraph();
+
+            if (currentTime < 200) {
+                animationId = requestAnimationFrame(animate);
+            } else {
+                isRunning = false;
+                showResult();
+            }
+        }
+
+        function updateDisplay() {
+            const tempDisp = document.getElementById('tempDisplay');
+            tempDisp.innerText = currentTemp.toFixed(1) + "°C";
+            
+            // 색상 변화 (고온: 빨강, 저온: 파랑)
+            const liquid = document.getElementById('liquid');
+            if (currentTemp > 25) {
+                const intensity = Math.min((currentTemp - 25) / 30, 1);
+                liquid.style.backgroundColor = `rgba(255, ${200 - intensity*200}, ${200 - intensity*200}, 0.8)`;
+                tempDisp.style.color = "#E74C3C";
+            } else {
+                const intensity = Math.min((25 - currentTemp) / 15, 1);
+                liquid.style.backgroundColor = `rgba(${200 - intensity*100}, ${200 - intensity*100}, 255, 0.8)`;
+                tempDisp.style.color = "#4A90E2";
+            }
+        }
+
+        function drawParticles() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 온도에 따른 입자 속도 조절
+            const speedFactor = (currentTemp + 273) / 300; // 절대온도 비례 느낌
+            
+            ctx.fillStyle = currentTemp > 25 ? "rgba(231, 76, 60, 0.8)" : "rgba(52, 152, 219, 0.8)";
+
+            particles.forEach(p => {
+                p.x += p.vx * speedFactor;
+                p.y += p.vy * speedFactor;
+
+                // 벽 튕기기
+                if (p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if (p.y < 0 || p.y > canvas.height) p.vy *= -1;
+
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function drawGraph() {
+            gCtx.fillStyle = "#fff";
+            gCtx.fillRect(0, 0, graphCanvas.width, graphCanvas.height);
+            
+            gCtx.strokeStyle = "#333";
+            gCtx.lineWidth = 2;
+            gCtx.beginPath();
+            
+            // 그래프 스케일링
+            const maxTemp = 80;
+            const minTemp = 0;
+            const widthStep = graphCanvas.width / 200;
+
+            for (let i = 0; i < dataPoints.length; i++) {
+                const x = i * widthStep;
+                // Y축 뒤집힘 보정 및 스케일링
+                const y = graphCanvas.height - ((dataPoints[i] - minTemp) / (maxTemp - minTemp) * graphCanvas.height);
+                
+                if (i === 0) gCtx.moveTo(x, y);
+                else gCtx.lineTo(x, y);
+            }
+            gCtx.stroke();
+            
+            // 기준선 (25도)
+            gCtx.strokeStyle = "#aaa";
+            gCtx.setLineDash([5, 5]);
+            gCtx.beginPath();
+            const y25 = graphCanvas.height - ((25 - minTemp) / (maxTemp - minTemp) * graphCanvas.height);
+            gCtx.moveTo(0, y25);
+            gCtx.lineTo(graphCanvas.width, y25);
+            gCtx.stroke();
+            gCtx.setLineDash([]);
+        }
+
+        function showResult() {
+            const reactant = document.getElementById('reactant').value;
+            const insulation = parseInt(document.getElementById('insulation').value);
+            const feedbackBox = document.getElementById('feedback');
+            const feedbackText = document.getElementById('feedbackText');
+            const quizArea = document.getElementById('quizArea');
+
+            feedbackBox.style.display = "block";
+            
+            let resultType = reactant === 'CaO' ? "발열 반응" : "흡열 반응";
+            let efficiency = insulation === 3 ? "매우 우수합니다!" : (insulation === 1 ? "열 손실이 큽니다." : "보통 수준입니다.");
+            
+            let message = `이 장치는 <b>${resultType}</b>을 활용했습니다. <br>`;
+            if (reactant === 'CaO') {
+                message += `산화칼슘이 물과 반응하여 열 에너지를 <b>방출</b>했기 때문에 수온이 상승했습니다.<br>`;
+                message += `선택한 단열재의 효율은 <b>${efficiency}</b>. `;
+                if(insulation < 3) message += `더 오랫동안 따뜻하게 유지하려면 단열 성능이 높은 용기로 바꿔보세요.`;
+            } else {
+                message += `염화암모늄이 물과 반응하며 주변의 열을 <b>흡수</b>했기 때문에 수온이 하강했습니다.<br>`;
+                message += `이 원리는 <b>냉각 팩(Instant Ice Pack)</b>에 사용됩니다.`;
+            }
+            
+            feedbackText.innerHTML = message;
+
+            // 퀴즈 생성
+            let quiz = "";
+            if (reactant === 'CaO') {
+                quiz = `<b>Q. 만약 물의 양을 지금보다 줄인다면, 최고 온도는 어떻게 변할까요?</b><br>
+                <button onclick="alert('정답입니다! 물의 양이 적으면 같은 열에너지로 더 높은 온도까지 올라갑니다.')" style="width:auto; margin-top:5px;">더 높아진다</button>
+                <button onclick="alert('다시 생각해보세요. 데워야 할 물이 적어지면?')" style="width:auto; margin-top:5px;">더 낮아진다</button>`;
+            } else {
+                quiz = `<b>Q. 이 장치에서 에너지는 어디서 어디로 이동했을까요?</b><br>
+                <button onclick="alert('정답입니다! 물(주위)이 가진 열에너지가 반응물(계)로 이동하여 물이 차가워졌습니다.')" style="width:auto; margin-top:5px;">물 → 반응물</button>
+                <button onclick="alert('반대입니다. 에너지가 방출되었다면 물이 뜨거워졌을 것입니다.')" style="width:auto; margin-top:5px;">반응물 → 물</button>`;
+            }
+            quizArea.innerHTML = quiz;
+        }
+    </script>
+</body>
+</html>

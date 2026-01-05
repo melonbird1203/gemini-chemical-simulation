@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 화학식 건축가</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ecc71;
+            --warning-color: #e74c3c;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+        }
+        
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            width: 100%;
+            padding: 1rem 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1000px;
+            width: 95%;
+            margin-top: 20px;
+            gap: 20px;
+        }
+
+        .control-panel, .display-panel {
+            background: var(--card-bg);
+            border-radius: 10px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            flex: 1;
+            min-width: 300px;
+        }
+
+        h2 { font-size: 1.2rem; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0; }
+
+        /* Select Box */
+        .select-group { margin-bottom: 20px; }
+        select {
+            width: 100%;
+            padding: 10px;
+            font-size: 1rem;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        /* Atom Controls */
+        .atom-control {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f9f9f9;
+            border-radius: 8px;
+        }
+        
+        .atom-label { font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .atom-circle { width: 20px; height: 20px; border-radius: 50%; display: inline-block; }
+
+        .counter-btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            width: 30px;
+            height: 30px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1.2rem;
+        }
+        .counter-btn:disabled { background: #ccc; }
+        .count-display { font-size: 1.2rem; font-weight: bold; width: 30px; text-align: center; }
+
+        /* Visualization Area */
+        #molecule-canvas {
+            width: 100%;
+            height: 300px;
+            background: #eef2f5;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px dashed #cbd5e0;
+        }
+
+        /* Formula Display */
+        .formula-box {
+            text-align: center;
+            margin-top: 20px;
+            padding: 20px;
+            background: #2c3e50;
+            color: white;
+            border-radius: 8px;
+        }
+        .formula-text { font-size: 2.5rem; font-family: serif; letter-spacing: 2px; }
+        .formula-desc { font-size: 0.9rem; color: #bdc3c7; margin-top: 5px; }
+
+        /* Feedback */
+        #feedback {
+            margin-top: 15px;
+            padding: 10px;
+            text-align: center;
+            font-weight: bold;
+            border-radius: 5px;
+            min-height: 20px;
+        }
+        .success { background-color: #d4edda; color: #155724; }
+        .error { background-color: #f8d7da; color: #721c24; }
+        .info { background-color: #d1ecf1; color: #0c5460; }
+
+        /* Molecule Animation Styles */
+        .molecule-wrapper {
+            position: relative;
+            transition: all 0.5s ease;
+        }
+        .atom-vis {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-weight: bold;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.2);
+            transition: all 0.3s ease;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 가상 실험실: 화학식 건축가</h1>
+    <p>중학교 2학년 - 물질의 구성</p>
+</header>
+
+<div class="container">
+    <div class="control-panel">
+        <h2>🛠️ 실험 설정</h2>
+        
+        <div class="select-group">
+            <label><strong>1. 만들고 싶은 물질을 선택하세요:</strong></label>
+            <select id="substance-select" onchange="initExperiment()">
+                <option value="water">물 (H₂O)</option>
+                <option value="co2">이산화탄소 (CO₂)</option>
+                <option value="ammonia">암모니아 (NH₃)</option>
+                <option value="nacl">염화나트륨 (NaCl) - 이온결합</option>
+            </select>
+        </div>
+
+        <div id="atom-inputs">
+            </div>
+
+        <div class="info-box" style="margin-top: 20px; font-size: 0.9rem; color: #666;">
+            💡 <strong>Tip:</strong> + / - 버튼을 눌러 원자의 개수를 조절하여 목표 물질을 완성해 보세요.
+        </div>
+    </div>
+
+    <div class="display-panel">
+        <h2>🔬 관찰 및 결과</h2>
+        
+        <div id="molecule-canvas">
+            <div style="color: #999;">원자를 추가하면 여기에 나타납니다.</div>
+        </div>
+
+        <div class="formula-box">
+            <div>현재 화학식</div>
+            <div id="current-formula" class="formula-text"></div>
+            <div id="formula-explanation" class="formula-desc"></div>
+        </div>
+
+        <div id="feedback" class="info">실험을 시작해 보세요!</div>
+    </div>
+</div>
+
+<script>
+    // 실험 데이터베이스
+    const experiments = {
+        water: {
+            name: '물',
+            targetFormula: 'H₂O',
+            type: 'molecular',
+            atoms: [
+                { symbol: 'H', name: '수소', color: '#bdc3c7', target: 2, radius: 25 },
+                { symbol: 'O', name: '산소', color: '#e74c3c', target: 1, radius: 35 }
+            ],
+            desc: "물은 산소 원자 1개와 수소 원자 2개가 결합한 분자입니다."
+        },
+        co2: {
+            name: '이산화탄소',
+            targetFormula: 'CO₂',
+            type: 'molecular',
+            atoms: [
+                { symbol: 'C', name: '탄소', color: '#34495e', target: 1, radius: 30 },
+                { symbol: 'O', name: '산소', color: '#e74c3c', target: 2, radius: 35 }
+            ],
+            desc: "탄소 원자 1개 양옆에 산소 원자가 결합된 직선형 구조입니다."
+        },
+        ammonia: {
+            name: '암모니아',
+            targetFormula: 'NH₃',
+            type: 'molecular',
+            atoms: [
+                { symbol: 'N', name: '질소', color: '#3498db', target: 1, radius: 35 },
+                { symbol: 'H', name: '수소', color: '#bdc3c7', target: 3, radius: 25 }
+            ],
+            desc: "질소 원자 1개와 수소 원자 3개가 결합하여 삼각뿔 모양을 이룹니다."
+        },
+        nacl: {
+            name: '염화나트륨',
+            targetFormula: 'NaCl',
+            type: 'ionic',
+            atoms: [
+                { symbol: 'Na', name: '나트륨', color: '#9b59b6', target: 1, radius: 30 }, // Ratio 1
+                { symbol: 'Cl', name: '염소', color: '#2ecc71', target: 1, radius: 40 }   // Ratio 1
+            ],
+            desc: "Na⁺와 Cl⁻가 1:1 비율로 끊임없이 결합된 결정 구조입니다. (실험식)"
+        }
+    };
+
+    let currentExp = null;
+    let userCounts = {};
+
+    function initExperiment() {
+        const select = document.getElementById('substance-select');
+        const key = select.value;
+        currentExp = experiments[key];
+        
+        // Reset User Counts
+        userCounts = {};
+        currentExp.atoms.forEach(atom => {
+            userCounts[atom.symbol] = 0;
+        });
+
+        renderControls();
+        updateDisplay();
+    }
+
+    function renderControls() {
+        const container = document.getElementById('atom-inputs');
+        container.innerHTML = '';
+
+        currentExp.atoms.forEach(atom => {
+            const div = document.createElement('div');
+            div.className = 'atom-control';
+            div.innerHTML = `
+                <div class="atom-label">
+                    <span class="atom-circle" style="background:${atom.color}"></span>
+                    ${atom.name} (${atom.symbol})
+                </div>
+                <div>
+                    <button class="counter-btn" onclick="changeCount('${atom.symbol}', -1)">-</button>
+                    <span class="count-display" id="count-${atom.symbol}">0</span>
+                    <button class="counter-btn" onclick="changeCount('${atom.symbol}', 1)">+</button>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function changeCount(symbol, delta) {
+        if (userCounts[symbol] + delta < 0) return;
+        if (userCounts[symbol] + delta > 10) {
+            alert("너무 많아요! 실험관찰을 위해 10개까지만 넣어봅시다.");
+            return;
+        }
+        
+        userCounts[symbol] += delta;
+        document.getElementById(`count-${symbol}`).innerText = userCounts[symbol];
+        updateDisplay();
+    }
+
+    function updateDisplay() {
+        updateCanvas();
+        updateFormula();
+        checkAnswer();
+    }
+
+    function updateCanvas() {
+        const canvas = document.getElementById('molecule-canvas');
+        canvas.innerHTML = '';
+        
+        // 시각화 로직
+        const containerDiv = document.createElement('div');
+        containerDiv.className = 'molecule-wrapper';
+        containerDiv.style.width = '200px';
+        containerDiv.style.height = '200px';
+        containerDiv.style.position = 'relative';
+
+        let atomsToDraw = [];
+        
+        // 원자 배치 로직 (간단한 시각화)
+        currentExp.atoms.forEach(atomData => {
+            const count = userCounts[atomData.symbol];
+            for(let i=0; i<count; i++) {
+                atomsToDraw.push(atomData);
+            }
+        });
+
+        if (atomsToDraw.length === 0) {
+            canvas.innerHTML = '<div style="color: #999;">원자를 추가해 보세요!</div>';
+            return;
+        }
+
+        // 이온결합(격자) vs 분자(중심원자 기준 뭉침)
+        if (currentExp.type === 'ionic') {
+            // 격자 형태 배치 (Grid)
+            containerDiv.style.display = 'grid';
+            containerDiv.style.gridTemplateColumns = 'repeat(3, 1fr)';
+            containerDiv.style.gap = '5px';
+            containerDiv.style.justifyContent = 'center';
+            containerDiv.style.alignContent = 'center';
+
+            atomsToDraw.forEach(atom => {
+                const el = document.createElement('div');
+                el.className = 'atom-vis';
+                el.style.backgroundColor = atom.color;
+                el.style.width = atom.radius + 'px';
+                el.style.height = atom.radius + 'px';
+                el.style.position = 'relative'; // Grid override
+                el.innerText = atom.symbol;
+                containerDiv.appendChild(el);
+            });
+
+        } else {
+            // 분자 형태 배치 (중심 + 주변)
+            // 간단하게 중심 원자 주변에 흩뿌리는 방식으로 구현
+            const centerX = 100;
+            const centerY = 100;
+            
+            atomsToDraw.forEach((atom, index) => {
+                const el = document.createElement('div');
+                el.className = 'atom-vis';
+                el.style.backgroundColor = atom.color;
+                el.style.width = (atom.radius * 1.5) + 'px';
+                el.style.height = (atom.radius * 1.5) + 'px';
+                el.innerText = atom.symbol;
+                
+                // 위치 계산 (나선형 배치로 겹침 최소화)
+                const angle = index * 2.4; // Golden angle approx
+                const dist = index === 0 ? 0 : 30 + (index * 5); 
+                
+                const x = centerX + Math.cos(angle) * dist - (atom.radius * 0.75);
+                const y = centerY + Math.sin(angle) * dist - (atom.radius * 0.75);
+
+                el.style.left = x + 'px';
+                el.style.top = y + 'px';
+                
+                containerDiv.appendChild(el);
+            });
+        }
+
+        canvas.appendChild(containerDiv);
+    }
+
+    function updateFormula() {
+        let formulaHTML = '';
+        let formulaText = '';
+        
+        currentExp.atoms.forEach(atom => {
+            const count = userCounts[atom.symbol];
+            if (count > 0) {
+                formulaHTML += atom.symbol;
+                if (count > 1) {
+                    formulaHTML += `<sub>${count}</sub>`;
+                }
+            }
+        });
+
+        document.getElementById('current-formula').innerHTML = formulaHTML || '<span style="color:#aaa; font-size:1.5rem">?</span>';
+    }
+
+    function checkAnswer() {
+        const feedback = document.getElementById('feedback');
+        const desc = document.getElementById('formula-explanation');
+        
+        let isCorrect = true;
+        let isZero = true;
+
+        currentExp.atoms.forEach(atom => {
+            if (userCounts[atom.symbol] !== atom.target) isCorrect = false;
+            if (userCounts[atom.symbol] > 0) isZero = false;
+        });
+
+        if (isZero) {
+            feedback.className = 'info';
+            feedback.innerText = "비커가 비어있습니다. 원자를 넣어주세요.";
+            desc.innerText = "";
+            return;
+        }
+
+        if (isCorrect) {
+            feedback.className = 'success';
+            feedback.innerHTML = `🎉 정답입니다! 완벽한 <strong>${currentExp.name}</strong>입니다.`;
+            desc.innerText = currentExp.desc;
+            
+            // NaCl 특별 설명
+            if(currentExp.type === 'ionic') {
+                desc.innerHTML += "<br><small>(주의: 이온 결합 물질은 갯수가 아닌 비율로 표현합니다!)</small>";
+            }
+        } else {
+            feedback.className = 'error';
+            feedback.innerText = "아직 완성되지 않았어요. 원자의 개수를 조절해 보세요.";
+            desc.innerText = "화학식의 숫자는 원자의 개수를 의미합니다.";
+        }
+    }
+
+    // 초기화
+    initExperiment();
+
+</script>
+
+</body>
+</html>

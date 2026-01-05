@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 크로마토그래피의 활용</title>
+    <style>
+        :root {
+            --primary: #4a90e2;
+            --secondary: #f5f6fa;
+            --accent: #e74c3c;
+            --text: #2c3e50;
+            --success: #2ecc71;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #ecf0f1;
+            margin: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: var(--text);
+        }
+        .container {
+            width: 900px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+        .header {
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        .header h1 { margin: 0; font-size: 1.5rem; }
+        .header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .main-content {
+            display: flex;
+            height: 500px;
+        }
+
+        /* Sidebar Navigation */
+        .sidebar {
+            width: 250px;
+            background: var(--secondary);
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .nav-btn {
+            padding: 15px;
+            border: none;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            text-align: left;
+            font-weight: bold;
+            color: var(--text);
+            transition: all 0.3s;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .nav-btn:hover { transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        .nav-btn.active { background: var(--primary); color: white; }
+        .nav-icon { font-size: 1.2rem; }
+
+        /* Experiment Area */
+        .stage {
+            flex: 1;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        .scenario-intro {
+            text-align: center;
+            max-width: 500px;
+            animation: fadeIn 0.5s;
+        }
+        .action-btn {
+            background: var(--accent);
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        .action-btn:hover { transform: scale(1.05); }
+        .action-btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* Visualizations */
+        .vis-container {
+            width: 100%;
+            height: 300px;
+            background: #f8f9fa;
+            border: 2px dashed #bdc3c7;
+            border-radius: 10px;
+            margin-top: 20px;
+            position: relative;
+            display: none; /* Hidden by default */
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        /* 1. Doping Graph */
+        .graph-area {
+            width: 80%;
+            height: 80%;
+            border-left: 2px solid #333;
+            border-bottom: 2px solid #333;
+            position: relative;
+        }
+        .graph-line {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            height: 2px;
+            background: var(--primary);
+            width: 0%;
+            transition: width 3s linear;
+        }
+        .peak {
+            position: absolute;
+            bottom: 0;
+            width: 20px;
+            background: rgba(231, 76, 60, 0.5);
+            border-top: 2px solid var(--accent);
+            display: none;
+            cursor: pointer;
+        }
+        .peak:hover::after {
+            content: "클릭하여 성분 확인";
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #333;
+            color: white;
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+        
+        /* 2. Forensics Paper */
+        .paper-strip {
+            width: 60px;
+            height: 90%;
+            background: white;
+            border: 1px solid #ddd;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.1);
+            margin: 0 20px;
+            position: relative;
+        }
+        .ink-spot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            position: absolute;
+            bottom: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0.8;
+        }
+        .solvent-line {
+            width: 100%;
+            height: 2px;
+            background: skyblue;
+            position: absolute;
+            bottom: 5px;
+            animation: moveUp 3s forwards;
+        }
+
+        /* Result Feedback */
+        .result-box {
+            background: #e8f8f5;
+            border-left: 5px solid var(--success);
+            padding: 15px;
+            margin-top: 20px;
+            width: 90%;
+            display: none;
+            animation: slideUp 0.5s;
+        }
+        .result-box h4 { margin: 0 0 5px; color: var(--success); }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes moveUp { from { bottom: 5px; } to { bottom: 90%; } }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1>🔍 크로마토그래피 활용 사례 연구소</h1>
+        <p>혼합물의 분리 원리를 이용해 숨겨진 진실을 찾아보세요!</p>
+    </div>
+
+    <div class="main-content">
+        <div class="sidebar">
+            <button class="nav-btn" onclick="loadScenario(1)">
+                <span class="nav-icon">🏃</span> 도핑 테스트
+            </button>
+            <button class="nav-btn" onclick="loadScenario(2)">
+                <span class="nav-icon">🕵️</span> 과학 수사
+            </button>
+            <button class="nav-btn" onclick="loadScenario(3)">
+                <span class="nav-icon">🍬</span> 식품 안전
+            </button>
+        </div>
+
+        <div class="stage" id="stageArea">
+            <div class="scenario-intro">
+                <h2>환영합니다!</h2>
+                <p>왼쪽 메뉴에서 탐구하고 싶은 사례를 선택해주세요.</p>
+                <p>크로마토그래피는 아주 적은 양의 혼합물도<br>정확하게 분리해내는 강력한 도구입니다.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const stage = document.getElementById('stageArea');
+
+    const scenarios = {
+        1: {
+            title: "스포츠 도핑 테스트",
+            desc: "국제 대회 금메달리스트 선수의 소변 샘플이 도착했습니다. 금지 약물 복용 여부를 확인해야 합니다.",
+            tool: "기체 크로마토그래피(GC) 장비 사용",
+            type: "graph",
+            resultText: "분석 결과: 5분 30초 구간에서 비정상적인 피크가 발견되었습니다. 이는 금지 약물인 '아나볼릭 스테로이드' 성분과 일치합니다!",
+            correct: true
+        },
+        2: {
+            title: "협박 편지의 펜을 찾아라",
+            desc: "범죄 현장에서 발견된 메모와 용의자 A가 가진 펜의 잉크가 같은지 확인해야 합니다.",
+            tool: "얇은 막 크로마토그래피(TLC) 수행",
+            type: "paper",
+            resultText: "분석 결과: 현장 증거물과 용의자의 펜 잉크가 분리된 색띠의 개수와 이동 거리가 정확히 일치합니다. 동일한 펜입니다!",
+            correct: true
+        },
+        3: {
+            title: "사탕의 인공 색소 분석",
+            desc: "어린이용 사탕에 허용되지 않은 인공 타르 색소가 들어있는지 검사합니다.",
+            tool: "종이 크로마토그래피 수행",
+            type: "paper-food",
+            resultText: "분석 결과: 사탕 색소에서 '적색 2호'와 동일한 위치에 색띠가 나타났습니다. 부적합 판정!",
+            correct: true
+        }
+    };
+
+    function loadScenario(id) {
+        // Update Active Button
+        document.querySelectorAll('.nav-btn').forEach((btn, idx) => {
+            btn.classList.toggle('active', idx + 1 === id);
+        });
+
+        const data = scenarios[id];
+        
+        let visualHTML = '';
+        if (data.type === 'graph') {
+            visualHTML = `
+                <div class="vis-container" id="visualDisplay">
+                    <div class="graph-area">
+                        <div style="position: absolute; top: 10px; left: 10px; font-size: 0.8rem; color: #777;">신호 강도</div>
+                        <div style="position: absolute; bottom: -25px; right: 0; font-size: 0.8rem; color: #777;">시간 (분)</div>
+                        <div class="graph-line" id="graphLine"></div>
+                        <div class="peak" id="resultPeak" style="height: 80px; left: 60%; bottom: 2px; border-radius: 50% 50% 0 0;" onclick="showResult('${data.resultText}')"></div>
+                    </div>
+                </div>
+            `;
+        } else {
+            // Paper/TLC
+            visualHTML = `
+                <div class="vis-container" id="visualDisplay" style="background: #eee;">
+                    <div style="display: flex; text-align: center;">
+                        <div style="margin-right: 30px;">
+                            <div class="paper-strip">
+                                <div class="solvent-line" id="solvent1"></div>
+                                <div class="ink-spot" style="background: black; bottom: 10px;" id="spot1_base"></div>
+                                <div class="ink-spot result-spot" style="background: blue; bottom: 10px; display:none;" id="spot1_a"></div>
+                                <div class="ink-spot result-spot" style="background: red; bottom: 10px; display:none;" id="spot1_b"></div>
+                            </div>
+                            <p>증거물/시료</p>
+                        </div>
+                        <div>
+                            <div class="paper-strip">
+                                <div class="solvent-line" id="solvent2"></div>
+                                <div class="ink-spot" style="background: black; bottom: 10px;" id="spot2_base"></div>
+                                <div class="ink-spot result-spot" style="background: blue; bottom: 10px; display:none;" id="spot2_a"></div>
+                                <div class="ink-spot result-spot" style="background: red; bottom: 10px; display:none;" id="spot2_b"></div>
+                            </div>
+                            <p>비교군(표준)</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        stage.innerHTML = `
+            <div class="scenario-intro">
+                <h2>${data.title}</h2>
+                <p>${data.desc}</p>
+                <div style="background: #fff3cd; padding: 10px; border-radius: 5px; font-size: 0.9rem; margin: 10px 0;">
+                    💡 <strong>사용 기술:</strong> ${data.tool}
+                </div>
+                <button class="action-btn" onclick="runSimulation('${data.type}', '${data.resultText}')">분석 시작하기</button>
+                
+                ${visualHTML}
+
+                <div class="result-box" id="resultBox">
+                    <h4>✅ 분석 완료</h4>
+                    <p id="resultMessage"></p>
+                </div>
+            </div>
+        `;
+    }
+
+    function runSimulation(type, resultText) {
+        const display = document.getElementById('visualDisplay');
+        const btn = document.querySelector('.action-btn');
+        display.style.display = 'flex';
+        btn.disabled = true;
+        btn.textContent = "분석 중...";
+
+        if (type === 'graph') {
+            const line = document.getElementById('graphLine');
+            const peak = document.getElementById('resultPeak');
+            
+            // Animate Graph Line
+            setTimeout(() => { line.style.width = "100%"; }, 100);
+            
+            // Show Peak
+            setTimeout(() => {
+                peak.style.display = 'block';
+                btn.textContent = "분석 완료";
+                // Auto show result or wait for click
+                peak.classList.add('pulse'); // You can add CSS animation for pulse
+            }, 1800);
+
+        } else {
+            // Paper Animation
+            const solvents = document.querySelectorAll('.solvent-line');
+            const resultSpots = document.querySelectorAll('.result-spot');
+            
+            // Move solvent
+            solvents.forEach(s => s.style.animation = "moveUp 3s forwards");
+
+            // Show separated spots
+            setTimeout(() => {
+                resultSpots.forEach((spot, index) => {
+                    spot.style.display = 'block';
+                    spot.style.transition = 'bottom 2.5s ease-out';
+                    // Randomize slightly but keep pairs consistent
+                    if(spot.id.includes('a')) setTimeout(()=> spot.style.bottom = "70%", 50);
+                    if(spot.id.includes('b')) setTimeout(()=> spot.style.bottom = "40%", 50);
+                });
+            }, 500);
+
+            setTimeout(() => {
+                btn.textContent = "분석 완료";
+                showResult(resultText);
+            }, 3000);
+        }
+    }
+
+    function showResult(text) {
+        const box = document.getElementById('resultBox');
+        const msg = document.getElementById('resultMessage');
+        msg.textContent = text;
+        box.style.display = 'block';
+    }
+
+    // Load initial state
+    // stage.innerHTML = ... (Already handled by static HTML)
+</script>
+
+</body>
+</html>

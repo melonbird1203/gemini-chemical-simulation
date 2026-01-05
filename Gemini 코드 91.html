@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 반응의 양적 관계 가상실험 (CaCO₃ + HCl)</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --accent-color: #ff6b6b;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9rem; color: #666; margin-top: 5px; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* 컨트롤 패널 */
+        .panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .value-display { font-size: 0.9rem; color: var(--primary-color); float: right; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        /* 실험 영역 */
+        .experiment-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .visual-display {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            height: 300px;
+            background: linear-gradient(to bottom, #eef2f3, #ffffff);
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            border: 1px solid #ddd;
+        }
+
+        /* 플라스크 및 저울 애니메이션 */
+        .flask-container {
+            position: relative;
+            width: 120px;
+            margin: 0 auto;
+            text-align: center;
+        }
+        
+        .flask {
+            width: 80px;
+            height: 120px;
+            background: rgba(200, 230, 255, 0.4);
+            border: 2px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 40px 40px;
+            position: relative;
+            margin: 0 auto;
+            clip-path: polygon(20% 0%, 80% 0%, 100% 100%, 0% 100%);
+        }
+
+        .solution {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 60%;
+            background: rgba(100, 200, 255, 0.6);
+            border-radius: 0 0 35px 35px;
+            transition: height 0.5s;
+        }
+
+        .bubbles {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            display: none;
+        }
+
+        .bubble {
+            position: absolute;
+            bottom: 0;
+            background: rgba(255, 255, 255, 0.8);
+            border-radius: 50%;
+            animation: rise 2s infinite ease-in;
+        }
+
+        @keyframes rise {
+            0% { bottom: 0; transform: scale(0.5); opacity: 0; }
+            50% { opacity: 1; }
+            100% { bottom: 100%; transform: scale(1.2); opacity: 0; }
+        }
+
+        .balance {
+            background: #333;
+            color: #0f0;
+            padding: 10px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            margin-top: 10px;
+            width: 140px;
+            text-align: center;
+            box-shadow: 0 4px 0 #111;
+        }
+
+        /* 그래프 영역 */
+        .graph-container {
+            background: white;
+            padding: 15px;
+            border-radius: 12px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            height: 250px;
+            position: relative;
+        }
+        canvas { width: 100%; height: 100%; }
+
+        /* 결과 및 퀴즈 */
+        .results-section {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 20px;
+            display: none;
+        }
+
+        .equation-box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-left: 4px solid var(--primary-color);
+            margin-bottom: 15px;
+            font-family: monospace;
+            font-size: 1.1rem;
+        }
+
+        .quiz-box {
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 8px;
+            background: #fff;
+        }
+        
+        .quiz-options button {
+            margin-top: 5px;
+            background: #f0f0f0;
+            color: #333;
+            width: auto;
+            margin-right: 10px;
+            padding: 8px 16px;
+        }
+        .quiz-options button:hover { background: #e0e0e0; }
+        .quiz-options button.correct { background: var(--secondary-color); color: white; }
+        .quiz-options button.wrong { background: var(--accent-color); color: white; }
+
+        .tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            background: #eee;
+            margin-right: 5px;
+        }
+
+        /* 안전 안내 */
+        .safety-note {
+            background-color: #fff3cd;
+            color: #856404;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.85rem;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+        }
+        .safety-note span { margin-right: 10px; font-size: 1.2rem; }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🧪 화학 반응의 양적 관계 실험실</h1>
+        <div class="subtitle">고등학교 화학Ⅰ: 탄산칼슘과 묽은 염산의 반응</div>
+    </header>
+
+    <div class="safety-note">
+        <span>⚠️</span>
+        <div>
+            <strong>안전 수칙:</strong> 가상 실험이지만 실제처럼 생각해요! 염산은 강한 산성이므로 피부에 닿지 않게 주의하고, 발생하는 이산화탄소 기체를 직접 흡입하지 않도록 환기가 필요합니다.
+        </div>
+    </div>
+
+    <div class="container">
+        <aside class="panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>탄산칼슘(CaCO₃) 질량 <span id="massVal" class="value-display">1.0 g</span></label>
+                <input type="range" id="massInput" min="0.5" max="3.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <label>묽은 염산(HCl) 농도 <span id="concVal" class="value-display">0.5 M</span></label>
+                <input type="range" id="concInput" min="0.1" max="1.0" step="0.1" value="0.5">
+            </div>
+
+            <div class="control-group">
+                <label>묽은 염산(HCl) 부피 <span id="volVal" class="value-display">50 mL</span></label>
+                <input type="range" id="volInput" min="20" max="100" step="10" value="50">
+            </div>
+
+            <hr>
+            <p style="font-size:0.9rem; color:#555;">
+                <strong>플라스크 초기 질량:</strong> 100.00 g (용기 포함)
+            </p>
+
+            <button id="startBtn" onclick="startExperiment()">⚗️ 실험 시작</button>
+            <button id="resetBtn" onclick="resetExperiment()" style="background-color:#7f8c8d; margin-top:10px; display:none;">🔄 초기화</button>
+        </aside>
+
+        <main class="experiment-area">
+            
+            <div class="visual-display">
+                <div class="graph-container" style="flex:1; margin-right:20px; border:none; box-shadow:none; padding:0;">
+                    <canvas id="reactionChart"></canvas>
+                </div>
+
+                <div class="flask-container">
+                    <div style="margin-bottom:5px; font-size:0.8rem; color:#666;">반응 용기</div>
+                    <div class="flask">
+                        <div class="solution" id="solutionFluid"></div>
+                        <div class="bubbles" id="bubbles">
+                            </div>
+                    </div>
+                    <div class="balance" id="balanceDisplay">100.00 g</div>
+                </div>
+            </div>
+
+            <section id="resultsSection" class="results-section">
+                <h3>📊 실험 결과 분석</h3>
+                
+                <div class="equation-box">
+                    CaCO₃(s) + 2HCl(aq) → CaCl₂(aq) + H₂O(l) + CO₂↑
+                </div>
+
+                <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:20px;">
+                    <div>
+                        <strong>📉 생성된 CO₂ 질량:</strong> <span id="resCO2Mass">0.00</span> g
+                    </div>
+                    <div>
+                        <strong>🧪 반응한 CaCO₃ 몰수:</strong> <span id="resMoles">0.00</span> mol
+                    </div>
+                </div>
+
+                <div class="quiz-box">
+                    <h4>💡 생각 더하기 (퀴즈)</h4>
+                    <p id="quizQuestion">이 실험 조건에서 더 이상 반응이 진행되지 않는 이유는 무엇일까요?</p>
+                    <div class="quiz-options" id="quizOptions">
+                        </div>
+                    <p id="quizFeedback" style="margin-top:10px; font-weight:bold;"></p>
+                </div>
+
+                <div style="margin-top:20px; font-size:0.9rem; background:#eee; padding:10px; border-radius:8px;">
+                    <strong>📝 선생님의 코멘트:</strong><br>
+                    <span id="teacherComment">실험을 먼저 진행해보세요!</span>
+                </div>
+            </section>
+
+        </main>
+    </div>
+
+    <script>
+        // --- 상수 및 변수 설정 ---
+        const FLASK_TARE_WEIGHT = 50.00; // 빈 플라스크 무게
+        const MOLAR_MASS_CaCO3 = 100.09; // g/mol
+        const MOLAR_MASS_CO2 = 44.01;    // g/mol
+        
+        let caco3Mass = 1.0;
+        let hclConc = 0.5;
+        let hclVol = 50; // mL
+        
+        let isRunning = false;
+        let animationId;
+        let currentTime = 0;
+        let maxTime = 10; // 실험 애니메이션 지속 시간 (초)
+        
+        let initialTotalMass = 0;
+        let finalLoss = 0;
+        let currentLoss = 0;
+
+        // --- DOM 요소 ---
+        const massInput = document.getElementById('massInput');
+        const concInput = document.getElementById('concInput');
+        const volInput = document.getElementById('volInput');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const balanceDisplay = document.getElementById('balanceDisplay');
+        const bubbles = document.getElementById('bubbles');
+        const resultsSection = document.getElementById('resultsSection');
+        const solutionFluid = document.getElementById('solutionFluid');
+        
+        // 캔버스 설정
+        const canvas = document.getElementById('reactionChart');
+        const ctx = canvas.getContext('2d');
+        let chartData = []; // {t: time, m: massLoss}
+
+        // --- 초기화 및 이벤트 리스너 ---
+        function init() {
+            updateValues();
+            drawEmptyChart();
+            generateBubbles();
+        }
+
+        massInput.addEventListener('input', () => {
+            document.getElementById('massVal').textContent = massInput.value + " g";
+            caco3Mass = parseFloat(massInput.value);
+            updateBalancePreview();
+        });
+
+        concInput.addEventListener('input', () => {
+            document.getElementById('concVal').textContent = concInput.value + " M";
+            hclConc = parseFloat(concInput.value);
+            updateBalancePreview();
+        });
+
+        volInput.addEventListener('input', () => {
+            document.getElementById('volVal').textContent = volInput.value + " mL";
+            hclVol = parseFloat(volInput.value);
+            solutionFluid.style.height = (hclVol / 100 * 60 + 20) + "%"; // 부피에 따른 수위 조절 시각화
+            updateBalancePreview();
+        });
+
+        function updateBalancePreview() {
+            if(!isRunning && resultsSection.style.display === 'none') {
+                // 용액 밀도를 대략 1g/mL로 가정
+                let liquidMass = parseFloat(volInput.value); 
+                let solidMass = parseFloat(massInput.value);
+                let total = FLASK_TARE_WEIGHT + liquidMass + solidMass;
+                balanceDisplay.textContent = total.toFixed(2) + " g";
+            }
+        }
+
+        // --- 버블 DOM 생성 ---
+        function generateBubbles() {
+            bubbles.innerHTML = '';
+            for(let i=0; i<15; i++) {
+                let b = document.createElement('div');
+                b.className = 'bubble';
+                b.style.left = Math.random() * 80 + 10 + '%';
+                b.style.width = (Math.random() * 8 + 4) + 'px';
+                b.style.height = b.style.width;
+                b.style.animationDuration = (Math.random() * 1.5 + 0.5) + 's';
+                b.style.animationDelay = Math.random() + 's';
+                bubbles.appendChild(b);
+            }
+        }
+
+        // --- 핵심 로직: 화학량론 계산 ---
+        function calculateReaction() {
+            // 1. 반응물 몰수 계산
+            const molesCaCO3 = caco3Mass / MOLAR_MASS_CaCO3;
+            const molesHCl = (hclConc * hclVol) / 1000;
+
+            // 2. 한계 반응물 결정 (CaCO3 : HCl = 1 : 2)
+            // HCl이 CaCO3의 2배가 필요함.
+            let limitingReactant = "";
+            let reactedMolesCaCO3 = 0;
+
+            if (molesHCl < molesCaCO3 * 2) {
+                // HCl이 부족함 (한계 반응물: HCl)
+                limitingReactant = "HCl";
+                reactedMolesCaCO3 = molesHCl / 2;
+            } else {
+                // CaCO3가 부족하거나 딱 맞음 (한계 반응물: CaCO3)
+                limitingReactant = "CaCO3";
+                reactedMolesCaCO3 = molesCaCO3;
+            }
+
+            // 3. 생성물(CO2) 예측
+            // 반응한 CaCO3 1몰당 CO2 1몰 생성
+            const molesCO2 = reactedMolesCaCO3;
+            const massCO2 = molesCO2 * MOLAR_MASS_CO2;
+
+            return {
+                molesCaCO3,
+                molesHCl,
+                limitingReactant,
+                reactedMolesCaCO3,
+                massCO2
+            };
+        }
+
+        // --- 실험 시작 ---
+        function startExperiment() {
+            isRunning = true;
+            massInput.disabled = true;
+            concInput.disabled = true;
+            volInput.disabled = true;
+            startBtn.disabled = true;
+            startBtn.style.display = 'none';
+            resetBtn.style.display = 'block';
+
+            // 초기 질량 세팅 (플라스크 + 용액 + 탄산칼슘)
+            const liquidMass = hclVol; // 밀도 1g/mL 가정
+            initialTotalMass = FLASK_TARE_WEIGHT + liquidMass + caco3Mass;
+            
+            // 결과 계산
+            const result = calculateReaction();
+            finalLoss = result.massCO2;
+
+            // 차트 초기화
+            chartData = [];
+            currentTime = 0;
+
+            // 애니메이션 시작
+            bubbles.style.display = 'block';
+            lastTime = performance.now();
+            requestAnimationFrame((t) => animate(t, result));
+        }
+
+        let lastTime = 0;
+
+        function animate(timestamp, result) {
+            if (!isRunning) return;
+
+            const dt = (timestamp - lastTime) / 1000;
+            lastTime = timestamp;
+
+            // 시간 진행 (단순화를 위해 실제 시간보다 빠르게 시뮬레이션)
+            // 반응 속도는 초반에 빠르고 나중에 느려지는 로그 함수 형태 모사
+            if (currentTime < maxTime) {
+                currentTime += (dt || 0.016); 
+                
+                // 반응 진척도 (0 ~ 1) : 1 - exp(-k * t) 형태
+                const progress = 1 - Math.exp(-0.5 * currentTime);
+                
+                currentLoss = finalLoss * progress;
+                const currentMass = initialTotalMass - currentLoss;
+
+                // UI 업데이트
+                balanceDisplay.textContent = currentMass.toFixed(2) + " g";
+                
+                // 그래프 데이터 추가
+                chartData.push({ t: currentTime, y: currentLoss });
+                drawChart(finalLoss);
+
+                requestAnimationFrame((t) => animate(t, result));
+            } else {
+                // 실험 종료
+                finishExperiment(result);
+            }
+        }
+
+        function finishExperiment(result) {
+            isRunning = false;
+            bubbles.style.display = 'none';
+            balanceDisplay.textContent = (initialTotalMass - finalLoss).toFixed(2) + " g";
+            
+            // 결과창 표시
+            showResults(result);
+        }
+
+        function resetExperiment() {
+            isRunning = false;
+            resultsSection.style.display = 'none';
+            massInput.disabled = false;
+            concInput.disabled = false;
+            volInput.disabled = false;
+            startBtn.disabled = false;
+            startBtn.style.display = 'block';
+            resetBtn.style.display = 'none';
+            
+            drawEmptyChart();
+            updateBalancePreview();
+        }
+
+        // --- 결과 처리 및 퀴즈 ---
+        function showResults(data) {
+            resultsSection.style.display = 'block';
+            
+            document.getElementById('resCO2Mass').textContent = data.massCO2.toFixed(3);
+            document.getElementById('resMoles').textContent = data.reactedMolesCaCO3.toFixed(4);
+
+            // 퀴즈 설정
+            const quizOptionsDiv = document.getElementById('quizOptions');
+            quizOptionsDiv.innerHTML = '';
+            document.getElementById('quizFeedback').textContent = '';
+
+            const isLimitingHCl = data.limitingReactant === 'HCl';
+            
+            let teacherText = "";
+            let correctAns = "";
+            
+            if (isLimitingHCl) {
+                teacherText = `염산(${hclVol}mL, ${hclConc}M)에 들어있는 H⁺ 이온이 모두 소모되었습니다. 탄산칼슘은 아직 남아있지만 반응할 산이 없어서 멈춘 것이죠. 이를 '한계 반응물'이라고 합니다.`;
+                correctAns = "염산(HCl)이 모두 소모되어서";
+            } else {
+                teacherText = `넣어준 탄산칼슘(${caco3Mass}g)이 모두 반응하여 사라졌습니다. 염산은 충분히 남아있습니다. 이 경우 생성된 CO₂의 양은 탄산칼슘의 양에 의해 결정됩니다.`;
+                correctAns = "탄산칼슘(CaCO₃)이 모두 소모되어서";
+            }
+
+            document.getElementById('teacherComment').textContent = teacherText;
+
+            // 퀴즈 버튼 생성
+            const opts = [
+                "탄산칼슘(CaCO₃)이 모두 소모되어서",
+                "염산(HCl)이 모두 소모되어서",
+                "발생한 이산화탄소가 용액에 녹아서"
+            ];
+
+            opts.forEach(opt => {
+                let btn = document.createElement('button');
+                btn.textContent = opt;
+                btn.onclick = () => {
+                    if (opt === correctAns) {
+                        btn.classList.add('correct');
+                        document.getElementById('quizFeedback').textContent = "✅ 정답입니다! 정확한 분석이네요.";
+                        document.getElementById('quizFeedback').style.color = "green";
+                    } else {
+                        btn.classList.add('wrong');
+                        document.getElementById('quizFeedback').textContent = "❌ 다시 생각해보세요. 그래프의 기울기가 0이 된 시점을 떠올려보세요.";
+                        document.getElementById('quizFeedback').style.color = "red";
+                    }
+                };
+                quizOptionsDiv.appendChild(btn);
+            });
+            
+            // 자동 스크롤
+            resultsSection.scrollIntoView({ behavior: 'smooth' });
+        }
+
+        // --- 차트 그리기 (Canvas API) ---
+        function drawEmptyChart() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#f9f9f9';
+            ctx.fillRect(0,0, canvas.width, canvas.height);
+            
+            ctx.strokeStyle = '#ddd';
+            ctx.beginPath();
+            // 격자 그리기 (간략)
+            for(let i=0; i<canvas.width; i+=30) { ctx.moveTo(i,0); ctx.lineTo(i, canvas.height); }
+            for(let i=0; i<canvas.height; i+=30) { ctx.moveTo(0,i); ctx.lineTo(canvas.width, i); }
+            ctx.stroke();
+
+            ctx.fillStyle = '#666';
+            ctx.font = '12px Arial';
+            ctx.fillText("시간 →", canvas.width - 40, canvas.height - 10);
+            ctx.save();
+            ctx.translate(15, 60);
+            ctx.rotate(-Math.PI/2);
+            ctx.fillText("발생한 기체 질량 (g)", 0, 0);
+            ctx.restore();
+        }
+
+        function drawChart(maxY) {
+            // 캔버스 사이즈 조정 (반응형 대응을 위해 실제 픽셀 크기 맞춤)
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            drawEmptyChart();
+
+            if (chartData.length === 0) return;
+
+            // 스케일 계산
+            const padding = 30;
+            const graphW = canvas.width - padding * 2;
+            const graphH = canvas.height - padding * 2;
+
+            // Y축 최대값은 예상 최대 생성량 + 여유분
+            const yMaxScale = maxY > 0 ? maxY * 1.2 : 1.0; 
+            const xMaxScale = maxTime;
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#4a90e2';
+            ctx.lineWidth = 3;
+
+            chartData.forEach((p, i) => {
+                const x = padding + (p.t / xMaxScale) * graphW;
+                const y = (canvas.height - padding) - (p.y / yMaxScale) * graphH;
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            });
+            ctx.stroke();
+        }
+
+        // 초기 실행
+        init();
+
+    </script>
+</body>
+</html>

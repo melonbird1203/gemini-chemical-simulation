@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>호수 속의 보물 구하기 - 샤를의 법칙 시뮬레이션</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --danger: #E74C3C;
+            --success: #2ECC71;
+            --text: #2C3E50;
+            --bg: #ECF0F1;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: var(--primary); }
+        .container {
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .canvas-wrapper {
+            background: white;
+            padding: 10px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            position: relative;
+        }
+        canvas { border-radius: 8px; border: 1px solid #ddd; }
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .panel {
+            border: 1px solid #eee;
+            padding: 15px;
+            border-radius: 8px;
+            background-color: #f9f9f9;
+        }
+        .panel h3 { margin-top: 0; font-size: 1.1rem; border-bottom: 2px solid var(--primary); padding-bottom: 5px; display: inline-block;}
+        button {
+            padding: 12px;
+            font-size: 1rem;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: 0.2s;
+            font-weight: bold;
+        }
+        #btn-start { background-color: var(--primary); color: white; }
+        #btn-start:hover { background-color: #357ABD; }
+        #btn-reset { background-color: var(--danger); color: white; }
+        #btn-reset:hover { background-color: #C0392B; }
+        
+        .status-display {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            font-size: 0.9rem;
+        }
+        .status-item { background: #fff; padding: 8px; border-radius: 4px; border: 1px solid #ddd; text-align: center;}
+        .status-value { font-weight: bold; color: var(--primary); font-size: 1.1rem;}
+
+        .alert-box {
+            background-color: #FFF3CD;
+            border: 1px solid #FFEEBA;
+            color: #856404;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            display: none;
+            animation: fadeIn 0.5s;
+        }
+        .misconception-box {
+            background-color: #D4EDDA;
+            border: 1px solid #C3E6CB;
+            color: #155724;
+            padding: 10px;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            display: none;
+            margin-top: 10px;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        
+        /* Tooltip style for molecular view */
+        .molecular-view {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.9);
+            border: 1px solid #ccc;
+            padding: 5px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🕯️ 호수 속의 보물 구하기 (기체의 온도와 부피)</h1>
+    <p style="text-align: center; max-width: 800px; color: #666;">
+        양초에 불을 붙이고 컵을 덮어보세요. 물이 올라오는 현상을 <strong>기체의 온도 변화</strong>와 <strong>분자 운동</strong>으로 관찰해봅시다.
+    </p>
+
+    <div class="container">
+        <div class="canvas-wrapper">
+            <canvas id="simCanvas" width="600" height="400"></canvas>
+            <div class="molecular-view">
+                <strong>분자 돋보기 🔍</strong>
+                <canvas id="molCanvas" width="100" height="100"></canvas>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="panel">
+                <h3>🕹️ 실험 조작</h3>
+                <p style="font-size: 0.9rem; margin-bottom: 10px;">순서대로 버튼을 눌러보세요.</p>
+                <div style="display: flex; gap: 10px;">
+                    <button id="btn-start" onclick="startExperiment()">1. 불 붙이기 & 컵 덮기</button>
+                    <button id="btn-reset" onclick="resetExperiment()">초기화</button>
+                </div>
+            </div>
+
+            <div class="panel">
+                <h3>📊 실시간 데이터</h3>
+                <div class="status-display">
+                    <div class="status-item">컵 내부 온도<br><span id="val-temp" class="status-value">25</span> °C</div>
+                    <div class="status-item">컵 내부 압력<br><span id="val-pressure" class="status-value">1.00</span> atm</div>
+                    <div class="status-item">물 높이<br><span id="val-water" class="status-value">0</span> mm</div>
+                    <div class="status-item">분자 속도<br><span id="val-speed" class="status-value">보통</span></div>
+                </div>
+            </div>
+
+            <div id="alert-msg" class="alert-box">
+                🔥 컵 안의 공기가 가열되고 있습니다. 분자들이 매우 빠르게 움직이며 컵 밖으로 나가려 합니다!
+            </div>
+
+            <div id="result-msg" class="misconception-box">
+                <strong>💡 결과 분석</strong><br>
+                불이 꺼지자 공기가 식으면서 <strong>부피가 수축</strong>했습니다. <br>
+                내부 압력이 낮아져 대기압이 물을 안으로 밀어 넣은 것입니다!<br>
+                (산소 소모보다 온도 변화의 영향이 훨씬 큽니다.)
+            </div>
+        </div>
+    </div>
+    
+    <div class="container">
+         <div class="canvas-wrapper" style="width: 100%;">
+            <canvas id="graphCanvas" width="900" height="200"></canvas>
+         </div>
+    </div>
+
+<script>
+/**
+ * 과학 가상실험실 엔진 (Virtual Lab Engine)
+ * - 상태 관리 및 물리 시뮬레이션 로직
+ */
+
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const molCanvas = document.getElementById('molCanvas');
+const molCtx = molCanvas.getContext('2d');
+const graphCanvas = document.getElementById('graphCanvas');
+const graphCtx = graphCanvas.getContext('2d');
+
+// 상태 변수
+let state = 'INIT'; // INIT, HEATING, COVERING, COOLING, FINISHED
+let time = 0;
+let temperature = 25; // 섭씨
+let pressure = 1.0; // atm
+let waterLevel = 0; // 픽셀 단위
+let maxWaterLevel = 80;
+let candleY = 300;
+let cupY = 100;
+let flameSize = 0;
+let molecules = [];
+let dataPoints = []; // 그래프용 데이터
+
+// 상수
+const ROOM_TEMP = 25;
+const MAX_TEMP = 150; // 가열 시 최대 온도
+
+// 초기화
+function init() {
+    state = 'INIT';
+    time = 0;
+    temperature = ROOM_TEMP;
+    pressure = 1.0;
+    waterLevel = 0;
+    cupY = 50; // 컵이 공중에 떠 있음
+    flameSize = 0;
+    molecules = [];
+    dataPoints = [];
+    
+    // 분자 생성
+    for(let i=0; i<15; i++) {
+        molecules.push({
+            x: Math.random() * 100,
+            y: Math.random() * 100,
+            vx: (Math.random() - 0.5) * 2,
+            vy: (Math.random() - 0.5) * 2
+        });
+    }
+
+    document.getElementById('btn-start').disabled = false;
+    document.getElementById('btn-start').innerText = "1. 불 붙이기 & 컵 덮기";
+    document.getElementById('alert-msg').style.display = 'none';
+    document.getElementById('result-msg').style.display = 'none';
+    
+    updateUI();
+    draw();
+}
+
+function startExperiment() {
+    if(state !== 'INIT') return;
+    state = 'HEATING';
+    document.getElementById('btn-start').disabled = true;
+    document.getElementById('btn-start').innerText = "실험 진행 중...";
+    document.getElementById('alert-msg').style.display = 'block';
+    document.getElementById('alert-msg').innerHTML = "🔥 <strong>가열 중:</strong> 촛불 열기에 의해 기체 분자 운동이 빨라지고 부피가 팽창합니다.";
+    
+    // 시나리오 시퀀스 시작
+    setTimeout(() => {
+        state = 'COVERING'; // 컵 내려옴
+        
+        setTimeout(() => {
+            state = 'COOLING'; // 불 꺼짐, 식기 시작
+            document.getElementById('alert-msg').className = "alert-box"; // 스타일 리셋
+            document.getElementById('alert-msg').style.backgroundColor = "#D1ECF1";
+            document.getElementById('alert-msg').style.color = "#0C5460";
+            document.getElementById('alert-msg').style.borderColor = "#BEE5EB";
+            document.getElementById('alert-msg').innerHTML = "❄️ <strong>냉각 중:</strong> 불이 꺼지고 공기가 식습니다. 부피가 줄어들며 물이 빨려 들어옵니다.";
+            
+            setTimeout(() => {
+                state = 'FINISHED';
+                document.getElementById('result-msg').style.display = 'block';
+                document.getElementById('alert-msg').style.display = 'none';
+                document.getElementById('btn-start').innerText = "실험 완료";
+            }, 5000);
+        }, 3000); // 컵 덮히고 3초 뒤 불 꺼짐
+    }, 2000); // 2초간 가열 후 컵 덮기 시작
+}
+
+function resetExperiment() {
+    init();
+}
+
+// 물리 엔진 업데이트
+function update() {
+    if (state === 'HEATING') {
+        flameSize = Math.min(flameSize + 1, 15);
+        if(temperature < MAX_TEMP) temperature += 2;
+        // 압력은 개방된 상태라 1.0 유지 (샤를법칙 V 팽창 구간)
+        pressure = 1.0; 
+    } else if (state === 'COVERING') {
+        if (cupY < 250) cupY += 5; // 컵 내려옴
+        if(temperature < MAX_TEMP + 20) temperature += 1; // 갇힌 열로 약간 상승
+    } else if (state === 'COOLING') {
+        flameSize = Math.max(flameSize - 1, 0);
+        
+        // 핵심 물리 로직: 온도가 내려가면 압력이 감소 -> 물이 올라옴
+        if (temperature > ROOM_TEMP) {
+            temperature -= 0.8; // 천천히 식음
+        }
+        
+        // P/T = constant (V가 변하지만 물이 채워지며 보상)
+        // 시각적 효과를 위해 단순화: 온도가 낮아질수록 물이 올라옴
+        let tempFactor = (MAX_TEMP - temperature) / (MAX_TEMP - ROOM_TEMP); // 0 to 1
+        let targetWater = maxWaterLevel * tempFactor;
+        
+        if (waterLevel < targetWater) waterLevel += 0.5;
+        
+        // 압력 시각화 (1보다 낮아짐)
+        pressure = 1.0 - (0.2 * tempFactor);
+    }
+
+    // 데이터 기록 (그래프용)
+    if(state !== 'INIT' && state !== 'FINISHED') {
+        if(time % 10 === 0) { // 프레임 다운샘플링
+            dataPoints.push({t: dataPoints.length, temp: temperature, water: waterLevel});
+        }
+    }
+    
+    updateMolecules();
+    time++;
+    updateUI();
+}
+
+function updateMolecules() {
+    // 온도에 따른 속도 조절
+    let speedFactor = temperature / 30; 
+    molecules.forEach(m => {
+        m.x += m.vx * speedFactor;
+        m.y += m.vy * speedFactor;
+
+        // 벽 튕기기
+        if(m.x < 0 || m.x > 100) m.vx *= -1;
+        if(m.y < 0 || m.y > 100) m.vy *= -1;
+    });
+}
+
+function updateUI() {
+    document.getElementById('val-temp').innerText = Math.round(temperature);
+    document.getElementById('val-pressure').innerText = pressure.toFixed(2);
+    document.getElementById('val-water').innerText = Math.round(waterLevel);
+    
+    let speedText = "보통";
+    if(temperature > 100) speedText = "매우 빠름 ⚡";
+    else if(temperature > 50) speedText = "빠름 💨";
+    else speedText = "느림 ☁️";
+    document.getElementById('val-speed').innerText = speedText;
+}
+
+// 렌더링
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // 1. 배경 (테이블)
+    ctx.fillStyle = '#D6EAF8';
+    ctx.fillRect(0, 350, canvas.width, 50);
+
+    // 2. 접시
+    ctx.fillStyle = '#BDC3C7';
+    ctx.beginPath();
+    ctx.ellipse(300, 340, 150, 30, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+
+    // 3. 접시 물 (기본)
+    ctx.fillStyle = 'rgba(52, 152, 219, 0.5)';
+    ctx.beginPath();
+    ctx.ellipse(300, 340, 140, 25, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 4. 동전 (보물)
+    ctx.fillStyle = '#F1C40F';
+    ctx.beginPath();
+    ctx.ellipse(250, 345, 15, 8, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = '#D4AC0D';
+    ctx.stroke();
+
+    // 5. 양초
+    ctx.fillStyle = '#F5B041'; // 몸통
+    ctx.fillRect(290, 300, 20, 40);
+    // 심지
+    ctx.strokeStyle = '#333';
+    ctx.beginPath();
+    ctx.moveTo(300, 300);
+    ctx.lineTo(300, 290);
+    ctx.stroke();
+
+    // 6. 불꽃
+    if (flameSize > 0) {
+        ctx.fillStyle = `rgba(231, 76, 60, ${0.7 + Math.random()*0.3})`;
+        ctx.beginPath();
+        ctx.arc(300, 290, flameSize, 0, Math.PI * 2);
+        ctx.fill();
+        // 내부 노란색
+        ctx.fillStyle = 'rgba(241, 196, 15, 0.8)';
+        ctx.beginPath();
+        ctx.arc(300, 290, flameSize * 0.6, 0, Math.PI * 2);
+        ctx.fill();
+    }
+
+    // 7. 유리컵
+    // 컵 위치: cupY (내려옴)
+    // 컵 물 높이: waterLevel (바닥에서 위로)
+    
+    // 컵 내부 물 (상승분)
+    if (waterLevel > 0) {
+        ctx.fillStyle = 'rgba(52, 152, 219, 0.7)';
+        ctx.fillRect(260, 340 - waterLevel, 80, waterLevel);
+    }
+
+    // 컵 외곽
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 4;
+    ctx.fillStyle = 'rgba(236, 240, 241, 0.3)';
+    
+    ctx.beginPath();
+    // 컵 바닥(위쪽)
+    ctx.moveTo(260, cupY);
+    ctx.lineTo(340, cupY);
+    // 컵 옆면
+    ctx.lineTo(340, 345); // 접시 바닥 근처까지
+    ctx.lineTo(260, 345);
+    ctx.lineTo(260, cupY);
+    ctx.stroke();
+    ctx.fill();
+    ctx.lineWidth = 1;
+
+    // 기포 효과 (가열 시)
+    if (state === 'HEATING' || (state === 'COVERING' && flameSize > 0)) {
+        if(Math.random() > 0.8) {
+            ctx.fillStyle = 'rgba(255,255,255,0.6)';
+            ctx.beginPath();
+            ctx.arc(345, 340, 3, 0, Math.PI*2); // 컵 밖으로 빠져나가는 공기
+            ctx.fill();
+        }
+    }
+
+    // 분자 돋보기 렌더링
+    drawMolecules();
+    
+    // 그래프 렌더링
+    drawGraph();
+
+    requestAnimationFrame(update);
+    requestAnimationFrame(draw);
+}
+
+function drawMolecules() {
+    molCtx.clearRect(0, 0, 100, 100);
+    molCtx.fillStyle = '#fff';
+    molCtx.fillRect(0,0,100,100);
+    
+    // 배경 온도 색상
+    let hue = 240 - (temperature / MAX_TEMP * 240); // 파랑 -> 빨강
+    molCtx.fillStyle = `hsla(${hue}, 70%, 90%, 0.5)`;
+    molCtx.fillRect(0,0,100,100);
+
+    molCtx.fillStyle = '#2C3E50';
+    molecules.forEach(m => {
+        molCtx.beginPath();
+        molCtx.arc(m.x, m.y, 3, 0, Math.PI*2);
+        molCtx.fill();
+    });
+}
+
+function drawGraph() {
+    graphCtx.clearRect(0, 0, 900, 200);
+    
+    // 축 그리기
+    graphCtx.strokeStyle = '#888';
+    graphCtx.beginPath();
+    graphCtx.moveTo(50, 10);
+    graphCtx.lineTo(50, 180); // Y축
+    graphCtx.lineTo(880, 180); // X축
+    graphCtx.stroke();
+    
+    // 라벨
+    graphCtx.fillStyle = '#666';
+    graphCtx.fillText("시간", 850, 195);
+    graphCtx.fillStyle = '#E74C3C';
+    graphCtx.fillText("온도(°C)", 10, 20);
+    graphCtx.fillStyle = '#3498DB';
+    graphCtx.fillText("물 높이", 10, 40);
+
+    if (dataPoints.length < 2) return;
+
+    // 온도 그래프 (빨강)
+    graphCtx.strokeStyle = '#E74C3C';
+    graphCtx.lineWidth = 2;
+    graphCtx.beginPath();
+    graphCtx.moveTo(50, 180 - dataPoints[0].temp);
+    for(let i=1; i<dataPoints.length; i++) {
+        let x = 50 + (i * 2);
+        if (x > 880) break;
+        graphCtx.lineTo(x, 180 - dataPoints[i].temp);
+    }
+    graphCtx.stroke();
+
+    // 물 높이 그래프 (파랑)
+    graphCtx.strokeStyle = '#3498DB';
+    graphCtx.beginPath();
+    graphCtx.moveTo(50, 180 - dataPoints[0].water);
+    for(let i=1; i<dataPoints.length; i++) {
+        let x = 50 + (i * 2);
+        if (x > 880) break;
+        graphCtx.lineTo(x, 180 - dataPoints[i].water);
+    }
+    graphCtx.stroke();
+}
+
+// 시작
+init();
+
+</script>
+</body>
+</html>

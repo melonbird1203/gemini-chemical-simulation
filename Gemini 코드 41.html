@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 순물질과 혼합물 판별기</title>
+    <style>
+        :root { --primary: #4CAF50; --secondary: #2196F3; --accent: #FF9800; --bg: #f0f4f8; }
+        body { font-family: 'Gamja Flower', 'Nanum Gothic', sans-serif; background-color: var(--bg); margin: 0; padding: 20px; text-align: center; color: #333; }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); padding: 20px; }
+        
+        /* Experiment Area */
+        .lab-bench { display: flex; flex-direction: column; align-items: center; margin: 20px 0; min-height: 300px; }
+        .viewer { width: 300px; height: 300px; border: 5px solid #333; border-radius: 50%; position: relative; overflow: hidden; background: #fff; transition: all 0.5s; box-shadow: inset 0 0 20px rgba(0,0,0,0.2); }
+        .material-display { width: 100%; height: 100%; display: flex; justify-content: center; align-items: center; font-size: 80px; flex-direction: column; transition: opacity 0.3s; }
+        .particle-view { position: absolute; top:0; left:0; width: 100%; height: 100%; background: #222; display: none; flex-wrap: wrap; justify-content: center; align-items: center; padding: 20px; box-sizing: border-box; }
+        
+        /* Particles */
+        .particle { width: 30px; height: 30px; border-radius: 50%; margin: 5px; animation: float 3s infinite ease-in-out; box-shadow: 0 0 5px rgba(255,255,255,0.5); }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+
+        /* Controls */
+        .controls { margin-top: 20px; display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+        button { padding: 10px 20px; font-size: 16px; border: none; border-radius: 8px; cursor: pointer; transition: transform 0.1s; font-weight: bold; }
+        button:active { transform: scale(0.95); }
+        .btn-item { background: #e0e0e0; color: #333; }
+        .btn-item.active { background: var(--secondary); color: white; }
+        .btn-tool { background: var(--accent); color: white; box-shadow: 0 4px 0 #d87f00; }
+        .btn-guess { width: 120px; font-size: 18px; margin: 10px; padding: 15px; }
+        .btn-pure { background: var(--primary); color: white; box-shadow: 0 4px 0 #388E3C; }
+        .btn-mix { background: #E91E63; color: white; box-shadow: 0 4px 0 #C2185B; }
+
+        /* Feedback */
+        .feedback-area { margin-top: 20px; padding: 15px; border-radius: 10px; font-size: 18px; font-weight: bold; min-height: 60px; display: flex; align-items: center; justify-content: center; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #e2e3e5; color: #383d41; }
+
+        .stats { font-size: 14px; color: #666; margin-top: 10px; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔬 순물질 vs 혼합물 판별 실험실</h1>
+    <p>아래 물질 중 하나를 선택하고, 도구를 사용해 관찰한 뒤 정체를 밝혀보세요!</p>
+
+    <div class="controls" id="itemButtons">
+        </div>
+
+    <div class="lab-bench">
+        <div class="viewer" id="viewer">
+            <div class="material-display" id="macroView">
+                <span id="itemIcon">?</span>
+                <span style="font-size: 20px; margin-top:10px;" id="itemName">선택 대기중</span>
+            </div>
+            <div class="particle-view" id="microView">
+                </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-tool" onclick="toggleView('macro')">🔍 겉보기 관찰</button>
+        <button class="btn-tool" onclick="toggleView('micro')">🔬 입자 투시경</button>
+    </div>
+
+    <div class="controls" style="margin-top: 30px; border-top: 1px dashed #ccc; padding-top: 20px;">
+        <button class="btn-guess btn-pure" onclick="checkAnswer('pure')">순물질</button>
+        <button class="btn-guess btn-mix" onclick="checkAnswer('mix')">혼합물</button>
+    </div>
+
+    <div id="feedback" class="feedback-area info">
+        물질을 선택하고 관찰을 시작하세요.
+    </div>
+    <div class="stats" id="scoreBoard">시도 횟수: 0 | 정답: 0</div>
+</div>
+
+<script>
+    // 실험 데이터베이스
+    const database = [
+        { id: 'gold', name: '24K 순금', type: 'pure', icon: ⚱️', color: '#FFD700', desc: '반짝이는 노란색 고체입니다.', particleColors: ['#FFD700'] },
+        { id: 'water', name: '증류수', type: 'pure', icon: '💧', color: '#E3F2FD', desc: '무색 투명한 액체입니다.', particleColors: ['#2196F3'] },
+        { id: 'juice', name: '오렌지주스', type: 'mix', icon: '🍹', color: '#FFA726', desc: '주황색 액체이며 건더기가 보일 수 있습니다.', particleColors: ['#FFA726', '#FFEB3B', '#FFFFFF'] },
+        { id: 'air', name: '공기', type: 'mix', icon: '💨', color: '#E0F7FA', desc: '눈에 보이지 않는 기체입니다.', particleColors: ['#90CAF9', '#EF9A9A', '#A5D6A7'] },
+        { id: 'rock', name: '화강암', type: 'mix', icon: '🪨', color: '#9E9E9E', desc: '검은 점과 흰 점이 섞인 고체입니다.', particleColors: ['#000000', '#FFFFFF', '#795548'] },
+        { id: 'dryice', name: '드라이아이스', type: 'pure', icon: '🧊', color: '#FFFFFF', desc: '흰색 고체이며 승화합니다.', particleColors: ['#CFD8DC'] }
+    ];
+
+    let currentItem = null;
+    let currentView = 'macro';
+    let stats = { total: 0, correct: 0 };
+
+    // 초기화
+    function init() {
+        const btnContainer = document.getElementById('itemButtons');
+        database.forEach(item => {
+            const btn = document.createElement('button');
+            btn.className = 'btn-item';
+            btn.innerText = item.name;
+            btn.onclick = () => selectItem(item, btn);
+            btnContainer.appendChild(btn);
+        });
+        // 첫 번째 아이템 자동 선택
+        selectItem(database[0], btnContainer.firstChild);
+    }
+
+    // 물질 선택
+    function selectItem(item, btnElement) {
+        currentItem = item;
+        
+        // 버튼 스타일 업데이트
+        document.querySelectorAll('.btn-item').forEach(b => b.classList.remove('active'));
+        if(btnElement) btnElement.classList.add('active');
+
+        // 화면 초기화
+        document.getElementById('feedback').className = 'feedback-area info';
+        document.getElementById('feedback').innerText = `${item.name}을(를) 관찰 중입니다. 도구를 사용해보세요.`;
+        
+        // 겉보기 뷰 설정
+        document.getElementById('itemIcon').innerText = item.icon;
+        document.getElementById('itemName').innerText = item.name;
+        document.getElementById('viewer').style.borderColor = '#333';
+        
+        // 입자 뷰 생성 (미리 만들어둠)
+        const microView = document.getElementById('microView');
+        microView.innerHTML = '';
+        for(let i=0; i<25; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            // 순물질이면 색 1개, 혼합물이면 랜덤
+            const pColor = item.particleColors[Math.floor(Math.random() * item.particleColors.length)];
+            p.style.backgroundColor = pColor;
+            // 랜덤 위치 미세 조정
+            p.style.animationDelay = `${Math.random() * 2}s`;
+            microView.appendChild(p);
+        }
+
+        // 뷰 모드 리셋
+        toggleView('macro');
+    }
+
+    // 뷰 모드 전환 (돋보기 vs 투시경)
+    function toggleView(mode) {
+        currentView = mode;
+        const macro = document.getElementById('macroView');
+        const micro = document.getElementById('microView');
+        const feedback = document.getElementById('feedback');
+
+        if (mode === 'macro') {
+            macro.style.display = 'flex';
+            micro.style.display = 'none';
+            feedback.innerText = `[겉보기 관찰] ${currentItem.desc}`;
+        } else {
+            macro.style.display = 'none';
+            micro.style.display = 'flex';
+            
+            let particleMsg = "";
+            if (currentItem.particleColors.length === 1) {
+                particleMsg = "모든 입자의 모양과 색깔이 똑같습니다!";
+            } else {
+                particleMsg = "서로 다른 색깔의 입자들이 섞여 있습니다!";
+            }
+            feedback.innerText = `[입자 투시경] ${particleMsg}`;
+        }
+    }
+
+    // 정답 확인
+    function checkAnswer(guess) {
+        if (!currentItem) return;
+
+        stats.total++;
+        const feedback = document.getElementById('feedback');
+        const isCorrect = (guess === currentItem.type);
+
+        if (isCorrect) {
+            stats.correct++;
+            feedback.className = 'feedback-area success';
+            let reasoning = currentItem.type === 'pure' ? 
+                "한 가지 입자로만 이루어진 '순물질'입니다." : 
+                "두 가지 이상의 입자가 섞인 '혼합물'입니다.";
+            feedback.innerHTML = `✅ 정답입니다! <br> ${currentItem.name}은(는) ${reasoning}`;
+        } else {
+            feedback.className = 'feedback-area error';
+            let hint = currentItem.type === 'pure' ? 
+                "입자 투시경을 다시 보세요. 한 종류의 입자만 보이죠?" : 
+                "겉보기엔 하나 같지만, 입자를 보면 여러 종류가 섞여 있어요!";
+            feedback.innerHTML = `❌ 다시 생각해보세요. <br> ${hint}`;
+        }
+        updateStats();
+    }
+
+    function updateStats() {
+        document.getElementById('scoreBoard').innerText = `시도 횟수: ${stats.total} | 정답: ${stats.correct}`;
+    }
+
+    // 시작
+    init();
+</script>
+
+</body>
+</html>

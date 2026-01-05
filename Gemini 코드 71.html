@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중3 과학: 화학 반응식 만들기 가상 실험</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ecc71;
+            --warning-color: #e74c3c;
+            --bg-color: #f5f7fa;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: #333;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #eee;
+            padding-bottom: 20px;
+        }
+
+        h1 { margin: 0 0 10px 0; color: var(--primary-color); }
+        p.subtitle { color: #666; margin: 0; }
+
+        /* Controls */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            background: #eef2f7;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        select, button {
+            padding: 10px 20px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+            cursor: pointer;
+        }
+
+        button.primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+        
+        button.primary:hover { background-color: #357abd; }
+
+        /* Equation Area */
+        .equation-area {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 10px;
+            font-size: 24px;
+            margin-bottom: 30px;
+            font-weight: bold;
+        }
+
+        .chemical-group {
+            display: flex;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        input[type="number"] {
+            width: 50px;
+            padding: 5px;
+            font-size: 20px;
+            text-align: center;
+            margin-right: 5px;
+            border: 2px solid var(--primary-color);
+            border-radius: 5px;
+        }
+
+        /* Visualization Area */
+        .visual-container {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            gap: 20px;
+        }
+
+        .side-panel {
+            flex: 1;
+            background: #fff;
+            border: 2px dashed #ccc;
+            border-radius: 10px;
+            padding: 15px;
+            min-height: 200px;
+            position: relative;
+        }
+
+        .side-label {
+            position: absolute;
+            top: -12px;
+            left: 20px;
+            background: var(--bg-color);
+            padding: 0 10px;
+            font-weight: bold;
+            color: #555;
+        }
+
+        .molecule-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            padding: 10px;
+            align-content: flex-start;
+        }
+
+        /* Molecules & Atoms */
+        .molecule {
+            display: inline-flex;
+            align-items: center;
+            background: rgba(0,0,0,0.05);
+            padding: 5px;
+            border-radius: 20px;
+            transition: all 0.3s ease;
+        }
+
+        .atom {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.2);
+            margin: 0 -2px; /* Overlap slightly for bonding */
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+
+        /* Atom Colors */
+        .atom.H { background-color: #bdc3c7; color: #333; } /* Hydrogen - White/Grey */
+        .atom.O { background-color: #e74c3c; } /* Oxygen - Red */
+        .atom.N { background-color: #3498db; } /* Nitrogen - Blue */
+        .atom.C { background-color: #2c3e50; } /* Carbon - Black */
+
+        /* Feedback Section */
+        .feedback-section {
+            background: #fafafa;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .atom-count-display {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-bottom: 15px;
+        }
+
+        .count-box {
+            background: white;
+            padding: 10px 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .status-msg {
+            font-size: 18px;
+            font-weight: bold;
+            margin-top: 10px;
+            min-height: 30px;
+        }
+
+        .status-msg.success { color: var(--success-color); }
+        .status-msg.error { color: var(--warning-color); }
+
+        /* Animation */
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .molecule { animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 화학 반응식 마스터</h1>
+        <p class="subtitle">계수를 조절하여 반응물과 생성물의 원자 개수를 맞춰보세요!</p>
+    </header>
+
+    <div class="controls">
+        <label for="reactionSelect">실험 주제 선택: </label>
+        <select id="reactionSelect" onchange="loadReaction()">
+            <option value="0">1단계: 물의 합성 (수소 + 산소)</option>
+            <option value="1">2단계: 암모니아 합성 (질소 + 수소)</option>
+            <option value="2">3단계: 메테인 연소 (메테인 + 산소)</option>
+        </select>
+        <button class="primary" onclick="resetCoefficients()">초기화</button>
+    </div>
+
+    <div id="equationDisplay" class="equation-area">
+        </div>
+
+    <div class="visual-container">
+        <div class="side-panel" id="reactantsPanel">
+            <span class="side-label">반응물 (Reactants)</span>
+            <div id="reactantsVisual" class="molecule-container"></div>
+        </div>
+        
+        <div style="display:flex; align-items:center; font-size:30px; color:#aaa;">⮕</div>
+
+        <div class="side-panel" id="productsPanel">
+            <span class="side-label">생성물 (Products)</span>
+            <div id="productsVisual" class="molecule-container"></div>
+        </div>
+    </div>
+
+    <div class="feedback-section">
+        <h3>📊 입자 수 분석 리포트</h3>
+        <div id="atomCounts" class="atom-count-display">
+            </div>
+        <div id="resultMessage" class="status-msg"></div>
+        <button id="checkBtn" class="primary" style="margin-top:10px; display:none;" onclick="celebrate()">🎉 정답입니다! 다음 문제로?</button>
+    </div>
+</div>
+
+<script>
+    // --- Data: Reaction Scenarios ---
+    const reactions = [
+        {
+            name: "물의 합성",
+            reactants: [
+                { formula: "H₂", composition: ["H","H"], color: "H" },
+                { formula: "O₂", composition: ["O","O"], color: "O" }
+            ],
+            products: [
+                { formula: "H₂O", composition: ["O","H","H"], color: "mixed" } // H2O structure handled in render
+            ],
+            correct: [2, 1, 2], // Coefficients
+            info: "수소 기체와 산소 기체가 반응하면 물이 생성됩니다."
+        },
+        {
+            name: "암모니아 합성",
+            reactants: [
+                { formula: "N₂", composition: ["N","N"], color: "N" },
+                { formula: "H₂", composition: ["H","H"], color: "H" }
+            ],
+            products: [
+                { formula: "NH₃", composition: ["N","H","H","H"], color: "mixed" }
+            ],
+            correct: [1, 3, 2],
+            info: "질소와 수소를 고온 고압에서 반응시켜 암모니아를 만듭니다."
+        },
+        {
+            name: "메테인 연소",
+            reactants: [
+                { formula: "CH₄", composition: ["C","H","H","H","H"], color: "mixed" },
+                { formula: "O₂", composition: ["O","O"], color: "O" }
+            ],
+            products: [
+                { formula: "CO₂", composition: ["C","O","O"], color: "mixed" },
+                { formula: "H₂O", composition: ["O","H","H"], color: "mixed" }
+            ],
+            correct: [1, 2, 1, 2],
+            info: "메테인이 산소와 반응하여 이산화 탄소와 물을 생성합니다."
+        }
+    ];
+
+    let currentReactionId = 0;
+    let currentCoefficients = [];
+
+    // --- Core Functions ---
+
+    function init() {
+        loadReaction();
+    }
+
+    function loadReaction() {
+        const select = document.getElementById('reactionSelect');
+        currentReactionId = parseInt(select.value);
+        const reaction = reactions[currentReactionId];
+        
+        // Initialize coefficients to 1 for all compounds
+        const totalCompounds = reaction.reactants.length + reaction.products.length;
+        currentCoefficients = new Array(totalCompounds).fill(1);
+
+        renderEquationInputs();
+        updateSimulation();
+    }
+
+    function resetCoefficients() {
+        currentCoefficients.fill(1);
+        const inputs = document.querySelectorAll('.coeff-input');
+        inputs.forEach(input => input.value = 1);
+        updateSimulation();
+    }
+
+    function renderEquationInputs() {
+        const reaction = reactions[currentReactionId];
+        const container = document.getElementById('equationDisplay');
+        container.innerHTML = '';
+
+        let globalIndex = 0;
+
+        // Render Reactants
+        reaction.reactants.forEach((r, idx) => {
+            if (idx > 0) container.innerHTML += ' + ';
+            container.appendChild(createInputGroup(r.formula, globalIndex));
+            globalIndex++;
+        });
+
+        // Arrow
+        container.innerHTML += ' ➝ ';
+
+        // Render Products
+        reaction.products.forEach((p, idx) => {
+            if (idx > 0) container.innerHTML += ' + ';
+            container.appendChild(createInputGroup(p.formula, globalIndex));
+            globalIndex++;
+        });
+    }
+
+    function createInputGroup(formula, index) {
+        const div = document.createElement('div');
+        div.className = 'chemical-group';
+        
+        const input = document.createElement('input');
+        input.type = 'number';
+        input.min = '1';
+        input.max = '10';
+        input.value = currentCoefficients[index];
+        input.className = 'coeff-input';
+        input.dataset.index = index;
+        input.oninput = (e) => handleInput(e, index);
+        input.onchange = (e) => { if(e.target.value < 1) e.target.value = 1; handleInput(e, index); };
+
+        div.appendChild(input);
+        
+        // Formatting Subscript (simple replace for logic)
+        const formattedFormula = formula.replace(/([0-9]+)/g, "<sub>$1</sub>");
+        const span = document.createElement('span');
+        span.innerHTML = formattedFormula;
+        div.appendChild(span);
+
+        return div;
+    }
+
+    function handleInput(e, index) {
+        let val = parseInt(e.target.value);
+        if (isNaN(val) || val < 1) val = 1;
+        currentCoefficients[index] = val;
+        updateSimulation();
+    }
+
+    // --- Visualization Logic ---
+
+    function updateSimulation() {
+        const reaction = reactions[currentReactionId];
+        
+        // 1. Render Molecules
+        renderMolecules(reaction.reactants, 'reactantsVisual', 0);
+        renderMolecules(reaction.products, 'productsVisual', reaction.reactants.length);
+
+        // 2. Calculate Atom Counts
+        const leftCounts = calculateAtoms(reaction.reactants, 0, reaction.reactants.length);
+        const rightCounts = calculateAtoms(reaction.products, reaction.reactants.length, reaction.reactants.length + reaction.products.length);
+
+        // 3. Update Feedback
+        updateFeedback(leftCounts, rightCounts);
+    }
+
+    function renderMolecules(compounds, containerId, offset) {
+        const container = document.getElementById(containerId);
+        container.innerHTML = '';
+
+        compounds.forEach((comp, idx) => {
+            const count = currentCoefficients[idx + offset];
+            for (let i = 0; i < count; i++) {
+                const molDiv = document.createElement('div');
+                molDiv.className = 'molecule';
+                
+                // Construct atoms based on composition
+                // Special simplified layouts for visuals
+                comp.composition.forEach(atomType => {
+                    const atom = document.createElement('div');
+                    atom.className = `atom ${atomType}`;
+                    atom.textContent = atomType;
+                    molDiv.appendChild(atom);
+                });
+                
+                container.appendChild(molDiv);
+            }
+        });
+    }
+
+    function calculateAtoms(compounds, startIdx, endIdx) {
+        let counts = {};
+        compounds.forEach((comp, idx) => {
+            const coeff = currentCoefficients[startIdx + idx];
+            comp.composition.forEach(atom => {
+                counts[atom] = (counts[atom] || 0) + coeff;
+            });
+        });
+        return counts;
+    }
+
+    function updateFeedback(left, right) {
+        const atomDiv = document.getElementById('atomCounts');
+        const msgDiv = document.getElementById('resultMessage');
+        const checkBtn = document.getElementById('checkBtn');
+        
+        atomDiv.innerHTML = '';
+        checkBtn.style.display = 'none';
+
+        // Get all unique atom types involved
+        const allAtoms = new Set([...Object.keys(left), ...Object.keys(right)]);
+        let allBalanced = true;
+
+        allAtoms.forEach(atom => {
+            const lCount = left[atom] || 0;
+            const rCount = right[atom] || 0;
+            const isBalanced = lCount === rCount;
+            if (!isBalanced) allBalanced = false;
+
+            const box = document.createElement('div');
+            box.className = 'count-box';
+            box.style.borderBottom = isBalanced ? `4px solid var(--success-color)` : `4px solid var(--warning-color)`;
+            box.innerHTML = `
+                <strong>${atom} 원자</strong><br>
+                반응 전: ${lCount} <br>
+                반응 후: ${rCount}
+            `;
+            atomDiv.appendChild(box);
+        });
+
+        if (allBalanced) {
+            msgDiv.textContent = "완벽합니다! 반응 전후의 원자 개수가 일치합니다. (질량 보존 법칙 성립)";
+            msgDiv.className = "status-msg success";
+            
+            // Check if it matches the *simplest* integer ratio (Standard answer)
+            // For now, we just accept balanced equations.
+            checkBtn.style.display = 'inline-block';
+            checkBtn.textContent = currentReactionId < reactions.length -1 ? "다음 단계 도전하기" : "모든 학습 완료!";
+        } else {
+            msgDiv.textContent = "아직 균형이 맞지 않습니다. 원자 개수를 비교해보세요.";
+            msgDiv.className = "status-msg error";
+        }
+    }
+
+    function celebrate() {
+        if(currentReactionId < reactions.length - 1) {
+            const select = document.getElementById('reactionSelect');
+            select.value = currentReactionId + 1;
+            loadReaction();
+        } else {
+            alert("축하합니다! 모든 화학 반응식 퀘스트를 완료했습니다!");
+        }
+    }
+
+    // Start
+    window.onload = init;
+
+</script>
+
+</body>
+</html>

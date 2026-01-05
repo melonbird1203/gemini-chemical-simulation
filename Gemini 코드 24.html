@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물질의 상태 변화와 열에너지</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --accent: #FF6B6B;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: var(--primary); }
+        .container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+        }
+        /* 왼쪽 제어 패널 및 입자 뷰 */
+        .left-panel { flex: 1; min-width: 300px; }
+        .control-group { margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .control-group label { display: block; margin-bottom: 8px; font-weight: bold; }
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd; }
+        button {
+            background: var(--primary); color: white; border: none; padding: 10px 20px;
+            border-radius: 8px; cursor: pointer; font-size: 16px; transition: 0.2s; width: 100%; margin-top: 10px;
+        }
+        button:hover { background: #357ABD; }
+        button.reset { background: var(--accent); margin-top: 5px; }
+        
+        /* 입자 캔버스 */
+        #particleCanvas {
+            background: #222; border-radius: 10px; width: 100%; height: 300px; margin-top: 10px;
+        }
+        
+        /* 오른쪽 그래프 패널 */
+        .right-panel { flex: 2; min-width: 400px; position: relative; }
+        #graphCanvas {
+            background: white; border: 1px solid #ddd; border-radius: 10px; width: 100%; height: 400px;
+        }
+        
+        /* 상태 표시 및 피드백 */
+        .status-display {
+            display: flex; justify-content: space-between; margin-top: 10px; font-weight: bold; font-size: 1.1em;
+        }
+        .feedback-box {
+            margin-top: 15px; padding: 15px; background: #e8f4fd; border-left: 5px solid var(--primary);
+            border-radius: 5px; min-height: 60px;
+        }
+        .heat-indicator {
+            height: 10px; background: linear-gradient(to right, #ddd, var(--accent));
+            width: 0%; border-radius: 5px; transition: width 0.5s; margin-top: 5px;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .container { flex-direction: column; }
+            #graphCanvas { height: 300px; }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 물질의 상태 변화와 열에너지</h1>
+    <p>가열 장치를 조절하여 물질의 온도를 높이고, 입자의 움직임과 온도 그래프를 관찰해보세요.</p>
+
+    <div class="container">
+        <div class="panel left-panel">
+            <div class="control-group">
+                <label for="substance">🧪 물질 선택</label>
+                <select id="substance">
+                    <option value="water">물 (얼음 → 물 → 수증기)</option>
+                    <option value="lauric">로르산 (고체 → 액체)</option>
+                    <option value="dryice">드라이아이스 (고체 → 기체 : 승화)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="heatPower">🔥 가열 장치 세기 (열에너지 공급량)</label>
+                <input type="range" id="heatPower" min="1" max="10" value="5">
+                <div class="heat-indicator" id="heatBar"></div>
+            </div>
+
+            <button id="startBtn">실험 시작</button>
+            <button id="resetBtn" class="reset">초기화</button>
+
+            <canvas id="particleCanvas"></canvas>
+            <div style="text-align: center; font-size: 0.9em; color: #666; margin-top:5px;">▲ 입자 모형 (확대)</div>
+        </div>
+
+        <div class="panel right-panel">
+            <div class="status-display">
+                <span id="tempDisplay">현재 온도: -20°C</span>
+                <span id="stateDisplay">상태: 고체</span>
+            </div>
+            <canvas id="graphCanvas"></canvas>
+            <div class="feedback-box" id="feedback">
+                실험을 시작하려면 '실험 시작' 버튼을 누르세요.
+            </div>
+        </div>
+    </div>
+
+<script>
+    // --- 1. 설정 및 변수 ---
+    const canvasP = document.getElementById('particleCanvas');
+    const ctxP = canvasP.getContext('2d');
+    const canvasG = document.getElementById('graphCanvas');
+    const ctxG = canvasG.getContext('2d');
+    
+    // 캔버스 크기 조정
+    function resizeCanvas() {
+        canvasP.width = canvasP.offsetWidth;
+        canvasP.height = canvasP.offsetHeight;
+        canvasG.width = canvasG.offsetWidth;
+        canvasG.height = canvasG.offsetHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    // 상태 변수
+    let isRunning = false;
+    let time = 0;
+    let temperature = -20;
+    let particles = [];
+    let graphData = [];
+    let animationId;
+    let currentState = "solid"; // solid, melting, liquid, boiling, gas
+    
+    // 물질 데이터베이스
+    const substances = {
+        water: { name: "물", mp: 0, bp: 100, heatFusion: 300, heatVap: 600, color: "#4A90E2", type: "normal" },
+        lauric: { name: "로르산", mp: 44, bp: 298, heatFusion: 200, heatVap: 500, color: "#F5A623", type: "normal" }, // 끓는점은 실험상 도달 어렵게 설정
+        dryice: { name: "드라이아이스", mp: -78.5, bp: -78.5, heatFusion: 0, heatVap: 400, color: "#BDC3C7", type: "sublimation" } // 승화 물질
+    };
+    
+    let currentSubstance = substances.water;
+    let latentHeatCounter = 0; // 상태 변화 구간 카운터
+
+    // --- 2. 입자 클래스 ---
+    class Particle {
+        constructor() {
+            this.x = Math.random() * canvasP.width;
+            this.y = Math.random() * canvasP.height;
+            this.baseX = this.x; // 고체일 때 기준점
+            this.baseY = this.y;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.radius = 6;
+        }
+
+        update(temp, state) {
+            // 온도에 따른 속도 계수
+            let speed = (temp + 273) / 100; 
+
+            if (state === "solid" || (state === "melting" && Math.random() > 0.5)) {
+                // 고체: 제자리 진동
+                this.x = this.baseX + (Math.random() - 0.5) * speed * 2;
+                this.y = this.baseY + (Math.random() - 0.5) * speed * 2;
+            } else if (state === "liquid" || state === "melting" || (state === "boiling" && Math.random() > 0.5)) {
+                // 액체: 약간의 유동성 + 바닥 쪽으로 쏠림 (중력 흉내) -> 여기선 자유 운동하되 느리게
+                this.x += this.vx * speed * 0.5;
+                this.y += this.vy * speed * 0.5;
+                
+                // 벽 튕기기
+                if(this.x < 0 || this.x > canvasP.width) this.vx *= -1;
+                if(this.y < 0 || this.y > canvasP.height) this.vy *= -1;
+            } else {
+                // 기체: 매우 활발, 전체 공간
+                this.x += this.vx * speed * 2;
+                this.y += this.vy * speed * 2;
+
+                if(this.x < 0 || this.x > canvasP.width) this.vx *= -1;
+                if(this.y < 0 || this.y > canvasP.height) this.vy *= -1;
+            }
+        }
+
+        draw() {
+            ctxP.beginPath();
+            ctxP.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctxP.fillStyle = currentSubstance.color;
+            ctxP.fill();
+            ctxP.closePath();
+        }
+    }
+
+    // 입자 초기화
+    function initParticles() {
+        particles = [];
+        // 규칙적인 배열 (고체 시작)
+        const cols = 10;
+        const rows = 10;
+        const spacingX = canvasP.width / (cols + 1);
+        const spacingY = canvasP.height / (rows + 1);
+
+        for(let i=0; i<cols; i++) {
+            for(let j=0; j<rows; j++) {
+                let p = new Particle();
+                p.x = spacingX * (i+1);
+                p.y = spacingY * (j+1);
+                p.baseX = p.x;
+                p.baseY = p.y;
+                particles.push(p);
+            }
+        }
+    }
+
+    // --- 3. 메인 로직 ---
+    function updatePhysics() {
+        const heatPower = parseInt(document.getElementById('heatPower').value);
+        document.getElementById('heatBar').style.width = (heatPower * 10) + "%";
+        
+        // 1프레임당 온도 상승량 (가상)
+        let tempRise = heatPower * 0.05; 
+
+        // 드라이아이스(승화성) 예외 처리
+        if (currentSubstance.type === "sublimation") {
+            if (temperature < currentSubstance.bp) {
+                currentState = "solid";
+                temperature += tempRise;
+            } else if (temperature >= currentSubstance.bp && latentHeatCounter < currentSubstance.heatVap) {
+                currentState = "sublimating"; // 승화 중
+                temperature = currentSubstance.bp; // 온도 유지
+                latentHeatCounter += heatPower;
+            } else {
+                currentState = "gas";
+                temperature += tempRise;
+            }
+        } 
+        // 일반 물질 (고체-액체-기체)
+        else {
+            if (temperature < currentSubstance.mp) {
+                currentState = "solid";
+                temperature += tempRise;
+            } else if (Math.abs(temperature - currentSubstance.mp) < 1 && latentHeatCounter < currentSubstance.heatFusion) {
+                currentState = "melting"; // 융해 중
+                temperature = currentSubstance.mp; // 온도 정체
+                latentHeatCounter += heatPower;
+            } else if (latentHeatCounter >= currentSubstance.heatFusion && temperature < currentSubstance.bp) {
+                currentState = "liquid";
+                temperature += tempRise;
+            } else if (Math.abs(temperature - currentSubstance.bp) < 1 && latentHeatCounter < (currentSubstance.heatFusion + currentSubstance.heatVap)) {
+                currentState = "boiling"; // 기화 중
+                temperature = currentSubstance.bp; // 온도 정체
+                latentHeatCounter += heatPower;
+            } else {
+                currentState = "gas";
+                temperature += tempRise;
+            }
+        }
+
+        // 그래프 데이터 저장
+        time++;
+        if(time % 5 === 0) { // 데이터 과적 방지 (다운샘플링)
+            graphData.push({t: time, temp: temperature});
+        }
+    }
+
+    function updateFeedback() {
+        const tempEl = document.getElementById('tempDisplay');
+        const stateEl = document.getElementById('stateDisplay');
+        const fbEl = document.getElementById('feedback');
+
+        tempEl.innerText = `현재 온도: ${Math.round(temperature)}°C`;
+        
+        let stateText = "";
+        let feedbackText = "";
+
+        if (currentState === "solid") {
+            stateText = "상태: 고체 (Solid)";
+            feedbackText = "입자들이 규칙적으로 배열되어 제자리에서 진동하고 있습니다. 온도가 올라갑니다.";
+        } else if (currentState === "melting") {
+            stateText = "상태: 융해 중 (고체 → 액체)";
+            feedbackText = `🚨 <strong>구간 발견!</strong> 온도가 변하지 않고 있습니다.<br>가해준 열에너지가 입자 사이의 결합을 끊어 상태를 변화시키는 데 쓰이고 있습니다.`;
+        } else if (currentState === "liquid") {
+            stateText = "상태: 액체 (Liquid)";
+            feedbackText = "입자 배열이 불규칙해지고 비교적 자유롭게 움직입니다. 온도가 다시 올라갑니다.";
+        } else if (currentState === "boiling") {
+            stateText = "상태: 기화 중 (액체 → 기체)";
+            feedbackText = `🚨 <strong>구간 발견!</strong> 액체가 끓고 있습니다.<br>열에너지가 입자를 완전히 떼어놓는 데 사용되어 온도가 일정하게 유지됩니다.`;
+        } else if (currentState === "sublimating") {
+             stateText = "상태: 승화 중 (고체 → 기체)";
+             feedbackText = "드라이아이스는 액체를 거치지 않고 바로 기체로 변합니다! 열에너지가 모두 상태 변화에 쓰이고 있습니다.";
+        } else if (currentState === "gas") {
+            stateText = "상태: 기체 (Gas)";
+            feedbackText = "입자들이 매우 빠르고 자유롭게 공간 전체를 날아다닙니다.";
+        }
+
+        stateEl.innerText = stateText;
+        fbEl.innerHTML = feedbackText;
+    }
+
+    function drawGraph() {
+        ctxG.clearRect(0, 0, canvasG.width, canvasG.height);
+        
+        // 축 그리기
+        ctxG.strokeStyle = "#888";
+        ctxG.beginPath();
+        ctxG.moveTo(40, 20); ctxG.lineTo(40, canvasG.height - 30); // Y축
+        ctxG.lineTo(canvasG.width - 20, canvasG.height - 30); // X축
+        ctxG.stroke();
+
+        // 라벨
+        ctxG.fillStyle = "#666";
+        ctxG.font = "12px Arial";
+        ctxG.fillText("온도(°C)", 10, 15);
+        ctxG.fillText("시간", canvasG.width - 40, canvasG.height - 10);
+
+        // 데이터 그리기
+        if (graphData.length < 2) return;
+
+        ctxG.beginPath();
+        ctxG.strokeStyle = "#FF6B6B";
+        ctxG.lineWidth = 3;
+        
+        // 그래프 스케일링
+        const maxTime = Math.max(1000, time); // x축 스케일
+        const minTemp = -30;
+        const maxTemp = 120; // y축 스케일
+        
+        graphData.forEach((d, i) => {
+            const x = 40 + (d.t / maxTime) * (canvasG.width - 60);
+            const y = (canvasG.height - 30) - ((d.temp - minTemp) / (maxTemp - minTemp)) * (canvasG.height - 50);
+            if(i === 0) ctxG.moveTo(x, y);
+            else ctxG.lineTo(x, y);
+        });
+        ctxG.stroke();
+    }
+
+    function loop() {
+        if (!isRunning) return;
+
+        // 화면 지우기
+        ctxP.fillStyle = 'rgba(34, 34, 34, 0.3)'; // 잔상 효과
+        ctxP.fillRect(0, 0, canvasP.width, canvasP.height);
+
+        // 로직 업데이트
+        updatePhysics();
+        updateFeedback();
+        drawGraph();
+
+        // 입자 그리기
+        particles.forEach(p => {
+            p.update(temperature, currentState);
+            p.draw();
+        });
+
+        animationId = requestAnimationFrame(loop);
+    }
+
+    // --- 4. 이벤트 리스너 ---
+    document.getElementById('startBtn').addEventListener('click', () => {
+        if (isRunning) return;
+        isRunning = true;
+        
+        // 물질 설정 적용
+        const type = document.getElementById('substance').value;
+        currentSubstance = substances[type];
+        
+        // 초기 온도 설정
+        if (type === 'dryice') temperature = -90;
+        else if (type === 'water') temperature = -20;
+        else temperature = 20;
+
+        loop();
+    });
+
+    document.getElementById('resetBtn').addEventListener('click', () => {
+        isRunning = false;
+        cancelAnimationFrame(animationId);
+        time = 0;
+        latentHeatCounter = 0;
+        graphData = [];
+        ctxP.clearRect(0, 0, canvasP.width, canvasP.height);
+        ctxG.clearRect(0, 0, canvasG.width, canvasG.height);
+        initParticles();
+        document.getElementById('feedback').innerHTML = "초기화되었습니다. 물질을 선택하고 실험을 시작하세요.";
+        document.getElementById('tempDisplay').innerText = "현재 온도: --";
+        document.getElementById('stateDisplay').innerText = "상태: --";
+        document.getElementById('heatBar').style.width = "0%";
+    });
+
+    // 초기화 실행
+    initParticles();
+
+</script>
+</body>
+</html>

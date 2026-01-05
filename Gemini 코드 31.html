@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>중2 과학: 원자 구조 만들기 가상실험</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --warning: #F1C40F;
+            --danger: #E74C3C;
+            --dark: #2C3E50;
+            --light: #ECF0F1;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f4f7f9;
+            color: var(--dark);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            background-color: var(--primary);
+            color: white;
+            width: 100%;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            max-width: 1200px;
+            width: 100%;
+            padding: 20px;
+            gap: 20px;
+        }
+        /* 실험 영역 */
+        .lab-panel {
+            flex: 2;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 2px solid #e0e0e0;
+            border-radius: 50%;
+            margin-bottom: 20px;
+            background: #fff;
+        }
+        
+        /* 제어 패널 */
+        .control-panel {
+            flex: 1;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+            min-width: 300px;
+        }
+        
+        h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; margin-top: 0; }
+        
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        
+        input[type=range] { width: 100%; cursor: pointer; }
+        
+        .status-card {
+            background: var(--light);
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            margin-top: 20px;
+            transition: all 0.3s;
+        }
+        .status-neutral { background-color: #d4edda; color: #155724; border: 2px solid var(--success); }
+        .status-charged { background-color: #f8d7da; color: #721c24; border: 2px solid var(--danger); }
+
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin: 5px;
+            transition: 0.2s;
+        }
+        .btn:hover { opacity: 0.9; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+
+        /* 탭 메뉴 */
+        .tabs { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* 퀴즈 스타일 */
+        .quiz-option {
+            display: block;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            cursor: pointer;
+            border-radius: 5px;
+        }
+        .quiz-option:hover { background: #e2e6ea; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 중2 과학: 원자 구조와 전기적 중성</h1>
+    <p>양성자와 전자의 균형을 맞춰 중성 원자를 만들어보세요!</p>
+</header>
+
+<div class="container">
+    <div class="lab-panel">
+        <canvas id="atomCanvas" width="400" height="400"></canvas>
+        <div id="feedbackText" class="status-card">
+            현재 상태: 실험을 시작해 보세요.
+        </div>
+    </div>
+
+    <div class="control-panel">
+        <div class="tabs">
+            <button class="btn" onclick="showTab('experiment')">실험실</button>
+            <button class="btn btn-outline" onclick="showTab('concept')">개념 학습</button>
+            <button class="btn btn-outline" onclick="showTab('quiz')">확인 문제</button>
+        </div>
+
+        <div id="experiment" class="tab-content active">
+            <div class="control-group">
+                <h3>1. 원자핵 설정 (양성자 수)</h3>
+                <p>양성자 수에 따라 원소의 종류가 결정됩니다.</p>
+                <input type="range" id="protonSlider" min="1" max="10" value="1" oninput="updateSim()">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>수소(1)</span>
+                    <span id="protonVal" style="font-weight:bold; color:var(--danger);">1개</span>
+                    <span>네온(10)</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <h3>2. 전자 배치 (전자 수)</h3>
+                <p>전자의 개수를 조절하여 전하를 맞춰보세요.</p>
+                <input type="range" id="electronSlider" min="0" max="12" value="1" oninput="updateSim()">
+                <div style="display:flex; justify-content:space-between;">
+                    <span>0개</span>
+                    <span id="electronVal" style="font-weight:bold; color:var(--primary);">1개</span>
+                    <span>12개</span>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <button class="btn" style="width:100%" onclick="resetSim()">실험 초기화</button>
+            </div>
+            
+            <div style="background:#eee; padding:10px; border-radius:5px; margin-top:10px;">
+                <strong>💡 도전 과제:</strong><br>
+                양성자를 조절해 <strong>탄소(C)</strong>를 선택하고,<br>
+                전기적으로 <strong>중성</strong>이 되도록 전자를 맞춰보세요.
+            </div>
+        </div>
+
+        <div id="concept" class="tab-content">
+            <h3>📚 핵심 개념 정리</h3>
+            <ul style="line-height: 1.6;">
+                <li><strong>원자핵:</strong> 원자의 중심에 있으며 <strong>(+)전하</strong>를 띠는 양성자가 있습니다.</li>
+                <li><strong>전자:</strong> 원자핵 주위를 돌고 있으며 <strong>(-)전하</strong>를 띱니다.</li>
+                <li><strong>전기적 중성:</strong> 양성자 수(+)와 전자 수(-)가 <strong>같을 때</strong>, 원자는 전기적으로 중성입니다.</li>
+            </ul>
+            <hr>
+            <h4>만약 개수가 다르다면?</h4>
+            <ul>
+                <li><strong>양성자 > 전자:</strong> (+)전하를 띠는 양이온</li>
+                <li><strong>양성자 < 전자:</strong> (-)전하를 띠는 음이온</li>
+            </ul>
+        </div>
+
+        <div id="quiz" class="tab-content">
+            <h3>📝 형성 평가</h3>
+            <div id="quizContainer">
+                <p><strong>Q. 탄소 원자가 전기적으로 중성인 이유는 무엇인가요?</strong></p>
+                <div class="quiz-option" onclick="checkAnswer(1)">1. 전자가 원자핵 안에 있기 때문이다.</div>
+                <div class="quiz-option" onclick="checkAnswer(2)">2. 양성자 수(6개)와 전자 수(6개)가 같기 때문이다.</div>
+                <div class="quiz-option" onclick="checkAnswer(3)">3. 중성자가 전하를 띠지 않기 때문이다.</div>
+            </div>
+            <div id="quizResult" style="margin-top:10px; font-weight:bold;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('atomCanvas');
+    const ctx = canvas.getContext('2d');
+    const protonSlider = document.getElementById('protonSlider');
+    const electronSlider = document.getElementById('electronSlider');
+    const feedbackText = document.getElementById('feedbackText');
+    
+    // 원소 데이터 (1~10번)
+    const elements = [
+        "없음", "수소(H)", "헬륨(He)", "리튬(Li)", "베릴륨(Be)", "붕소(B)", 
+        "탄소(C)", "질소(N)", "산소(O)", "플루오린(F)", "네온(Ne)"
+    ];
+
+    function drawAtom(protons, electrons) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const centerX = canvas.width / 2;
+        const centerY = canvas.height / 2;
+
+        // 1. 궤도 그리기 (보어 모형)
+        ctx.strokeStyle = "#ddd";
+        ctx.lineWidth = 2;
+        
+        // 첫 번째 껍질
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 60, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 두 번째 껍질 (전자가 2개 초과일 때만 의미있지만 시각적으로 항상 그림)
+        if (electrons > 2 || protons > 2) {
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 100, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // 2. 원자핵 그리기
+        ctx.beginPath();
+        ctx.arc(centerX, centerY, 25 + (protons * 2), 0, Math.PI * 2); // 양성자 수에 따라 크기 증가
+        ctx.fillStyle = "#E74C3C"; // 빨강
+        ctx.fill();
+        
+        // 원자핵 텍스트
+        ctx.fillStyle = "white";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`+${protons}`, centerX, centerY);
+        
+        // 원소 기호 표시 (핵 아래)
+        ctx.fillStyle = "#2C3E50";
+        ctx.font = "bold 16px Malgun Gothic";
+        ctx.fillText(elements[protons], centerX, centerY + 50 + (protons * 2));
+
+        // 3. 전자 그리기
+        ctx.fillStyle = "#4A90E2"; // 파랑
+        
+        for (let i = 0; i < electrons; i++) {
+            let orbitRadius, angle;
+            
+            if (i < 2) {
+                // 첫 번째 껍질 (최대 2개)
+                orbitRadius = 60;
+                angle = (Math.PI * 2 / 2) * i - Math.PI / 2;
+            } else {
+                // 두 번째 껍질 (나머지)
+                orbitRadius = 100;
+                // 두 번째 껍질의 전자들을 고르게 분포
+                let secondShellCount = electrons - 2;
+                angle = (Math.PI * 2 / Math.max(1, secondShellCount)) * (i - 2) - Math.PI / 2; 
+            }
+
+            const x = centerX + Math.cos(angle) * orbitRadius;
+            const y = centerY + Math.sin(angle) * orbitRadius;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fill();
+        }
+    }
+
+    function updateSim() {
+        const p = parseInt(protonSlider.value);
+        const e = parseInt(electronSlider.value);
+        
+        document.getElementById('protonVal').innerText = `${p}개`;
+        document.getElementById('electronVal').innerText = `${e}개`;
+
+        drawAtom(p, e);
+        analyzeStatus(p, e);
+    }
+
+    function analyzeStatus(p, e) {
+        feedbackText.className = "status-card";
+        let message = "";
+        let detail = "";
+
+        if (p === e) {
+            feedbackText.classList.add("status-neutral");
+            message = "✨ 전기적으로 중성입니다! ✨";
+            detail = `양성자(+${p})와 전자(-${e})의 수가 같아 전하를 띠지 않습니다.`;
+        } else if (p > e) {
+            feedbackText.classList.add("status-charged");
+            message = "⚡ (+) 전하를 띠고 있습니다.";
+            detail = `양성자가 전자보다 ${p - e}개 더 많습니다. (양이온)`;
+        } else {
+            feedbackText.classList.add("status-charged");
+            message = "⚡ (-) 전하를 띠고 있습니다.";
+            detail = `전자가 양성자보다 ${e - p}개 더 많습니다. (음이온)`;
+        }
+
+        feedbackText.innerHTML = `<strong>${message}</strong><br><small>${detail}</small>`;
+    }
+
+    function resetSim() {
+        protonSlider.value = 1;
+        electronSlider.value = 1;
+        updateSim();
+    }
+
+    function showTab(tabId) {
+        document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.btn').forEach(el => {
+           if(el.textContent === getBtnName(tabId)) el.classList.remove('btn-outline'); 
+        });
+        document.getElementById(tabId).classList.add('active');
+    }
+    
+    function getBtnName(id) {
+        if(id === 'experiment') return '실험실';
+        if(id === 'concept') return '개념 학습';
+        return '확인 문제';
+    }
+
+    function checkAnswer(option) {
+        const resultDiv = document.getElementById('quizResult');
+        if (option === 2) {
+            resultDiv.innerHTML = "<span style='color:green'>정답입니다! 👏</span><br>원자는 양성자 수와 전자 수가 같아 전기적으로 중성입니다.";
+        } else {
+            resultDiv.innerHTML = "<span style='color:red'>다시 생각해 보세요. 🤔</span><br>전기적 중성은 (+)와 (-)의 개수와 관련이 있습니다.";
+        }
+    }
+
+    // 초기 실행
+    updateSim();
+</script>
+
+</body>
+</html>

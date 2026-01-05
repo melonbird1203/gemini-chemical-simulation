@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>가상 밀도 탑 실험실</title>
+<style>
+    body { font-family: 'Nanum Gothic', sans-serif; background-color: #f0f4f8; display: flex; flex-direction: column; align-items: center; padding: 20px; }
+    h2 { color: #2c3e50; }
+    .lab-container { display: flex; gap: 40px; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); max-width: 900px; width: 100%; flex-wrap: wrap; justify-content: center; }
+    
+    /* Controls */
+    .controls { flex: 1; min-width: 250px; }
+    .control-group { margin-bottom: 20px; border: 1px solid #e0e0e0; padding: 15px; border-radius: 8px; }
+    .control-group h3 { margin-top: 0; font-size: 1.1em; color: #444; border-bottom: 2px solid #ddd; padding-bottom: 5px; }
+    
+    button { display: block; width: 100%; margin: 8px 0; padding: 10px; border: none; border-radius: 5px; cursor: pointer; font-size: 1em; transition: 0.2s; font-weight: bold; }
+    button:hover { transform: translateY(-2px); opacity: 0.9; }
+    
+    .btn-syrup { background-color: #D2691E; color: white; } /* 올리고당 */
+    .btn-water { background-color: #3498db; color: white; } /* 물 */
+    .btn-oil { background-color: #f1c40f; color: #333; } /* 식용유 */
+    
+    .btn-coin { background-color: #95a5a6; color: white; }
+    .btn-grape { background-color: #8e44ad; color: white; }
+    .btn-plastic { background-color: #e74c3c; color: white; }
+    
+    .btn-reset { background-color: #333; color: white; margin-top: 20px; }
+
+    /* Cylinder Visualization */
+    .cylinder-wrapper { position: relative; width: 150px; height: 400px; border: 4px solid #aaa; border-top: none; border-radius: 0 0 20px 20px; background: rgba(255,255,255,0.5); overflow: hidden; margin: 0 auto; box-shadow: inset 5px 0 10px rgba(0,0,0,0.1); }
+    
+    /* Layers */
+    .layer { width: 100%; position: absolute; bottom: 0; transition: height 1s ease-in-out; display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.8); font-weight: bold; font-size: 0.9em; text-shadow: 1px 1px 2px rgba(0,0,0,0.5); }
+    .layer-syrup { background-color: rgba(210, 105, 30, 0.9); bottom: 0; z-index: 1; }
+    .layer-water { background-color: rgba(52, 152, 219, 0.85); bottom: 0; z-index: 2; }
+    .layer-oil { background-color: rgba(241, 196, 15, 0.8); bottom: 0; z-index: 3; }
+
+    /* Objects */
+    .object { position: absolute; left: 50%; transform: translateX(-50%); transition: top 1.5s cubic-bezier(0.45, 0.05, 0.55, 0.95); z-index: 10; font-size: 0.8em; text-align: center; display: none; }
+    .obj-coin { width: 40px; height: 40px; background: #bdc3c7; border: 2px solid #7f8c8d; border-radius: 50%; line-height: 40px; }
+    .obj-grape { width: 30px; height: 35px; background: #8e44ad; border-radius: 40%; line-height: 35px; color: white; }
+    .obj-plastic { width: 35px; height: 35px; background: #e74c3c; border-radius: 5px; line-height: 35px; color: white; }
+
+    /* Feedback Panel */
+    .feedback { flex: 1; min-width: 250px; background: #fff; padding: 20px; border-left: 4px solid #3498db; }
+    .status-text { font-size: 0.95em; line-height: 1.6; color: #555; }
+    .density-chart { margin-top: 20px; font-size: 0.85em; background: #f9f9f9; padding: 10px; border-radius: 5px; }
+
+    /* Scale markings */
+    .scale { position: absolute; right: 0; top: 0; bottom: 0; width: 20px; display: flex; flex-direction: column; justify-content: space-between; padding: 10px 0; font-size: 10px; color: #888; pointer-events: none; z-index: 20;}
+    .tick { border-bottom: 1px solid #ccc; width: 10px; align-self: flex-end; }
+</style>
+</head>
+<body>
+
+    <h2>⚗️ 물질의 밀도 탑 실험실</h2>
+    
+    <div class="lab-container">
+        <div class="controls">
+            <div class="control-group">
+                <h3>1단계: 액체 채우기</h3>
+                <p style="font-size:0.8em; color:#666;">(원하는 순서대로 넣어보세요)</p>
+                <button class="btn-syrup" onclick="addLiquid('syrup')">올리고당 넣기 (1.3 g/cm³)</button>
+                <button class="btn-water" onclick="addLiquid('water')">물 넣기 (1.0 g/cm³)</button>
+                <button class="btn-oil" onclick="addLiquid('oil')">식용유 넣기 (0.8 g/cm³)</button>
+            </div>
+
+            <div class="control-group">
+                <h3>2단계: 물체 넣기</h3>
+                <button class="btn-coin" onclick="dropObject('coin')">동전 넣기 (구리)</button>
+                <button class="btn-grape" onclick="dropObject('grape')">포도 알 넣기</button>
+                <button class="btn-plastic" onclick="dropObject('plastic')">플라스틱 넣기</button>
+            </div>
+
+            <button class="btn-reset" onclick="resetLab()">🧪 실험관 비우기 (초기화)</button>
+        </div>
+
+        <div style="text-align: center;">
+            <div class="cylinder-wrapper" id="cylinder">
+                <div class="scale">
+                    <div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div><div class="tick"></div>
+                </div>
+                <div id="layer-syrup" class="layer layer-syrup" style="height: 0;">올리고당</div>
+                <div id="layer-water" class="layer layer-water" style="height: 0;">물</div>
+                <div id="layer-oil" class="layer layer-oil" style="height: 0;">식용유</div>
+                
+                <div id="obj-coin" class="object obj-coin">동전</div>
+                <div id="obj-grape" class="object obj-grape">포도</div>
+                <div id="obj-plastic" class="object obj-plastic">플라스틱</div>
+            </div>
+            <p style="font-size: 0.8em; color: #888;">가상 메스실린더</p>
+        </div>
+
+        <div class="feedback">
+            <h3>🔬 관찰 일지</h3>
+            <div id="status-log" class="status-text">
+                실험을 시작해 볼까요? 액체를 먼저 채워보세요.<br>
+                밀도가 큰 액체는 아래로, 작은 액체는 위로 갑니다.
+            </div>
+            <div class="density-chart">
+                <strong>[참고: 밀도 데이터]</strong><br>
+                <ul>
+                    <li>동전: 약 8.9</li>
+                    <li>올리고당: 1.3</li>
+                    <li>포도: 약 1.1</li>
+                    <li>물: 1.0</li>
+                    <li>플라스틱: 약 0.9</li>
+                    <li>식용유: 0.8</li>
+                </ul>
+                *(단위: g/cm³)*
+            </div>
+        </div>
+    </div>
+
+<script>
+    // State
+    const state = {
+        syrup: false,
+        water: false,
+        oil: false,
+        coin: false,
+        grape: false,
+        plastic: false
+    };
+
+    // Constants
+    const LAYER_HEIGHT = 100; // px
+    
+    function updateLog(message) {
+        const log = document.getElementById('status-log');
+        log.innerHTML = "👉 " + message + "<br><br>" + log.innerHTML;
+    }
+
+    function addLiquid(type) {
+        if(state[type]) {
+            updateLog("이미 " + getKoName(type) + "이(가) 들어있습니다.");
+            return;
+        }
+        state[type] = true;
+        document.getElementById('layer-' + type).style.height = LAYER_HEIGHT + 'px';
+        
+        // Adjust positions based on density (Visual stacking logic)
+        // In reality, they separate by density regardless of order.
+        // We simulate this by setting 'bottom' positions.
+        
+        recalcLayers();
+        updateLog(getKoName(type) + "을(를) 넣었습니다.");
+        setTimeout(recalcObjects, 1000); // Re-position objects if layers change
+    }
+
+    function recalcLayers() {
+        // Logic: Always Syrup Bottom, Water Middle, Oil Top
+        let currentBottom = 0;
+        
+        if (state.syrup) {
+            document.getElementById('layer-syrup').style.bottom = '0px';
+            currentBottom += LAYER_HEIGHT;
+        }
+        if (state.water) {
+            document.getElementById('layer-water').style.bottom = (state.syrup ? LAYER_HEIGHT : 0) + 'px';
+            currentBottom += LAYER_HEIGHT;
+        }
+        if (state.oil) {
+            let oilBottom = 0;
+            if(state.syrup) oilBottom += LAYER_HEIGHT;
+            if(state.water) oilBottom += LAYER_HEIGHT;
+            document.getElementById('layer-oil').style.bottom = oilBottom + 'px';
+        }
+    }
+
+    function dropObject(type) {
+        if(state[type]) return;
+        state[type] = true;
+        const obj = document.getElementById('obj-' + type);
+        obj.style.display = 'block';
+        obj.style.top = '-50px'; // Start from top
+
+        setTimeout(() => {
+            let finalTop = 0;
+            // Determine final position based on what liquids are present
+            // Container height 400. Bottom is 400.
+            
+            // Densities: Coin(8.9) > Syrup(1.3) > Grape(1.1) > Water(1.0) > Plastic(0.9) > Oil(0.8)
+            
+            // Logic for position calculation
+            // Let's define "zones" visually from top (0) to bottom (400)
+            // Empty cylinder floor is at 400.
+            // If Syrup exists, Syrup surface is at 400 - 100 = 300.
+            // If Water exists on Syrup, Water surface is 200.
+            
+            let syrupTop = state.syrup ? (400 - LAYER_HEIGHT) : 400; // 300 or 400
+            let waterTop = state.water ? (syrupTop - LAYER_HEIGHT) : syrupTop;
+            let oilTop = state.oil ? (waterTop - LAYER_HEIGHT) : waterTop;
+
+            if (type === 'coin') {
+                // Sinks to very bottom
+                finalTop = 360; // 400 - height of object roughly
+                updateLog("동전은 모든 액체보다 밀도가 커서 바닥까지 가라앉습니다!");
+            } else if (type === 'grape') {
+                // Floats on Syrup, Sinks in Water/Oil
+                if (state.syrup) finalTop = syrupTop - 20; // Float on syrup
+                else finalTop = 360; // Hit bottom if no syrup
+                
+                updateLog(state.syrup ? "포도는 올리고당보다 밀도가 작아 뜹니다." : "포도는 가라앉습니다.");
+            } else if (type === 'plastic') {
+                // Floats on Water, Sinks in Oil
+                if (state.water) finalTop = waterTop - 20; // Float on water
+                else if (state.syrup) finalTop = syrupTop - 20; // Float on syrup
+                else finalTop = 360;
+
+                if(state.oil && state.water) {
+                   updateLog("플라스틱은 물보다 가볍고 식용유보다 무거워 그 경계에 머뭅니다.");
+                } else {
+                   updateLog("플라스틱을 넣었습니다.");
+                }
+            }
+
+            obj.style.top = finalTop + 'px';
+        }, 100);
+    }
+    
+    function recalcObjects() {
+        // Re-run drop logic for existing objects if layers changed
+        if(state.coin) { state.coin=false; dropObject('coin'); }
+        if(state.grape) { state.grape=false; dropObject('grape'); }
+        if(state.plastic) { state.plastic=false; dropObject('plastic'); }
+    }
+
+    function getKoName(type) {
+        const names = { syrup:'올리고당', water:'물', oil:'식용유' };
+        return names[type];
+    }
+
+    function resetLab() {
+        state.syrup = false; state.water = false; state.oil = false;
+        state.coin = false; state.grape = false; state.plastic = false;
+        
+        document.querySelectorAll('.layer').forEach(el => el.style.height = '0');
+        document.querySelectorAll('.object').forEach(el => el.style.display = 'none');
+        document.getElementById('status-log').innerHTML = "실험관이 깨끗하게 비워졌습니다.";
+    }
+</script>
+</body>
+</html>

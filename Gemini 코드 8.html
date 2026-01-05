@@ -1,0 +1,450 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 기체의 압력과 부피 (보일의 법칙)</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --danger-color: #ff6b6b;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+        .experiment-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        
+        /* 왼쪽: 컨트롤 및 시뮬레이션 */
+        .simulation-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .canvas-wrapper {
+            position: relative;
+            border: 2px solid #ccc;
+            border-radius: 10px;
+            background: #fff;
+            margin-bottom: 20px;
+            overflow: hidden;
+        }
+        canvas { display: block; }
+        
+        .controls {
+            width: 100%;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+        .slider-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .value-display { font-size: 1.2rem; color: var(--primary-color); font-weight: bold; }
+        
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            margin: 5px;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: var(--danger-color); }
+        
+        /* 오른쪽: 데이터 및 그래프 */
+        .data-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .graph-area {
+            height: 250px;
+            border: 1px solid #ddd;
+            border-radius: 10px;
+            background: white;
+            position: relative;
+            padding: 10px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .data-table th { background-color: #f1f1f1; }
+
+        /* 퀴즈 및 가이드 모달 */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            text-align: center;
+            position: relative;
+        }
+        .close-btn {
+            position: absolute; top: 10px; right: 15px;
+            font-size: 24px; cursor: pointer;
+        }
+        .quiz-feedback { margin-top: 15px; font-weight: bold; }
+        
+        .info-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border-left: 5px solid var(--primary-color);
+            border-radius: 5px;
+            font-size: 0.95rem;
+        }
+        
+        /* Safety Note */
+        .safety-note {
+            font-size: 0.8rem; color: #777; margin-top: 10px; text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험: 압력과 기체의 부피 (보일의 법칙)</h1>
+    <p>피스톤을 눌러 압력을 변화시키며 <b>입자의 움직임</b>과 <b>부피 변화</b>를 관찰해보세요.</p>
+
+    <div class="experiment-container">
+        <div class="simulation-panel">
+            <div class="canvas-wrapper">
+                <canvas id="simCanvas" width="400" height="400"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="slider-group">
+                    <label>👇 누르는 압력 (기압, atm)</label>
+                    <input type="range" id="pressureSlider" min="0.5" max="3.0" step="0.1" value="1.0">
+                    <div class="value-display">현재 압력: <span id="pressureVal">1.0</span> atm</div>
+                </div>
+                
+                <div class="slider-group">
+                    <label>🧪 기체 종류 (입자 색상)</label>
+                    <select id="gasType" style="padding: 5px;">
+                        <option value="oxygen">산소 (빨강)</option>
+                        <option value="nitrogen">질소 (파랑)</option>
+                        <option value="helium">헬륨 (보라)</option>
+                    </select>
+                </div>
+
+                <button onclick="recordData()">📝 현재 상태 기록</button>
+                <button class="reset" onclick="resetExperiment()">🔄 실험 초기화</button>
+                <button onclick="showQuiz()">❓ 퀴즈 풀기</button>
+                <button onclick="showRealLife()">🌍 실생활 예시</button>
+            </div>
+            <div class="safety-note">※ 주의: 실제 실험실에서 주사기 입구를 막고 너무 세게 누르면 위험할 수 있습니다.</div>
+        </div>
+
+        <div class="data-panel">
+            <div class="graph-area" id="graphArea">
+                <svg width="100%" height="100%" viewBox="0 0 300 200" style="overflow: visible;">
+                    <line x1="30" y1="10" x2="30" y2="170" stroke="black" stroke-width="2"/>
+                    <line x1="30" y1="170" x2="290" y2="170" stroke="black" stroke-width="2"/>
+                    <text x="150" y="195" text-anchor="middle" font-size="12">압력 (P)</text>
+                    <text x="10" y="100" text-anchor="middle" font-size="12" transform="rotate(-90 10,100)">부피 (V)</text>
+                    <path id="graphPath" d="" fill="none" stroke="var(--primary-color)" stroke-width="3"/>
+                    <circle id="currentPoint" cx="0" cy="0" r="5" fill="red" display="none"/>
+                </svg>
+            </div>
+
+            <div class="info-box">
+                <b>💡 관찰 포인트:</b><br>
+                1. 압력이 커지면 입자 사이의 거리가 어떻게 변하나요?<br>
+                2. 입자의 크기나 개수는 변하지 않음을 확인하세요.
+            </div>
+
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>순서</th>
+                        <th>압력 (P)</th>
+                        <th>부피 (V)</th>
+                        <th>P × V</th>
+                    </tr>
+                </thead>
+                <tbody id="dataTableBody">
+                    </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="quizModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('quizModal')">&times;</span>
+            <h3>🧠 개념 확인 퀴즈</h3>
+            <p>현재 압력이 1기압일 때 부피가 10L입니다.<br>압력을 <b>2기압</b>으로 높이면 부피는 얼마가 될까요?</p>
+            <div style="margin: 20px 0;">
+                <button onclick="checkAnswer(5)">5L</button>
+                <button onclick="checkAnswer(10)">10L</button>
+                <button onclick="checkAnswer(20)">20L</button>
+            </div>
+            <div id="quizFeedback" class="quiz-feedback"></div>
+        </div>
+    </div>
+
+    <div id="lifeModal" class="modal">
+        <div class="modal-content">
+            <span class="close-btn" onclick="closeModal('lifeModal')">&times;</span>
+            <h3>🌍 실생활 속 보일의 법칙</h3>
+            <ul style="text-align: left; padding-left: 20px;">
+                <li><b>🏔️ 산 정상의 과자 봉지:</b> 높이 올라가면 대기압이 낮아져 봉지 안 기체 부피가 늘어나 빵빵해집니다.</li>
+                <li><b>👟 운동화 에어쿠션:</b> 발을 디뎌 압력을 가하면 공기 주머니 부피가 줄어들며 충격을 흡수합니다.</li>
+                <li><b>🫧 잠수부의 공기방울:</b> 물 위로 올라올수록 수압이 낮아져 공기 방울이 점점 커집니다.</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // --- 상수 및 변수 설정 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const pressureSlider = document.getElementById('pressureSlider');
+        const pressureDisplay = document.getElementById('pressureVal');
+        const dataTableBody = document.getElementById('dataTableBody');
+        const graphPath = document.getElementById('graphPath');
+        const currentPoint = document.getElementById('currentPoint');
+        
+        // 시뮬레이션 상태
+        const K = 200; // PV 상수 (임의값)
+        let pressure = 1.0;
+        let volume = K / pressure; // 픽셀 높이로 환산하여 사용
+        let particles = [];
+        const numParticles = 40;
+        let recordCount = 0;
+        let particleColor = '#ff6b6b'; // 기본 산소(빨강)
+
+        // --- 입자 클래스 ---
+        class Particle {
+            constructor() {
+                this.r = 4; // 입자 반지름
+                this.reset();
+            }
+            
+            reset() {
+                this.x = Math.random() * (canvas.width - 20) + 10;
+                this.y = Math.random() * (volume - 20) + (canvas.height - volume + 10);
+                this.vx = (Math.random() - 0.5) * 4; // 속도는 온도(일정)
+                this.vy = (Math.random() - 0.5) * 4;
+            }
+
+            update() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 벽 충돌 (좌우)
+                if (this.x - this.r < 0 || this.x + this.r > canvas.width) {
+                    this.vx *= -1;
+                    this.x = Math.max(this.r, Math.min(canvas.width - this.r, this.x));
+                }
+
+                // 벽 충돌 (상하 - 피스톤 높이 고려)
+                const containerTop = canvas.height - volume;
+                const containerBottom = canvas.height;
+
+                if (this.y - this.r < containerTop) {
+                    this.vy = Math.abs(this.vy); // 아래로 튕김
+                    this.y = containerTop + this.r;
+                } else if (this.y + this.r > containerBottom) {
+                    this.vy = -Math.abs(this.vy); // 위로 튕김
+                    this.y = containerBottom - this.r;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                ctx.fillStyle = particleColor;
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // --- 초기화 ---
+        function init() {
+            particles = [];
+            for (let i = 0; i < numParticles; i++) {
+                particles.push(new Particle());
+            }
+            updateSimulation();
+            loop();
+        }
+
+        // --- 메인 루프 ---
+        function loop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 1. 용기(피스톤) 그리기
+            const containerTop = canvas.height - volume;
+            
+            // 실린더 내부 배경
+            ctx.fillStyle = '#f0f8ff';
+            ctx.fillRect(0, containerTop, canvas.width, volume);
+            
+            // 피스톤 헤드
+            ctx.fillStyle = '#bdc3c7';
+            ctx.fillRect(0, containerTop - 20, canvas.width, 20);
+            
+            // 피스톤 손잡이
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fillRect(canvas.width/2 - 10, containerTop - 100, 20, 80);
+            ctx.fillRect(canvas.width/2 - 40, containerTop - 100, 80, 10);
+            
+            // 누르는 추 (압력 시각화)
+            const weights = Math.round(pressure * 2); // 0.5atm 당 추 1개 느낌
+            for(let i=0; i<weights; i++) {
+                ctx.fillStyle = '#34495e';
+                ctx.fillRect(canvas.width/2 - 30, containerTop - 20 - (i+1)*15, 60, 10);
+            }
+
+            // 2. 입자 그리기
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            // 3. 그래프 업데이트
+            updateGraphPoint();
+
+            requestAnimationFrame(loop);
+        }
+
+        // --- 이벤트 및 로직 ---
+        pressureSlider.addEventListener('input', (e) => {
+            pressure = parseFloat(e.target.value);
+            pressureDisplay.innerText = pressure.toFixed(1);
+            
+            // 보일의 법칙: P * V = K  => V = K / P
+            // 시각적 부피 계산 (화면 비율에 맞춤)
+            // K가 200일때 P=1이면 V=200픽셀. P=2이면 V=100픽셀.
+            // 실제 수치(L)와 시각적 픽셀을 매핑
+            volume = (K / pressure) * 1.5; // 1.5는 화면 크기 보정 계수
+            
+            // 너무 작거나 커지지 않게 제한
+            volume = Math.max(50, Math.min(350, volume));
+            
+            // 입자가 갑자기 튀어나가지 않게 위치 조정
+            const containerTop = canvas.height - volume;
+            particles.forEach(p => {
+                if (p.y < containerTop) p.y = containerTop + 10;
+            });
+        });
+
+        document.getElementById('gasType').addEventListener('change', (e) => {
+            const type = e.target.value;
+            if(type === 'oxygen') particleColor = '#ff6b6b';
+            else if(type === 'nitrogen') particleColor = '#4a90e2';
+            else if(type === 'helium') particleColor = '#9b59b6';
+        });
+
+        function recordData() {
+            recordCount++;
+            const currentVolDisplay = (10 / pressure).toFixed(1); // 1기압일때 10L 가정
+            const pvConstant = (pressure * currentVolDisplay).toFixed(1);
+            
+            const row = `<tr>
+                <td>${recordCount}</td>
+                <td>${pressure} atm</td>
+                <td>${currentVolDisplay} L</td>
+                <td>${pvConstant}</td>
+            </tr>`;
+            dataTableBody.innerHTML += row;
+        }
+
+        function resetExperiment() {
+            pressure = 1.0;
+            pressureSlider.value = 1.0;
+            pressureDisplay.innerText = "1.0";
+            volume = (K / pressure) * 1.5;
+            dataTableBody.innerHTML = "";
+            recordCount = 0;
+            init();
+        }
+
+        // --- 그래프 로직 (SVG) ---
+        function updateGraphPoint() {
+            // 그래프 좌표 매핑 (30,170)이 원점
+            // X축: 압력 (0 ~ 3.5), Y축: 부피 (0 ~ 25)
+            const x = 30 + (pressure * 70); // 1atm -> 100px 위치
+            const currentVolDisplay = 10 / pressure;
+            const y = 170 - (currentVolDisplay * 6); // 10L -> 60px 높이
+            
+            currentPoint.setAttribute('cx', x);
+            currentPoint.setAttribute('cy', y);
+            currentPoint.style.display = 'block';
+
+            // 이론적 곡선 그리기 (최초 1회 혹은 계속)
+            // P * V = 10 곡선
+            let d = "M ";
+            for(let p = 0.5; p <= 3.0; p += 0.1) {
+                const px = 30 + (p * 70);
+                const vol = 10 / p;
+                const py = 170 - (vol * 6);
+                d += `${px},${py} `;
+            }
+            graphPath.setAttribute('d', d);
+        }
+
+        // --- 모달 로직 ---
+        function showQuiz() { document.getElementById('quizModal').style.display = 'flex'; }
+        function showRealLife() { document.getElementById('lifeModal').style.display = 'flex'; }
+        function closeModal(id) { document.getElementById(id).style.display = 'none'; document.getElementById('quizFeedback').innerText = ""; }
+        
+        function checkAnswer(ans) {
+            const feedback = document.getElementById('quizFeedback');
+            if (ans === 5) {
+                feedback.innerHTML = "<span style='color:green'>✅ 정답입니다!</span><br>압력이 2배가 되면 부피는 1/2배로 줄어듭니다.";
+            } else {
+                feedback.innerHTML = "<span style='color:red'>❌ 다시 생각해보세요.</span><br>압력이 세지면 입자들이 있을 공간이 더 좁아지겠죠?";
+            }
+        }
+
+        // 시작
+        init();
+    </script>
+</body>
+</html>

@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>0.1 M 수용액 만들기 가상 실험</title>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f0f4f8; color: #333; line-height: 1.6; padding: 20px; }
+        .container { max-width: 800px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        .step-container { display: none; animation: fadeIn 0.5s; }
+        .step-container.active { display: block; }
+        
+        /* UI Elements */
+        .btn { display: inline-block; padding: 10px 20px; background: #3498db; color: white; border: none; border-radius: 5px; cursor: pointer; font-size: 1rem; margin-top: 20px; transition: background 0.3s; }
+        .btn:hover { background: #2980b9; }
+        .btn-reset { background: #e74c3c; float: right; }
+        .selection-group { margin: 20px 0; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        select, input[type="range"] { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 5px; font-size: 1rem; }
+        
+        /* Visuals */
+        .lab-bench { display: flex; justify-content: center; align-items: flex-end; height: 250px; background: #eee; border-radius: 10px; margin: 20px 0; position: relative; overflow: hidden; }
+        .balance { width: 120px; height: 40px; background: #555; position: absolute; bottom: 20px; border-radius: 5px; color: #0f0; text-align: center; line-height: 40px; font-family: monospace; font-size: 1.2rem; }
+        .weighing-boat { width: 80px; height: 20px; background: rgba(255,255,255,0.8); position: absolute; bottom: 60px; border-radius: 0 0 20px 20px; border: 1px solid #ccc; text-align: center; }
+        .flask { width: 80px; height: 120px; background: rgba(200, 230, 255, 0.3); border: 2px solid #88c; border-radius: 40% 40% 5% 5% / 20% 20% 5% 5%; position: relative; bottom: 20px; margin-left: 20px; }
+        .flask::before { content: ''; position: absolute; top: -40px; left: 25px; width: 30px; height: 40px; background: rgba(200, 230, 255, 0.3); border: 2px solid #88c; border-bottom: none; }
+        .flask-liquid { position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(52, 152, 219, 0.5); transition: height 1s; height: 0%; border-radius: 0 0 5px 5px; }
+        .particles { position: absolute; width: 100%; height: 100%; pointer-events: none; }
+        .particle { width: 6px; height: 6px; background: white; border-radius: 50%; position: absolute; animation: float 3s infinite; }
+
+        /* Results */
+        .result-box { padding: 20px; border-radius: 10px; margin-top: 20px; text-align: center; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .fail { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes float { 0% { transform: translateY(0); } 50% { transform: translateY(-10px); } 100% { transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 0.1 M 수용액 제조 실험</h1>
+    <p>용질을 선택하고 정확한 질량을 측정하여 표준 용액을 만들어봅시다.</p>
+
+    <div id="step1" class="step-container active">
+        <h3>1단계: 실험 계획 수립</h3>
+        <div class="selection-group">
+            <label for="soluteSelect">용질 선택:</label>
+            <select id="soluteSelect">
+                <option value="NaCl" data-mass="58.44">염화나트륨 (NaCl, Mw: 58.44)</option>
+                <option value="KCl" data-mass="74.55">염화칼륨 (KCl, Mw: 74.55)</option>
+                <option value="Glucose" data-mass="180.16">포도당 (C₆H₁₂O₆, Mw: 180.16)</option>
+                <option value="Sucrose" data-mass="342.30">설탕 (C₁₂H₂₂O₁₁, Mw: 342.30)</option>
+            </select>
+        </div>
+        <div class="selection-group">
+            <label for="volumeSelect">만들 용액의 부피 (부피 플라스크):</label>
+            <select id="volumeSelect">
+                <option value="0.1">100 mL</option>
+                <option value="0.25">250 mL</option>
+                <option value="0.5">500 mL</option>
+                <option value="1.0">1 L</option>
+            </select>
+        </div>
+        <div style="background: #fff3cd; padding: 10px; border-radius: 5px; margin-bottom: 10px;">
+            <strong>💡 미션:</strong> 0.1 M 농도를 목표로 합니다.
+        </div>
+        <button class="btn" onclick="goToStep2()">계산 및 저울질하러 가기</button>
+    </div>
+
+    <div id="step2" class="step-container">
+        <h3>2단계: 용질 질량 측정</h3>
+        <p>목표 농도(0.1 M)를 위해 필요한 <span id="targetSoluteName"></span>의 질량을 계산하고, 전자저울에 올려보세요.</p>
+        
+        <div class="lab-bench">
+            <div class="balance" id="balanceDisplay">0.00 g</div>
+            <div class="weighing-boat">약포지</div>
+        </div>
+
+        <label for="massSlider">시약 숟가락 조절 (질량 추가):</label>
+        <input type="range" id="massSlider" min="0" max="0" step="0.01" value="0" oninput="updateBalance()">
+        <p style="text-align: center;">현재 측정값: <strong id="currentMass">0.00</strong> g</p>
+        
+        <button class="btn" onclick="goToStep3()">플라스크에 넣고 녹이기</button>
+    </div>
+
+    <div id="step3" class="step-container">
+        <h3>3단계: 용해 및 결과 확인</h3>
+        <p>증류수를 표선까지 채우고 마개를 막아 흔듭니다.</p>
+
+        <div class="lab-bench" style="justify-content: center; align-items: center;">
+            <div class="flask">
+                <div class="flask-liquid" id="flaskLiquid"></div>
+                <div class="particles" id="particles"></div>
+            </div>
+        </div>
+
+        <div id="resultOutput" class="result-box"></div>
+        <button class="btn btn-reset" onclick="resetLab()">다시 실험하기</button>
+    </div>
+</div>
+
+<script>
+    let soluteName = "";
+    let molarMass = 0;
+    let targetVolume = 0; // in Liters
+    let targetMass = 0;
+    let userMass = 0;
+
+    function goToStep2() {
+        // Get values
+        const soluteSelect = document.getElementById('soluteSelect');
+        const volumeSelect = document.getElementById('volumeSelect');
+        
+        soluteName = soluteSelect.options[soluteSelect.selectedIndex].text.split('(')[0].trim();
+        molarMass = parseFloat(soluteSelect.options[soluteSelect.selectedIndex].getAttribute('data-mass'));
+        targetVolume = parseFloat(volumeSelect.value);
+
+        // Calculate Target Mass: M * V * Mw
+        targetMass = 0.1 * targetVolume * molarMass;
+
+        // Set UI text
+        document.getElementById('targetSoluteName').innerText = soluteName;
+        
+        // Configure Slider (Give some range around the target for difficulty)
+        const slider = document.getElementById('massSlider');
+        slider.max = (targetMass * 2).toFixed(2);
+        slider.value = 0;
+        updateBalance();
+
+        // Switch View
+        document.getElementById('step1').classList.remove('active');
+        document.getElementById('step2').classList.add('active');
+    }
+
+    function updateBalance() {
+        userMass = parseFloat(document.getElementById('massSlider').value);
+        document.getElementById('balanceDisplay').innerText = userMass.toFixed(2) + " g";
+        document.getElementById('currentMass').innerText = userMass.toFixed(2);
+    }
+
+    function goToStep3() {
+        document.getElementById('step2').classList.remove('active');
+        document.getElementById('step3').classList.add('active');
+
+        // Animate filling
+        const liquid = document.getElementById('flaskLiquid');
+        setTimeout(() => { liquid.style.height = "70%"; }, 500); // Pour water
+
+        // Calculate Result
+        const actualMolarity = userMass / molarMass / targetVolume;
+        const errorPercent = Math.abs((actualMolarity - 0.1) / 0.1) * 100;
+        
+        const resultBox = document.getElementById('resultOutput');
+        let msg = "";
+
+        // Simulation Logic
+        setTimeout(() => {
+            if (errorPercent < 2) { // 2% margin of error
+                resultBox.className = "result-box success";
+                msg = `<h3>🎉 실험 성공!</h3>
+                       <p>제조된 농도: <strong>${actualMolarity.toFixed(4)} M</strong></p>
+                       <p>오차율: ${errorPercent.toFixed(2)}% (매우 정확함)</p>
+                       <p>정확한 질량(${targetMass.toFixed(2)}g)을 측정하여<br>
+                       ${targetVolume*1000}mL 부피 플라스크의 표선까지 정확히 채웠습니다.</p>`;
+                // Add particles
+                createParticles(20);
+            } else {
+                resultBox.className = "result-box fail";
+                msg = `<h3>⚠️ 실험 오차 발생</h3>
+                       <p>목표 농도: 0.1 M / <strong>내 결과: ${actualMolarity.toFixed(4)} M</strong></p>
+                       <p>필요했던 질량: <strong>${targetMass.toFixed(2)}g</strong></p>
+                       <p>실제 넣은 질량: <strong>${userMass.toFixed(2)}g</strong></p>
+                       <p>${userMass > targetMass ? "질량이 너무 많아 농도가 진해졌습니다." : "질량이 부족하여 농도가 묽어졌습니다."}<br>
+                       다시 시도하여 정확도를 높여보세요!</p>`;
+                createParticles(5);
+            }
+            resultBox.innerHTML = msg;
+        }, 1600);
+    }
+
+    function createParticles(count) {
+        const container = document.getElementById('particles');
+        container.innerHTML = '';
+        for(let i=0; i<count; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 80 + '%';
+            p.style.top = Math.random() * 80 + '%';
+            p.style.animationDelay = Math.random() + 's';
+            container.appendChild(p);
+        }
+    }
+
+    function resetLab() {
+        document.getElementById('step3').classList.remove('active');
+        document.getElementById('step1').classList.add('active');
+        document.getElementById('flaskLiquid').style.height = "0%";
+        document.getElementById('resultOutput').innerHTML = "";
+        document.getElementById('massSlider').value = 0;
+    }
+</script>
+
+</body>
+</html>

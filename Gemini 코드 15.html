@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 초콜릿의 상태 변화 (융해와 응고)</title>
+    <style>
+        :root {
+            --primary-color: #5D4037; /* 초콜릿색 */
+            --secondary-color: #D7CCC8;
+            --accent-color: #FF7043; /* 열기 */
+            --cool-color: #29B6F6; /* 냉각 */
+            --text-color: #333;
+            --bg-color: #f4f4f9;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        h1 { color: var(--primary-color); margin-bottom: 10px; }
+        .objective { background: #fff; padding: 15px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); font-size: 0.95rem; line-height: 1.5; }
+
+        .lab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1000px;
+            width: 100%;
+        }
+
+        /* 컨트롤 패널 */
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .slider-container { margin: 20px 0; text-align: center; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .temp-display { font-size: 1.5rem; font-weight: bold; color: var(--primary-color); }
+        .state-label { display: inline-block; padding: 5px 10px; border-radius: 15px; color: white; font-weight: bold; margin-top: 5px; }
+        
+        .btn-group { display: flex; gap: 10px; justify-content: center; margin-top: 15px; }
+        button {
+            padding: 10px 20px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s;
+        }
+        .btn-heat { background-color: var(--accent-color); color: white; }
+        .btn-cool { background-color: var(--cool-color); color: white; }
+        .btn-reset { background-color: #9E9E9E; color: white; }
+        button:hover { opacity: 0.9; transform: scale(1.05); }
+
+        /* 시각화 영역 */
+        .visualization-area {
+            flex: 2;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .macro-view, .micro-view {
+            background: white;
+            border-radius: 15px;
+            padding: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            position: relative;
+            min-height: 250px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .section-title {
+            position: absolute; top: 10px; left: 15px;
+            font-size: 0.9rem; font-weight: bold; color: #666;
+            background: #eee; padding: 2px 8px; border-radius: 5px;
+        }
+
+        /* 거시적 뷰: 초콜릿 그래픽 */
+        #chocolate-obj {
+            width: 150px; height: 100px;
+            background-color: #4E342E;
+            transition: all 1s ease;
+            position: relative;
+        }
+        /* 고체 스타일 */
+        .solid-choco { border-radius: 2px; box-shadow: 2px 2px 0 #3E2723; }
+        /* 액체 스타일 */
+        .liquid-choco {
+            width: 180px !important; height: 60px !important;
+            border-radius: 10px 10px 40px 40px;
+            box-shadow: inset 0 -5px 10px rgba(0,0,0,0.2);
+            transform: translateY(20px);
+        }
+
+        /* 미시적 뷰: 캔버스 */
+        canvas { border: 1px solid #ddd; background: #fafafa; border-radius: 8px; }
+
+        /* 설명 및 퀴즈 */
+        .learning-section {
+            width: 100%; max-width: 1000px;
+            background: white; padding: 20px;
+            margin-top: 20px; border-radius: 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+        
+        .quiz-box {
+            background: #EFEBE9; padding: 15px; border-radius: 10px; margin-top: 15px; display: none;
+        }
+        .feedback { margin-top: 10px; font-weight: bold; padding: 10px; border-radius: 5px; }
+        .feedback.correct { background: #E8F5E9; color: #2E7D32; }
+        .feedback.wrong { background: #FFEBEE; color: #C62828; }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .lab-container { flex-direction: column; }
+            .visualization-area { min-width: 100%; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🍫 가상실험: 초콜릿의 상태 변화</h1>
+    <div class="objective">
+        <strong>학습 목표:</strong> 초콜릿을 가열하고 냉각하며 <strong>고체와 액체 사이의 상태 변화(융해, 응고)</strong>를 관찰합니다.<br>
+        상태가 변할 때 <strong>입자 배열</strong>이 어떻게 달라지는지 확인하고, 물질의 성질 변화 여부를 탐구해봅시다.
+    </div>
+</header>
+
+<div class="lab-container">
+    <div class="control-panel">
+        <h3>🎛️ 실험 제어</h3>
+        <p>온도를 조절하여 초콜릿의 변화를 관찰하세요.</p>
+        
+        <div class="slider-container">
+            <label for="tempSlider">온도 조절</label><br>
+            <input type="range" id="tempSlider" min="0" max="80" value="20">
+        </div>
+        
+        <div style="text-align: center;">
+            현재 온도: <span id="tempValue" class="temp-display">20</span>°C<br>
+            현재 상태: <span id="stateDisplay" class="state-label" style="background: #795548;">고체</span>
+        </div>
+
+        <div class="btn-group">
+            <button class="btn-cool" onclick="adjustTemp(-5)">❄️ 냉각</button>
+            <button class="btn-heat" onclick="adjustTemp(5)">🔥 가열</button>
+            <button class="btn-reset" onclick="resetExp()">🔄 초기화</button>
+        </div>
+
+        <div style="margin-top: 20px; font-size: 0.9rem; color: #555;">
+            <strong>💡 선생님의 팁:</strong><br>
+            초콜릿은 약 32°C 부근에서 녹기 시작합니다. 이 온도를 전후로 입자들의 움직임이 어떻게 달라지는지 주목하세요!
+        </div>
+    </div>
+
+    <div class="visualization-area">
+        <div class="macro-view">
+            <div class="section-title">👁️ 실제 모습 (거시적 관점)</div>
+            <div id="chocolate-obj" class="solid-choco">
+                <div style="text-align: center; line-height: 100px; color: rgba(255,255,255,0.3); font-size: 20px;">CHOCO</div>
+            </div>
+            <p id="macro-desc" style="margin-top: 15px; font-size: 0.9rem;">단단한 초콜릿 조각입니다.</p>
+        </div>
+
+        <div class="micro-view">
+            <div class="section-title">🔬 입자 모형 (미시적 관점)</div>
+            <canvas id="particleCanvas" width="300" height="200"></canvas>
+            <p style="margin-top: 5px; font-size: 0.8rem; color: #666;">*동그라미는 초콜릿을 구성하는 입자를 나타냅니다.</p>
+        </div>
+    </div>
+</div>
+
+<div class="learning-section">
+    <h3>📝 탐구 일지 및 퀴즈</h3>
+    <p>실험을 충분히 관찰했다면 아래 질문에 답해보세요.</p>
+    
+    <button onclick="showQuiz()" style="background: var(--primary-color); color: white;">퀴즈 풀기 시작</button>
+
+    <div id="quizArea" class="quiz-box">
+        <div class="question-item">
+            <p><strong>Q1. 초콜릿이 녹아 액체가 되었을 때, 입자들의 배열은 어떻게 변했나요?</strong></p>
+            <label><input type="radio" name="q1" value="1"> 입자 개수가 늘어났다.</label><br>
+            <label><input type="radio" name="q1" value="2"> 입자 크기가 커졌다.</label><br>
+            <label><input type="radio" name="q1" value="3"> 입자 배열이 불규칙해지고 거리가 멀어졌다.</label><br>
+            <button onclick="checkAnswer(1)" style="margin-top: 5px; padding: 5px 10px; font-size: 0.8rem;">확인</button>
+            <div id="fb1" class="feedback"></div>
+        </div>
+        <hr>
+        <div class="question-item">
+            <p><strong>Q2. 녹은 초콜릿을 다시 굳혔을 때 맛은 변하지 않습니다. 그 이유는 무엇인가요?</strong></p>
+            <label><input type="radio" name="q2" value="1"> 상태 변화는 입자의 종류가 변하지 않는 물리 변화이기 때문이다.</label><br>
+            <label><input type="radio" name="q2" value="2"> 열을 가하면 입자가 더 맛있어지기 때문이다.</label><br>
+            <label><input type="radio" name="q2" value="3"> 액체에서 고체로 변할 때 새로운 성질이 생기기 때문이다.</label><br>
+            <button onclick="checkAnswer(2)" style="margin-top: 5px; padding: 5px 10px; font-size: 0.8rem;">확인</button>
+            <div id="fb2" class="feedback"></div>
+        </div>
+        <hr>
+        <div class="question-item">
+            <p><strong>Q3. '초콜릿이 녹는 것(융해)'과 '설탕이 물에 녹는 것(용해)'은 같은 현상일까요?</strong></p>
+            <label><input type="radio" name="q3" value="1"> 같다. 둘 다 액체가 되기 때문이다.</label><br>
+            <label><input type="radio" name="q3" value="2"> 다르다. 융해는 상태 변화이고, 용해는 물질이 섞이는 현상이다.</label><br>
+            <button onclick="checkAnswer(3)" style="margin-top: 5px; padding: 5px 10px; font-size: 0.8rem;">확인</button>
+            <div id="fb3" class="feedback"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 변수 설정
+    const slider = document.getElementById('tempSlider');
+    const tempDisplay = document.getElementById('tempValue');
+    const stateDisplay = document.getElementById('stateDisplay');
+    const chocolateObj = document.getElementById('chocolate-obj');
+    const macroDesc = document.getElementById('macro-desc');
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+
+    let temperature = 20;
+    const MELTING_POINT = 32; // 초콜릿 융해점 가정
+    let particles = [];
+    const particleCount = 20;
+    const particleRadius = 8;
+
+    // 입자 초기화
+    function initParticles() {
+        particles = [];
+        let rows = 4;
+        let cols = 5;
+        let startX = (canvas.width - (cols * 30)) / 2;
+        let startY = (canvas.height - (rows * 30)) / 2;
+
+        for(let i=0; i<rows; i++) {
+            for(let j=0; j<cols; j++) {
+                particles.push({
+                    x: startX + j * 30,
+                    y: startY + i * 30,
+                    originX: startX + j * 30,
+                    originY: startY + i * 30,
+                    vx: 0,
+                    vy: 0
+                });
+            }
+        }
+    }
+
+    // 메인 루프
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 상태 판단
+        let isLiquid = temperature >= MELTING_POINT;
+        let vibration = temperature * 0.1; // 온도에 따른 진동
+
+        // 입자 그리기 및 이동 로직
+        particles.forEach(p => {
+            if (!isLiquid) {
+                // 고체 상태: 제자리 진동
+                p.x = p.originX + (Math.random() - 0.5) * vibration;
+                p.y = p.originY + (Math.random() - 0.5) * vibration;
+            } else {
+                // 액체 상태: 자유 이동 (브라운 운동 시뮬레이션)
+                // 온도가 높을수록 더 활발히
+                let speed = (temperature - MELTING_POINT + 10) * 0.05;
+                p.vx += (Math.random() - 0.5) * speed;
+                p.vy += (Math.random() - 0.5) * speed;
+                
+                // 마찰력 (감속)
+                p.vx *= 0.95;
+                p.vy *= 0.95;
+
+                p.x += p.vx;
+                p.y += p.vy;
+
+                // 벽 튕기기 (단, 액체처럼 아래로 쏠리는 경향 추가 가능하나 단순화를 위해 박스 내 이동)
+                if(p.x < particleRadius || p.x > canvas.width - particleRadius) p.vx *= -1;
+                if(p.y < particleRadius || p.y > canvas.height - particleRadius) p.vy *= -1;
+                
+                // 화면 밖 보정
+                p.x = Math.max(particleRadius, Math.min(canvas.width - particleRadius, p.x));
+                p.y = Math.max(particleRadius, Math.min(canvas.height - particleRadius, p.y));
+            }
+
+            // 입자 그리기
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, particleRadius, 0, Math.PI * 2);
+            ctx.fillStyle = isLiquid ? '#795548' : '#5D4037'; // 액체일 때 약간 더 밝게
+            ctx.fill();
+            ctx.strokeStyle = '#3E2723';
+            ctx.stroke();
+        });
+
+        // 입자 간 연결선 그리기 (고체일 때만 규칙성 강조)
+        if(!isLiquid) {
+            ctx.strokeStyle = 'rgba(0,0,0,0.1)';
+            ctx.beginPath();
+            // 간단히 근처 입자 연결 시각화 생략 (깔끔함을 위해)
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    // UI 업데이트
+    function updateState() {
+        temperature = parseInt(slider.value);
+        tempDisplay.textContent = temperature;
+
+        if (temperature >= MELTING_POINT) {
+            // 융해 (액체)
+            stateDisplay.textContent = "액체 (융해됨)";
+            stateDisplay.style.background = "#FF7043"; // 주황
+            chocolateObj.className = "liquid-choco";
+            macroDesc.innerHTML = "초콜릿이 녹아 <strong>흐르는 성질</strong>을 가집니다.<br>모양은 변했지만 달콤한 냄새는 여전하네요!";
+        } else {
+            // 응고 (고체)
+            stateDisplay.textContent = "고체";
+            stateDisplay.style.background = "#795548"; // 갈색
+            chocolateObj.className = "solid-choco";
+            macroDesc.innerHTML = "규칙적인 모양을 가진 <strong>단단한 고체</strong> 상태입니다.<br>흐르지 않고 제 모양을 유지합니다.";
+            
+            // 고체로 돌아올 때 입자 위치 리셋 (응고 시 규칙적 배열 회귀 시뮬레이션)
+            // 실제 물리에서는 바로 정렬되지 않지만 교육적 목적을 위해 서서히 정렬되는 로직 필요
+            // 여기서는 단순화를 위해 액체->고체 전환 시 서서히 원래 자리로 돌아가는 로직 추가
+             particles.forEach(p => {
+                p.x = p.x + (p.originX - p.x) * 0.1;
+                p.y = p.y + (p.originY - p.y) * 0.1;
+             });
+        }
+    }
+
+    // 이벤트 리스너
+    slider.addEventListener('input', updateState);
+
+    function adjustTemp(amount) {
+        let newTemp = parseInt(slider.value) + amount;
+        if (newTemp > 80) newTemp = 80;
+        if (newTemp < 0) newTemp = 0;
+        slider.value = newTemp;
+        updateState();
+    }
+
+    function resetExp() {
+        slider.value = 20;
+        initParticles(); // 입자 위치 완전 초기화
+        updateState();
+    }
+
+    function showQuiz() {
+        document.getElementById('quizArea').style.display = 'block';
+        window.scrollTo(0, document.body.scrollHeight);
+    }
+
+    function checkAnswer(qNum) {
+        const radios = document.getElementsByName('q' + qNum);
+        let val;
+        for (const radio of radios) {
+            if (radio.checked) val = radio.value;
+        }
+
+        const fbDiv = document.getElementById('fb1');
+        
+        let correct, msg;
+        if (qNum === 1) {
+            correct = (val === '3');
+            msg = correct ? "정답입니다! 융해가 일어나면 입자 사이의 거리가 멀어지고 불규칙하게 배열됩니다." : "다시 생각해보세요. 입자의 개수나 크기는 변하지 않습니다.";
+            displayFeedback('fb1', correct, msg);
+        } else if (qNum === 2) {
+            correct = (val === '1');
+            msg = correct ? "정답입니다! 상태 변화는 입자의 배열만 변할 뿐, 입자 자체(종류)는 변하지 않는 '물리 변화'입니다." : "오답입니다. 상태가 변해도 입자 자체는 변하지 않아 성질(맛)이 유지됩니다.";
+            displayFeedback('fb2', correct, msg);
+        } else if (qNum === 3) {
+            correct = (val === '2');
+            msg = correct ? "정답입니다! 융해는 고체가 열을 받아 액체가 되는 것이고, 용해는 소금물처럼 물질이 용매에 섞이는 현상입니다." : "오답입니다. 용어의 차이를 확인해보세요. 초콜릿이 녹는 것은 '융해'입니다.";
+            displayFeedback('fb3', correct, msg);
+        }
+    }
+
+    function displayFeedback(id, isCorrect, text) {
+        const el = document.getElementById(id);
+        el.className = 'feedback ' + (isCorrect ? 'correct' : 'wrong');
+        el.innerHTML = (isCorrect ? '⭕ ' : '❌ ') + text;
+    }
+
+    // 초기 실행
+    initParticles();
+    animate();
+
+</script>
+
+</body>
+</html>
