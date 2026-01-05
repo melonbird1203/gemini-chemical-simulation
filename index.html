@@ -24,16 +24,14 @@
   const ul = document.getElementById("sim-list");
 
   for (let i = 1; i <= 151; i++) {
-    const li = document.createElement("li");
-
     const fileName = `Gemini 코드 ${i}.html`;
 
+    const li = document.createElement("li");
     li.innerHTML = `
-      <a href="sims/${fileName}">
+      <a href="${encodeURIComponent(fileName)}">
         Gemini 코드 ${i}
       </a>
     `;
-
     ul.appendChild(li);
   }
 </script>
