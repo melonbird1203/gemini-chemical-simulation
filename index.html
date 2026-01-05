@@ -4,25 +4,33 @@
 <meta charset="UTF-8">
 <title>화학 시뮬레이션 151</title>
 <style>
-  body { font-family: Arial, sans-serif; }
-  li { margin: 6px 0; }
+  body {
+    font-family: Arial, sans-serif;
+    padding: 20px;
+  }
+  li {
+    margin: 6px 0;
+  }
 </style>
 </head>
 <body>
 
 <h1>화학 시뮬레이션 목록</h1>
+<p>아래에서 시뮬레이션을 선택하세요.</p>
+
 <ul id="sim-list"></ul>
 
 <script>
   const ul = document.getElementById("sim-list");
 
   for (let i = 1; i <= 151; i++) {
-    const num = String(i).padStart(3, "0");
     const li = document.createElement("li");
 
+    const fileName = `Gemini 코드 ${i}.html`;
+
     li.innerHTML = `
-      <a href="sims/sim${num}.html">
-        시뮬레이션 ${i}
+      <a href="sims/${fileName}">
+        Gemini 코드 ${i}
       </a>
     `;
 
