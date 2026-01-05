@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 효소의 기질 특이성</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --secondary: #10B981;
+            --danger: #EF4444;
+            --bg: #F3F4F6;
+            --panel: #FFFFFF;
+        }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); margin: 0; padding: 20px; display: flex; flex-direction: column; height: 100vh; box-sizing: border-box; }
+        
+        header { text-align: center; margin-bottom: 20px; }
+        h1 { margin: 0; color: #1F2937; font-size: 1.5rem; }
+        .subtitle { color: #6B7280; font-size: 0.9rem; }
+
+        .container { display: flex; gap: 20px; flex: 1; height: calc(100% - 80px); }
+        
+        /* 왼쪽 컨트롤 패널 */
+        .controls { flex: 1; background: var(--panel); padding: 20px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); display: flex; flex-direction: column; gap: 15px; overflow-y: auto; }
+        
+        .control-group { border-bottom: 1px solid #E5E7EB; padding-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; color: #374151; font-size: 0.9rem; }
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #D1D5DB; margin-bottom: 5px; }
+        .value-display { font-size: 0.85rem; color: var(--primary); text-align: right; font-weight: bold; }
+        
+        .btn-group { display: flex; gap: 10px; margin-top: auto; }
+        button { flex: 1; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-reset { background: #6B7280; color: white; }
+        button:hover { opacity: 0.9; }
+
+        /* 중앙 실험 화면 */
+        .stage-area { flex: 2; display: flex; flex-direction: column; gap: 20px; }
+        
+        .microscope-view { 
+            flex: 1; background: #fff; border-radius: 12px; border: 2px solid #E5E7EB; 
+            position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+        }
+        
+        /* 애니메이션 요소 스타일 */
+        .molecule { position: absolute; transition: transform 0.5s ease-out; }
+        .enzyme { width: 60px; height: 60px; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; border-radius: 50%; z-index: 2; transition: all 0.3s; }
+        .substrate { width: 40px; height: 40px; border-radius: 8px; position: absolute; z-index: 1; }
+        
+        /* 피드백 메시지 */
+        .feedback-box {
+            background: #EFF6FF; border-left: 4px solid var(--primary); padding: 15px; border-radius: 6px;
+            font-size: 0.9rem; line-height: 1.4; color: #1E3A8A; min-height: 60px; display: flex; align-items: center;
+        }
+
+        /* 오른쪽 그래프 패널 */
+        .data-panel { flex: 1; background: var(--panel); padding: 20px; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .chart-container { flex: 1; position: relative; }
+
+        /* 반응형 */
+        @media (max-width: 1024px) { .container { flex-direction: column; height: auto; } .stage-area { height: 400px; } }
+
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🔬 화학 가상 실험실: 효소의 특이성과 활용</h1>
+        <div class="subtitle">화학Ⅱ 3.반응과 에너지 - 효소의 작용 원리 탐구</div>
+    </header>
+
+    <div class="container">
+        <div class="controls">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>효소 선택 (Enzyme)</label>
+                <select id="enzymeSelect" onchange="updateVisuals()">
+                    <option value="amylase">아밀레이스 (탄수화물 분해)</option>
+                    <option value="pepsin">펩신 (단백질 분해 - 위)</option>
+                    <option value="trypsin">트립신 (단백질 분해 - 소장)</option>
+                    <option value="lipase">라이페이스 (지방 분해)</option>
+                </select>
+                <div id="enzymeDesc" style="font-size: 0.8rem; color: #666; margin-top: 5px;"></div>
+            </div>
+
+            <div class="control-group">
+                <label>기질 선택 (Substrate)</label>
+                <select id="substrateSelect" onchange="updateVisuals()">
+                    <option value="starch">녹말 (탄수화물)</option>
+                    <option value="protein">단백질</option>
+                    <option value="fat">지방</option>
+                    <option value="cellulose">셀룰로스 (섬유질)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>온도 (Temperature)</label>
+                <input type="range" id="tempRange" min="0" max="80" value="25" oninput="updateLabels()">
+                <div class="value-display"><span id="tempVal">25</span> ℃</div>
+            </div>
+
+            <div class="control-group">
+                <label>pH (산성도)</label>
+                <input type="range" id="phRange" min="1" max="12" step="0.5" value="7" oninput="updateLabels()">
+                <div class="value-display">pH <span id="phVal">7.0</span></div>
+            </div>
+
+            <div class="btn-group">
+                <button class="btn-start" onclick="startExperiment()">실험 시작 ▶</button>
+                <button class="btn-reset" onclick="resetExperiment()">초기화 ↺</button>
+            </div>
+        </div>
+
+        <div class="stage-area">
+            <div class="microscope-view" id="labView">
+                <div style="color: #9CA3AF;">실험 조건을 설정하고 '시작'을 누르세요.</div>
+            </div>
+            
+            <div class="feedback-box">
+                <span id="aiFeedback">🤖 <b>AI 조교:</b> 효소와 기질을 선택하고 온도와 pH를 조절하여 최적의 반응 조건을 찾아보세요!</span>
+            </div>
+        </div>
+
+        <div class="data-panel">
+            <h3>📈 반응 속도 그래프</h3>
+            <div class="chart-container">
+                <canvas id="reactionChart"></canvas>
+            </div>
+            <button onclick="downloadReport()" style="margin-top: 10px; background: #4B5563; color: white;">📄 결과 PDF 저장(시뮬레이션)</button>
+        </div>
+    </div>
+
+<script>
+    // --- 데이터 및 로직 ---
+    const enzymes = {
+        amylase: { target: 'starch', optTemp: 37, optPH: 7, color: '#F59E0B', shape: '50% 50% 0% 50%', desc: "침과 췌장액에 존재, 녹말 분해" },
+        pepsin: { target: 'protein', optTemp: 37, optPH: 2, color: '#EF4444', shape: '0% 50% 50% 50%', desc: "위액에 존재, 강한 산성에서 작용" },
+        trypsin: { target: 'protein', optTemp: 37, optPH: 8, color: '#8B5CF6', shape: '50% 0% 50% 50%', desc: "이자액에 존재, 약염기성에서 작용" },
+        lipase: { target: 'fat', optTemp: 37, optPH: 7, color: '#10B981', shape: '50% 50% 50% 0%', desc: "지방을 지방산과 글리세롤로 분해" }
+    };
+
+    const substrates = {
+        starch: { color: '#FCD34D', shape: 'border-radius: 50%' },
+        protein: { color: '#F87171', shape: 'border-radius: 0%' },
+        fat: { color: '#34D399', shape: 'border-radius: 30%' },
+        cellulose: { color: '#9CA3AF', shape: 'border-radius: 10px' }
+    };
+
+    let chart;
+    let experimentInterval;
+    let time = 0;
+    let productAmount = 0;
+    let isRunning = false;
+
+    // --- 초기화 및 UI 업데이트 ---
+    function init() {
+        updateLabels();
+        updateVisuals();
+        initChart();
+    }
+
+    function updateLabels() {
+        document.getElementById('tempVal').innerText = document.getElementById('tempRange').value;
+        document.getElementById('phVal').innerText = document.getElementById('phRange').value;
+    }
+
+    function updateVisuals() {
+        const enzymeKey = document.getElementById('enzymeSelect').value;
+        const enzymeInfo = enzymes[enzymeKey];
+        document.getElementById('enzymeDesc').innerText = enzymeInfo.desc;
+        
+        if(!isRunning) {
+            document.getElementById('aiFeedback').innerHTML = `🤖 <b>준비:</b> ${enzymeKey.toUpperCase()} 효소를 선택했습니다. 이 효소는 어떤 기질과 반응할까요?`;
+            renderStaticVisuals();
+        }
+    }
+
+    function renderStaticVisuals() {
+        const stage = document.getElementById('labView');
+        stage.innerHTML = ''; // Clear
+
+        // 효소 아이콘 (CSS로 모양 흉내)
+        const eType = document.getElementById('enzymeSelect').value;
+        const sType = document.getElementById('substrateSelect').value;
+
+        const eDiv = document.createElement('div');
+        eDiv.className = 'enzyme';
+        eDiv.style.backgroundColor = enzymes[eType].color;
+        eDiv.style.borderRadius = enzymes[eType].shape;
+        eDiv.innerText = 'E';
+        eDiv.style.position = 'absolute';
+        eDiv.style.left = '40%';
+        eDiv.style.top = '40%';
+        eDiv.style.width = '80px';
+        eDiv.style.height = '80px';
+        
+        const sDiv = document.createElement('div');
+        sDiv.className = 'substrate';
+        sDiv.style.backgroundColor = substrates[sType].color;
+        sDiv.style.borderRadius = substrates[sType].shape.split(':')[1];
+        sDiv.innerText = 'S';
+        sDiv.style.left = '55%';
+        sDiv.style.top = '45%';
+        sDiv.style.display = 'flex';
+        sDiv.style.alignItems = 'center';
+        sDiv.style.justifyContent = 'center';
+        sDiv.style.color = '#fff';
+        sDiv.style.fontWeight = 'bold';
+
+        stage.appendChild(eDiv);
+        stage.appendChild(sDiv);
+    }
+
+    // --- 실험 로직 ---
+    function calculateActivity(eKey, sKey, temp, ph) {
+        // 1. 기질 특이성 검사 (Match Check)
+        if (enzymes[eKey].target !== sKey) return 0;
+
+        // 2. 온도 계산 (Bell curve approximation)
+        // 최적 온도에서 ±20도 벗어나면 활성 급격히 감소. 60도 이상이면 변성(0)
+        let tempFactor = 0;
+        const optT = enzymes[eKey].optTemp;
+        
+        if (temp > 60 && eKey !== 'polymerase') { // 대부분의 효소는 60도 이상 변성
+            tempFactor = 0; 
+        } else {
+            const diff = Math.abs(temp - optT);
+            tempFactor = Math.max(0, 1 - (diff / 25)); // 25도 차이나면 0
+        }
+
+        // 3. pH 계산
+        const optP = enzymes[eKey].optPH;
+        const phDiff = Math.abs(ph - optP);
+        let phFactor = Math.max(0, 1 - (phDiff / 2.5)); // pH 2.5 차이나면 0
+
+        return tempFactor * phFactor; // 종합 활성도 (0~1)
+    }
+
+    function startExperiment() {
+        if (isRunning) return;
+        isRunning = true;
+        time = 0;
+        productAmount = 0;
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+
+        const eKey = document.getElementById('enzymeSelect').value;
+        const sKey = document.getElementById('substrateSelect').value;
+        const temp = parseFloat(document.getElementById('tempRange').value);
+        const ph = parseFloat(document.getElementById('phRange').value);
+
+        const activity = calculateActivity(eKey, sKey, temp, ph);
+        
+        // 피드백 생성
+        generateFeedback(activity, eKey, sKey, temp, ph);
+        
+        // 애니메이션 및 그래프 루프
+        const stage = document.getElementById('labView');
+        stage.innerHTML = ''; // Clear for animation
+        
+        experimentInterval = setInterval(() => {
+            time += 1;
+            // 활성도에 따라 생성물 증가 (포화 곡선 형태)
+            // 반응 속도 = k * [S] (여기선 단순화하여 활성도 기반 로그/루트 함수)
+            const increment = activity * (100 - productAmount) * 0.05; 
+            productAmount += increment;
+
+            // 그래프 업데이트
+            chart.data.labels.push(time + 's');
+            chart.data.datasets[0].data.push(productAmount);
+            chart.update();
+
+            // 애니메이션 효과 (입자 생성)
+            if (activity > 0.1 && Math.random() > 0.5) {
+                createProductParticle(stage, enzymes[eKey].color);
+            }
+
+            // 종료 조건
+            if (time >= 20 || productAmount >= 99) {
+                clearInterval(experimentInterval);
+                isRunning = false;
+                document.getElementById('aiFeedback').innerHTML += " <br>✅ <b>실험 종료:</b> 결과 그래프를 확인하고 PDF로 저장해 보세요.";
+            }
+        }, 500);
+    }
+
+    function createProductParticle(stage, color) {
+        const p = document.createElement('div');
+        p.style.width = '10px';
+        p.style.height = '10px';
+        p.style.background = color;
+        p.style.borderRadius = '50%';
+        p.style.position = 'absolute';
+        p.style.left = '50%';
+        p.style.top = '50%';
+        p.style.opacity = '0.8';
+        stage.appendChild(p);
+
+        // 확산 애니메이션
+        const angle = Math.random() * Math.PI * 2;
+        const velocity = 50 + Math.random() * 50;
+        const tx = Math.cos(angle) * velocity;
+        const ty = Math.sin(angle) * velocity;
+
+        p.animate([
+            { transform: 'translate(0,0)', opacity: 1 },
+            { transform: `translate(${tx}px, ${ty}px)`, opacity: 0 }
+        ], {
+            duration: 1000,
+            easing: 'ease-out'
+        }).onfinish = () => p.remove();
+    }
+
+    function generateFeedback(activity, eKey, sKey, temp, ph) {
+        let msg = "";
+        
+        // 1. 기질 특이성 체크
+        if (enzymes[eKey].target !== sKey) {
+            msg = `⚠️ <b>반응 실패:</b> ${eKey}는 ${sKey}와 결합할 수 없습니다. (기질 특이성 불일치)<br>모양이 맞는 열쇠와 자물쇠 관계가 아닙니다.`;
+        } 
+        // 2. 온도 체크
+        else if (temp > 60) {
+            msg = `🔥 <b>변성됨:</b> 온도가 너무 높습니다(${temp}℃). 효소 단백질의 구조가 파괴되어 기능을 상실했습니다.`;
+        } else if (activity < 0.3) {
+             msg = `📉 <b>활성 낮음:</b> 현재 조건(온도 ${temp}℃, pH ${ph})은 효소가 일하기 힘든 환경입니다. 최적 조건을 찾아보세요.`;
+        } else {
+             msg = `✨ <b>반응 활발:</b> 조건이 완벽합니다! 효소와 기질이 결합하여 빠르게 생성물을 만들고 있습니다.`;
+        }
+
+        document.getElementById('aiFeedback').innerHTML = `🤖 ${msg}`;
+    }
+
+    function resetExperiment() {
+        clearInterval(experimentInterval);
+        isRunning = false;
+        time = 0;
+        productAmount = 0;
+        document.getElementById('labView').innerHTML = '<div style="color: #9CA3AF;">다시 시작하려면 조건을 변경하고 시작 버튼을 누르세요.</div>';
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+        updateVisuals();
+    }
+
+    function downloadReport() {
+        alert("실제 학습 환경에서는 현재 화면과 그래프 데이터가 포함된 PDF가 생성됩니다.\n\n[결과 요약]\n- 효소: " + document.getElementById('enzymeSelect').value + "\n- 최대 생성물: " + Math.round(productAmount) + "%");
+    }
+
+    // --- 차트 설정 ---
+    function initChart() {
+        const ctx = document.getElementById('reactionChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '생성물 양 (%)',
+                    data: [],
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, max: 100, title: { display: true, text: '반응 진행률' } },
+                    x: { title: { display: true, text: '시간 (초)' } }
+                },
+                animation: false
+            }
+        });
+    }
+
+    // 초기 실행
+    init();
+
+</script>
+</body>
+</html>

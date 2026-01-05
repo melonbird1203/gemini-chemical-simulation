@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 보일 법칙 시뮬레이션</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f5f7fa;
+            --container-bg: #ffffff;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: var(--primary-color); }
+        .experiment-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            background: var(--container-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        
+        /* Left Panel: Control & Visual */
+        .control-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+        .visual-area {
+            position: relative;
+            height: 400px;
+            background: #eef2f7;
+            border-radius: 10px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            overflow: hidden;
+            border: 2px solid #ccc;
+        }
+        .syringe-body {
+            width: 150px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 3px solid #555;
+            border-bottom: 5px solid #555;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            transition: height 0.5s ease-out;
+            overflow: hidden; /* Keep particles inside */
+        }
+        .piston {
+            width: 144px;
+            height: 20px;
+            background: #888;
+            position: absolute;
+            top: 0;
+            left: 3px;
+        }
+        .piston-rod {
+            width: 20px;
+            height: 400px;
+            background: #aaa;
+            position: absolute;
+            bottom: 20px;
+            left: 65px;
+        }
+        .weight-plate {
+            width: 100px;
+            height: 10px;
+            background: #333;
+            position: absolute;
+            bottom: 420px; /* Adjust via JS */
+            left: 25px;
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            color: white;
+            font-size: 12px;
+        }
+        .weight {
+            width: 60px;
+            height: 20px;
+            background: #d32f2f;
+            margin-bottom: 2px;
+            border-radius: 3px;
+            text-align: center;
+            line-height: 20px;
+            color: white;
+            font-size: 10px;
+        }
+        
+        /* Particle Canvas */
+        #particleCanvas {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+        }
+
+        .controls {
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 10px;
+            border-left: 5px solid var(--primary-color);
+        }
+        input[type=range] { width: 100%; cursor: pointer; }
+
+        /* Right Panel: Data & Graphs */
+        .data-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .chart-container {
+            height: 200px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+        }
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9em;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .data-table th { background-color: #f2f2f2; }
+
+        .quiz-section {
+            grid-column: 1 / -1;
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            display: none; /* Show after some interaction */
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+        .btn:hover { background: #357abd; }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧪 보일 법칙 가상 실험실</h1>
+    <p>압력을 변화시켜 기체의 부피가 어떻게 변하는지 관찰해보세요.</p>
+
+    <div class="experiment-container">
+        <div class="control-panel">
+            <div class="visual-area" id="visualArea">
+                <div class="syringe-body" id="syringe">
+                    <canvas id="particleCanvas"></canvas>
+                    <div class="piston" id="piston">
+                        <div class="piston-rod">
+                            <div class="weight-plate" id="weightPlate"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="controls">
+                <label for="pressureSlider"><strong>압력 (Pressure) 조절:</strong> <span id="pressureValue">1.0</span> atm</label>
+                <input type="range" id="pressureSlider" min="0.2" max="3.0" step="0.2" value="1.0">
+                <p style="font-size: 0.9em; color: #666;">💡 슬라이더를 움직이면 추의 개수가 변합니다.</p>
+                <div>
+                    <strong>현재 부피 (Volume):</strong> <span id="volumeValue">0</span> mL
+                </div>
+                <button class="btn" onclick="recordData()">현재 데이터 기록하기</button>
+            </div>
+        </div>
+
+        <div class="data-panel">
+            <div class="chart-container">
+                <canvas id="pvChart"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="pInvVChart"></canvas>
+            </div>
+            <div style="overflow-y: auto; max-height: 150px;">
+                <table class="data-table" id="dataTable">
+                    <thead>
+                        <tr>
+                            <th>시도</th>
+                            <th>압력 (P)</th>
+                            <th>부피 (V)</th>
+                            <th>P × V</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div class="quiz-section" id="quizSection">
+            <h3>🤔 생각해보기</h3>
+            <p>압력이 2배로 증가했을 때, 부피는 어떻게 변했나요?</p>
+            <div id="quizFeedback" style="font-weight: bold; color: #d32f2f;"></div>
+            <button class="btn" onclick="checkAnswer('decrease')">1/2로 감소했다</button>
+            <button class="btn" onclick="checkAnswer('increase')">2배로 증가했다</button>
+            <button class="btn" onclick="checkAnswer('same')">변하지 않았다</button>
+        </div>
+    </div>
+
+    <script>
+        // --- 상수 및 변수 설정 ---
+        const CONSTANT_K = 100; // PV = 100 (예시 상수)
+        const syringeWidth = 150;
+        const maxSyringeHeight = 350;
+        
+        let currentPressure = 1.0;
+        let currentVolume = 100;
+        let trialCount = 0;
+        let recordedData = [];
+
+        // DOM 요소
+        const slider = document.getElementById('pressureSlider');
+        const pValDisplay = document.getElementById('pressureValue');
+        const vValDisplay = document.getElementById('volumeValue');
+        const syringe = document.getElementById('syringe');
+        const weightPlate = document.getElementById('weightPlate');
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        const tableBody = document.querySelector('#dataTable tbody');
+        const quizSection = document.getElementById('quizSection');
+
+        // --- 입자 애니메이션 설정 ---
+        const particles = [];
+        const numParticles = 30; // 입자 개수
+        
+        class Particle {
+            constructor() {
+                this.x = Math.random() * (syringeWidth - 10) + 5;
+                this.y = Math.random() * (currentVolume * 3) + 5; // Scaling factor approximation
+                this.vx = (Math.random() - 0.5) * 4;
+                this.vy = (Math.random() - 0.5) * 4;
+                this.radius = 3;
+            }
+
+            update(heightLimit) {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 벽 충돌 (좌우)
+                if (this.x - this.radius < 0 || this.x + this.radius > syringeWidth) {
+                    this.vx *= -1;
+                }
+                
+                // 벽 충돌 (상하) - 위쪽은 피스톤(heightLimit), 아래쪽은 바닥(max)
+                // 좌표계: 캔버스는 위가 0이지만, CSS로 아래 고정. 
+                // 시각적으로 캔버스의 높이는 주사기 높이와 같음.
+                if (this.y - this.radius < 0) {
+                    this.y = this.radius;
+                    this.vy *= -1;
+                }
+                if (this.y + this.radius > heightLimit) {
+                    this.y = heightLimit - this.radius;
+                    this.vy *= -1;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = "#ff5722";
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // 초기 입자 생성
+        for(let i=0; i<numParticles; i++) {
+            particles.push(new Particle());
+        }
+
+        // --- 차트 설정 (Chart.js) ---
+        const pvCtx = document.getElementById('pvChart').getContext('2d');
+        const pvChart = new Chart(pvCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'P-V 그래프 (반비례)',
+                    data: [],
+                    backgroundColor: 'rgba(74, 144, 226, 1)',
+                    borderColor: 'rgba(74, 144, 226, 1)',
+                    showLine: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: '압력 (atm)' }, min: 0, max: 3.5 },
+                    y: { title: { display: true, text: '부피 (mL)' }, min: 0 }
+                }
+            }
+        });
+
+        const pInvCtx = document.getElementById('pInvVChart').getContext('2d');
+        const pInvChart = new Chart(pInvCtx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: 'P - 1/V 그래프 (비례)',
+                    data: [],
+                    backgroundColor: 'rgba(255, 99, 132, 1)',
+                    borderColor: 'rgba(255, 99, 132, 1)',
+                    showLine: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: '압력 (atm)' }, min: 0, max: 3.5 },
+                    y: { title: { display: true, text: '1 / 부피 (1/mL)' }, min: 0 }
+                }
+            }
+        });
+
+        // --- 메인 로직 ---
+
+        function updateSimulation() {
+            // 1. 값 계산 (보일 법칙: V = k / P)
+            currentPressure = parseFloat(slider.value);
+            currentVolume = (CONSTANT_K / currentPressure).toFixed(1);
+
+            // 2. 텍스트 업데이트
+            pValDisplay.innerText = currentPressure.toFixed(1);
+            vValDisplay.innerText = currentVolume;
+
+            // 3. 주사기 시각화 (높이 조절)
+            // 부피 100ml -> 높이 300px 가정
+            const visualHeight = currentVolume * 3; 
+            syringe.style.height = `${visualHeight}px`;
+            
+            // 캔버스 크기 조정
+            canvas.width = syringeWidth;
+            canvas.height = visualHeight;
+
+            // 4. 추(Weight) 시각화
+            weightPlate.innerHTML = '';
+            // 0.2 atm 당 추 1개라고 가정 (간소화)
+            const numWeights = Math.round(currentPressure * 5); 
+            for(let i=0; i<numWeights; i++) {
+                const w = document.createElement('div');
+                w.className = 'weight';
+                w.innerText = "0.2";
+                weightPlate.appendChild(w);
+            }
+        }
+
+        function animate() {
+            // 캔버스 지우기
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 입자 업데이트 및 그리기
+            particles.forEach(p => {
+                p.update(canvas.height);
+                p.draw();
+            });
+
+            requestAnimationFrame(animate);
+        }
+
+        function recordData() {
+            trialCount++;
+            const p = parseFloat(currentPressure);
+            const v = parseFloat(currentVolume);
+            const k = (p * v).toFixed(1);
+
+            // 표에 추가
+            const row = `<tr>
+                <td>${trialCount}</td>
+                <td>${p}</td>
+                <td>${v}</td>
+                <td>${k}</td>
+            </tr>`;
+            tableBody.innerHTML += row;
+
+            // 그래프 데이터 추가
+            pvChart.data.datasets[0].data.push({x: p, y: v});
+            // 데이터 정렬 (선을 예쁘게 그리기 위해 x축 기준 정렬)
+            pvChart.data.datasets[0].data.sort((a, b) => a.x - b.x);
+            pvChart.update();
+
+            // P vs 1/V 그래프 (보통 1/P vs V 또는 P vs 1/V 사용. 여기서는 P vs 1/V로 선형 확인)
+            // 성취기준에 맞춰 교과서적으로는 1/P(x) - V(y)가 원점을 통과하는 직선임.
+            // 여기서는 P(x) - 1/V(y) 도 직선이 됨.
+            pInvChart.data.datasets[0].data.push({x: p, y: 1/v});
+            pInvChart.data.datasets[0].data.sort((a, b) => a.x - b.x);
+            pInvChart.update();
+
+            // 3회 이상 측정 시 퀴즈 표시
+            if(trialCount >= 3) {
+                quizSection.style.display = 'block';
+            }
+        }
+
+        function checkAnswer(ans) {
+            const feedback = document.getElementById('quizFeedback');
+            if (ans === 'decrease') {
+                feedback.innerText = "정답입니다! 👏 압력과 부피는 반비례 관계입니다.";
+                feedback.style.color = "green";
+            } else {
+                feedback.innerText = "다시 생각해보세요. 입자들이 좁은 공간에 갇히면 어떻게 될까요?";
+                feedback.style.color = "#d32f2f";
+            }
+        }
+
+        // 초기화 및 이벤트 리스너
+        slider.addEventListener('input', updateSimulation);
+        updateSimulation(); // 초기 실행
+        animate(); // 애니메이션 시작
+
+    </script>
+</body>
+</html>

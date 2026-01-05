@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 화학 전지 만들기</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --highlight-color: #f1c40f;
+            --danger-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --glass-color: rgba(255, 255, 255, 0.6);
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+        }
+
+        header {
+            grid-column: 1 / -1;
+            text-align: center;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 1.8rem; }
+        header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        /* Controls Panel */
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        .control-group:last-child { border-bottom: none; }
+
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 6px; border: 1px solid #ddd; }
+        
+        button.action-btn {
+            background: var(--accent-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button.action-btn:hover { background: #2980b9; }
+        button.reset-btn { background: #95a5a6; margin-top: 10px; }
+
+        /* Visualization Area */
+        .lab-bench {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            position: relative;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            overflow: hidden;
+        }
+
+        /* Beakers & Components */
+        .setup-container {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            gap: 50px;
+            position: relative;
+            margin-bottom: 50px;
+        }
+
+        .beaker {
+            width: 120px;
+            height: 160px;
+            border: 3px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.2), rgba(200,230,255,0.4));
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 5px;
+            left: 5px;
+            width: calc(100% - 10px);
+            height: 70%;
+            background: rgba(52, 152, 219, 0.3);
+            border-radius: 0 0 5px 5px;
+            transition: height 0.5s;
+        }
+        
+        /* Electrodes */
+        .electrode {
+            width: 20px;
+            height: 140px;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 4px;
+            box-shadow: 2px 2px 5px rgba(0,0,0,0.2);
+            z-index: 2;
+        }
+        
+        .metal-Cu { background: #d35400; /* Copper */ }
+        .metal-Zn { background: #bdc3c7; /* Zinc */ }
+        .metal-Fe { background: #7f8c8d; /* Iron */ }
+        .metal-Mg { background: #ecf0f1; border: 1px solid #bdc3c7; /* Magnesium */ }
+
+        /* Salt Bridge */
+        .salt-bridge {
+            width: 180px;
+            height: 60px;
+            border: 15px solid rgba(255,255,255,0.8);
+            border-bottom: none;
+            border-radius: 50px 50px 0 0;
+            position: absolute;
+            top: -40px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1;
+            background: transparent;
+            box-shadow: inset 0 5px 10px rgba(0,0,0,0.1);
+        }
+        .salt-bridge::after {
+            content: '';
+            position: absolute;
+            top: -10px; left: -10px; right: -10px; bottom: -10px;
+            border: 5px solid rgba(241, 196, 15, 0.3);
+            border-bottom: none;
+            border-radius: 55px 55px 0 0;
+            pointer-events: none;
+        }
+
+        /* Wires & Circuit */
+        .circuit-wire {
+            position: absolute;
+            top: -100px;
+            left: 60px;
+            width: 320px;
+            height: 100px;
+            border: 4px solid #333;
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+            z-index: 0;
+        }
+
+        /* LED */
+        .led-bulb {
+            position: absolute;
+            top: -120px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 40px;
+            background: #555;
+            border-radius: 50%;
+            border: 2px solid #333;
+            box-shadow: inset -2px -2px 5px rgba(0,0,0,0.5);
+            transition: all 0.3s;
+        }
+        .led-bulb.on {
+            background: #ffeb3b;
+            box-shadow: 0 0 20px #ffeb3b, 0 0 40px #ffeb3b;
+            border-color: #f1c40f;
+        }
+
+        /* Voltmeter */
+        .voltmeter {
+            position: absolute;
+            top: -160px;
+            right: 0;
+            background: #222;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 2px solid #555;
+            font-size: 1.2rem;
+        }
+
+        /* Animations */
+        .electron {
+            width: 8px;
+            height: 8px;
+            background: #f1c40f;
+            border-radius: 50%;
+            position: absolute;
+            top: -104px; 
+            left: 60px;
+            opacity: 0;
+            box-shadow: 0 0 5px #f1c40f;
+        }
+
+        @keyframes flowRight {
+            0% { left: 60px; opacity: 1; }
+            100% { left: 380px; opacity: 1; }
+        }
+        @keyframes flowLeft {
+            0% { left: 380px; opacity: 1; }
+            100% { left: 60px; opacity: 1; }
+        }
+
+        .electron.moving-right { animation: flowRight 2s linear infinite; }
+        .electron.moving-left { animation: flowLeft 2s linear infinite; }
+
+        /* Results & Feedback */
+        .results-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        .status-box {
+            padding: 10px;
+            background: #e8f6f3;
+            border-left: 4px solid var(--accent-color);
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+        .equation-box {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            background: #f9f9f9;
+            padding: 10px;
+            border: 1px solid #eee;
+            border-radius: 4px;
+        }
+        .quiz-section {
+            margin-top: 20px;
+            border-top: 2px dashed #eee;
+            padding-top: 10px;
+        }
+        .quiz-question { font-weight: bold; margin-bottom: 5px; }
+        .quiz-options button {
+            display: block;
+            width: 100%;
+            margin: 5px 0;
+            padding: 8px;
+            text-align: left;
+            background: #f8f9fa;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .quiz-options button:hover { background: #e9ecef; }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+            .setup-container { transform: scale(0.8); }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 화학 전지 시뮬레이션 (Mock Daniell Cell)</h1>
+    <p>금속의 반응성 차이를 이용해 전기를 만들어보세요!</p>
+</header>
+
+<div class="container">
+    <aside class="panel">
+        <h3>🛠️ 실험 설계</h3>
+        
+        <div class="control-group">
+            <label>왼쪽 전극 (금속 A)</label>
+            <select id="leftMetal">
+                <option value="Zn">아연 (Zn)</option>
+                <option value="Cu">구리 (Cu)</option>
+                <option value="Fe">철 (Fe)</option>
+                <option value="Mg">마그네슘 (Mg)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>오른쪽 전극 (금속 B)</label>
+            <select id="rightMetal">
+                <option value="Cu" selected>구리 (Cu)</option>
+                <option value="Zn">아연 (Zn)</option>
+                <option value="Fe">철 (Fe)</option>
+                <option value="Mg">마그네슘 (Mg)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>전지 개수 (직렬 연결)</label>
+            <select id="cellCount">
+                <option value="1">1개</option>
+                <option value="2">2개</option>
+                <option value="3">3개</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>전해질 농도 (반응 속도)</label>
+            <input type="range" id="concentration" min="0.1" max="2.0" step="0.1" value="1.0">
+            <div style="text-align: right; font-size: 0.8rem; color: #666;"><span id="concVal">1.0</span> M</div>
+        </div>
+
+        <div class="control-group">
+            <label>LED 스위치</label>
+            <label style="display:inline-flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="ledSwitch" style="width:auto; margin-right:5px;"> 회로 연결
+            </label>
+        </div>
+
+        <button class="action-btn" onclick="startSimulation()">실험 시작 / 업데이트</button>
+        <button class="action-btn reset-btn" onclick="resetSim()">초기화</button>
+    </aside>
+
+    <main class="lab-bench">
+        <div class="voltmeter" id="voltmeterDisplay">0.00 V</div>
+        
+        <div class="setup-container">
+            <div class="circuit-wire"></div>
+            <div class="led-bulb" id="ledBulb"></div>
+            
+            <div id="electronContainer"></div>
+
+            <div class="beaker">
+                <div class="liquid" style="background: rgba(189, 195, 199, 0.4);"></div> <div class="electrode metal-Zn" id="leftElectrodeVisual"></div>
+                <div style="position: absolute; bottom: -25px; width: 100%; text-align: center; font-weight: bold;">Left</div>
+            </div>
+
+            <div class="salt-bridge"></div>
+
+            <div class="beaker">
+                <div class="liquid" style="background: rgba(52, 152, 219, 0.4);"></div> <div class="electrode metal-Cu" id="rightElectrodeVisual"></div>
+                <div style="position: absolute; bottom: -25px; width: 100%; text-align: center; font-weight: bold;">Right</div>
+            </div>
+        </div>
+        
+        <div id="visualFeedback" style="width: 100%; text-align: center; margin-bottom: 20px; color: #555;">
+            전극과 전해질을 선택하고 실험을 시작하세요.
+        </div>
+    </main>
+
+    <aside class="results-panel">
+        <h3>📊 분석 결과</h3>
+        
+        <div class="status-box">
+            <strong>현재 전압:</strong> <span id="voltageResult">0.00</span> V<br>
+            <strong>전류 방향:</strong> <span id="currentDir">-</span>
+        </div>
+
+        <div class="equation-box">
+            <div><strong>산화(Anode):</strong> <span id="anodeEq">-</span></div>
+            <div style="margin-top:5px;"><strong>환원(Cathode):</strong> <span id="cathodeEq">-</span></div>
+        </div>
+
+        <div id="aiFeedback" style="font-size: 0.9rem; color: #444; background: #fff3cd; padding: 10px; border-radius: 4px;">
+            💡 팁: 전압 차이가 큰 금속끼리 연결해야 높은 전압을 얻을 수 있습니다.
+        </div>
+
+        <div class="quiz-section">
+            <h4>🧠 개념 확인 퀴즈</h4>
+            <div id="quizContainer">
+                <div class="quiz-question">Q. 전자가 흐르는 방향은?</div>
+                <div class="quiz-options">
+                    <button onclick="checkAnswer(true)">(-)극에서 (+)극으로</button>
+                    <button onclick="checkAnswer(false)">(+)극에서 (-)극으로</button>
+                </div>
+                <div id="quizResult" style="margin-top:5px; font-weight:bold;"></div>
+            </div>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // 1. 과학적 데이터 (표준 환원 전위 E°)
+    const potentials = {
+        'Mg': -2.37,
+        'Zn': -0.76,
+        'Fe': -0.44,
+        'Cu': 0.34
+    };
+
+    const metalNames = {
+        'Mg': '마그네슘', 'Zn': '아연', 'Fe': '철', 'Cu': '구리'
+    };
+
+    // 이온 색상 매핑
+    const ionColors = {
+        'Mg': 'rgba(236, 240, 241, 0.4)', // 무색/흰색
+        'Zn': 'rgba(189, 195, 199, 0.4)', // 무색
+        'Fe': 'rgba(39, 174, 96, 0.3)',   // 연한 녹색
+        'Cu': 'rgba(52, 152, 219, 0.5)'   // 푸른색
+    };
+
+    // 상태 변수
+    let currentState = {
+        left: 'Zn',
+        right: 'Cu',
+        cells: 1,
+        conc: 1.0,
+        switchOn: false
+    };
+
+    // UI 요소 참조
+    const leftEl = document.getElementById('leftMetal');
+    const rightEl = document.getElementById('rightMetal');
+    const cellCountEl = document.getElementById('cellCount');
+    const concEl = document.getElementById('concentration');
+    const switchEl = document.getElementById('ledSwitch');
+    
+    // 이벤트 리스너
+    concEl.addEventListener('input', (e) => {
+        document.getElementById('concVal').innerText = e.target.value;
+    });
+
+    function resetSim() {
+        leftEl.value = 'Zn';
+        rightEl.value = 'Cu';
+        cellCountEl.value = '1';
+        concEl.value = '1.0';
+        switchEl.checked = false;
+        document.getElementById('concVal').innerText = '1.0';
+        updateVisuals();
+        clearSimulation();
+    }
+
+    function clearSimulation() {
+        document.getElementById('electronContainer').innerHTML = '';
+        document.getElementById('ledBulb').classList.remove('on');
+        document.getElementById('voltmeterDisplay').innerText = "0.00 V";
+        document.getElementById('voltageResult').innerText = "0.00";
+        document.getElementById('currentDir').innerText = "-";
+        document.getElementById('anodeEq').innerText = "-";
+        document.getElementById('cathodeEq').innerText = "-";
+        document.getElementById('visualFeedback').innerText = "실험 설정 후 시작 버튼을 눌러주세요.";
+    }
+
+    function updateVisuals() {
+        // 전극 색상 및 비커 액체 색상 업데이트
+        const leftM = leftEl.value;
+        const rightM = rightEl.value;
+
+        const leftVis = document.getElementById('leftElectrodeVisual');
+        const rightVis = document.getElementById('rightElectrodeVisual');
+        
+        // 클래스 초기화 및 재할당
+        leftVis.className = `electrode metal-${leftM}`;
+        rightVis.className = `electrode metal-${rightM}`;
+
+        // 액체 색상 (사용자가 전극을 고르면 해당 이온이 녹아있는 수용액이라고 가정)
+        document.querySelectorAll('.liquid')[0].style.background = ionColors[leftM];
+        document.querySelectorAll('.liquid')[1].style.background = ionColors[rightM];
+    }
+
+    // 핵심 시뮬레이션 로직
+    function startSimulation() {
+        updateVisuals();
+
+        const leftM = leftEl.value;
+        const rightM = rightEl.value;
+        const count = parseInt(cellCountEl.value);
+        const conc = parseFloat(concEl.value);
+        const isConnected = switchEl.checked;
+
+        if (leftM === rightM) {
+            alert("두 전극이 같은 금속이면 전위차가 발생하지 않습니다.");
+            clearSimulation();
+            return;
+        }
+
+        // 1. 전위차 계산
+        const E_left = potentials[leftM];
+        const E_right = potentials[rightM];
+        
+        let E_cell_unit = 0;
+        let anode, cathode;
+        let flowDirection = ''; // 'left-to-right' or 'right-to-left'
+
+        // 반응성이 큰 쪽이 산화(Anode, -극)
+        if (E_left < E_right) {
+            // 왼쪽이 반응성 큼 (Anode) -> 전자: 왼쪽에서 오른쪽으로
+            anode = { metal: leftM, pos: 'Left' };
+            cathode = { metal: rightM, pos: 'Right' };
+            E_cell_unit = E_right - E_left;
+            flowDirection = 'right'; 
+        } else {
+            // 오른쪽이 반응성 큼 (Anode) -> 전자: 오른쪽에서 왼쪽으로
+            anode = { metal: rightM, pos: 'Right' };
+            cathode = { metal: leftM, pos: 'Left' };
+            E_cell_unit = E_left - E_right;
+            flowDirection = 'left';
+        }
+
+        // 농도 효과 (간이 Nernst 식 적용 흉내: 농도가 높으면 전압 소폭 상승 및 반응 활발 가정)
+        // 실제로는 Q값에 따라 다르지만 교육용으로 단순화: 농도 1.0M 기준, 변화폭 작게
+        const concFactor = 1 + (conc - 1.0) * 0.05; 
+        let totalVoltage = (E_cell_unit * count * concFactor).toFixed(2);
+
+        // 2. 결과 출력
+        document.getElementById('voltmeterDisplay').innerText = `${totalVoltage} V`;
+        document.getElementById('voltageResult').innerText = totalVoltage;
+        
+        const arrow = flowDirection === 'right' ? '→ (왼쪽에서 오른쪽)' : '← (오른쪽에서 왼쪽)';
+        document.getElementById('currentDir').innerText = arrow;
+
+        // 3. 반응식 생성
+        // 산화: M -> M2+ + 2e-
+        document.getElementById('anodeEq').innerHTML = `${anode.metal}(s) → ${anode.metal}²⁺(aq) + 2e⁻`;
+        // 환원: M2+ + 2e- -> M
+        document.getElementById('cathodeEq').innerHTML = `${cathode.metal}²⁺(aq) + 2e⁻ → ${cathode.metal}(s)`;
+
+        // 4. 애니메이션 및 LED 로직
+        const electronContainer = document.getElementById('electronContainer');
+        electronContainer.innerHTML = ''; // 기존 제거
+
+        if (isConnected) {
+            // 전자 생성
+            const speed = 2.5 / conc; // 농도가 높으면(값이 크면) 애니메이션 시간(초)을 줄여서 빠르게
+            
+            for(let i=0; i<5; i++) {
+                const dot = document.createElement('div');
+                dot.className = `electron moving-${flowDirection}`;
+                dot.style.animationDuration = `${speed}s`;
+                dot.style.animationDelay = `${i * 0.4}s`;
+                electronContainer.appendChild(dot);
+            }
+
+            // LED 점등 조건: 1.75V 이상
+            const led = document.getElementById('ledBulb');
+            if (parseFloat(totalVoltage) >= 1.75) {
+                led.classList.add('on');
+                provideFeedback(true, totalVoltage, count);
+            } else {
+                led.classList.remove('on');
+                provideFeedback(false, totalVoltage, count);
+            }
+            
+            document.getElementById('visualFeedback').innerText = 
+                `전자가 ${anode.metal}(-)극에서 ${cathode.metal}(+)극으로 이동 중입니다. 염다리를 통해 이온이 이동하여 전하 균형을 맞춥니다.`;
+        } else {
+            document.getElementById('visualFeedback').innerText = "회로가 끊겨 있습니다. 스위치를 켜보세요.";
+            provideFeedback(null, 0, 0);
+        }
+    }
+
+    function provideFeedback(isLedOn, voltage, count) {
+        const fbEl = document.getElementById('aiFeedback');
+        if (isLedOn === null) {
+            fbEl.innerText = "⚠️ 스위치를 켜야 전류가 흐릅니다.";
+            fbEl.style.background = "#fff3cd";
+            return;
+        }
+
+        if (isLedOn) {
+            fbEl.innerHTML = `✅ <strong>성공!</strong> 전압(${voltage}V)이 충분하여 LED가 켜졌습니다.<br>직렬 연결(${count}개)로 전압을 높인 덕분입니다.`;
+            fbEl.style.background = "#d4edda";
+        } else {
+            fbEl.innerHTML = `❌ <strong>전압 부족.</strong> 현재 전압(${voltage}V)이 LED 구동 전압(1.75V)보다 낮습니다.<br>1. 전지 개수를 늘리거나(직렬 연결)<br>2. 전위차(반응성 차이)가 더 큰 금속 조합을 찾아보세요 (예: Mg - Cu).`;
+            fbEl.style.background = "#f8d7da";
+        }
+    }
+
+    // 퀴즈 로직
+    function checkAnswer(isCorrect) {
+        const res = document.getElementById('quizResult');
+        if(isCorrect) {
+            res.innerText = "정답입니다! 전자는 산화전극(-)에서 나와 환원전극(+)으로 이동합니다.";
+            res.style.color = "green";
+        } else {
+            res.innerText = "오답입니다. 전자는 마이너스(-)극에서 플러스(+)극으로 흐릅니다.";
+            res.style.color = "red";
+        }
+    }
+
+    // 초기 실행
+    updateVisuals();
+</script>
+
+</body>
+</html>

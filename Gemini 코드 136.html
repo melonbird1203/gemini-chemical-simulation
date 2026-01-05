@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 가상실험실: 반응 속도 비교</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --success-color: #27ae60;
+            --danger-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --card-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0; font-size: 0.9rem; opacity: 0.9; }
+
+        .container {
+            max-width: 1000px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        /* Tabs */
+        .tabs {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 20px;
+            background: var(--card-bg);
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 15px;
+            border: none;
+            background: none;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: bold;
+            color: #777;
+            transition: 0.3s;
+        }
+
+        .tab-btn.active {
+            background-color: var(--primary-color);
+            color: white;
+        }
+
+        /* Content Sections */
+        .section {
+            display: none;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            animation: fadeIn 0.5s;
+        }
+
+        .section.active { display: block; }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Experiment Controls */
+        .control-panel {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+            background: #eef2f5;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        select, button {
+            padding: 10px 15px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { opacity: 0.9; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .reset-btn { background-color: var(--danger-color); }
+
+        /* Visualization Area */
+        .experiment-view {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .experiment-view { grid-template-columns: 1fr; }
+        }
+
+        .visual-box {
+            border: 2px dashed #ccc;
+            height: 250px;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #fafafa;
+            overflow: hidden;
+        }
+
+        .visual-img {
+            font-size: 4rem;
+            transition: all 0.5s;
+        }
+
+        /* Progress Bar */
+        .progress-container {
+            margin-top: 15px;
+            background: #eee;
+            border-radius: 10px;
+            height: 20px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .progress-bar {
+            height: 100%;
+            background: var(--success-color);
+            width: 0%;
+            transition: width 0.1s linear;
+        }
+
+        .timer-display {
+            text-align: center;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin: 10px 0;
+            color: var(--primary-color);
+        }
+
+        /* Theory & Info */
+        .info-box {
+            background: #f0f8ff;
+            padding: 15px;
+            border-left: 5px solid var(--primary-color);
+            margin-top: 20px;
+        }
+
+        .particle-view {
+            background: #333;
+            color: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            min-height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        /* Quiz Styles */
+        .quiz-item {
+            background: #fff;
+            border: 1px solid #ddd;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: move;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .quiz-container {
+            border: 2px solid #eee;
+            padding: 10px;
+            border-radius: 8px;
+            min-height: 200px;
+        }
+
+        .feedback-msg {
+            margin-top: 10px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+
+        .latex-formula {
+            font-family: "Times New Roman", serif;
+            font-style: italic;
+            background: #eee;
+            padding: 2px 5px;
+            border-radius: 3px;
+        }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 화학 반응 속도 가상실험실</h1>
+    <p>고등학교 화학Ⅱ: 빠른 반응과 느린 반응 비교하기</p>
+</header>
+
+<div class="container">
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchTab('learn')">1. 개념 학습</button>
+        <button class="tab-btn" onclick="switchTab('experiment')">2. 가상 실험</button>
+        <button class="tab-btn" onclick="switchTab('quiz')">3. 퀴즈 및 정리</button>
+    </div>
+
+    <div id="learn" class="section active">
+        <h2>⏱️ 화학 반응 속도란?</h2>
+        <p>화학 반응의 빠르기는 단위 시간 동안 반응물이나 생성물의 농도 변화량으로 나타냅니다.</p>
+        <div style="text-align: center; margin: 20px 0;">
+            <span class="latex-formula">v = Δ[C] / Δt</span>
+            <p>(v: 반응 속도, Δ[C]: 농도 변화량, Δt: 시간 변화량)</p>
+        </div>
+        
+        <div class="info-box">
+            <h3>💡 핵심 포인트</h3>
+            <ul>
+                <li><strong>빠른 반응:</strong> 연소, 폭발, 중화 반응 등 (초 단위 이하)</li>
+                <li><strong>느린 반응:</strong> 철의 부식, 석회동굴 생성, 과일의 숙성 등 (일, 년 단위)</li>
+                <li>반응 속도는 <strong>입자의 충돌 횟수</strong>와 <strong>활성화 에너지</strong>에 따라 달라집니다.</li>
+            </ul>
+        </div>
+        <p>다음 탭으로 이동하여 실제 반응을 시뮬레이션 해봅시다.</p>
+    </div>
+
+    <div id="experiment" class="section">
+        <h2>⚗️ 반응 실험실</h2>
+        <p>아래에서 반응 종류를 선택하고 실험을 시작하세요. <br><strong>주의:</strong> 편의를 위해 모든 반응은 시뮬레이션 상에서 약 5~10초 동안 진행되는 것으로 시각화됩니다.</p>
+        
+        <div class="control-panel">
+            <label for="reactionSelect">반응 선택:</label>
+            <select id="reactionSelect" onchange="resetExperiment()">
+                <option value="fireworks">1. 폭죽 (매우 빠름)</option>
+                <option value="paper">2. 종이 연소 (빠름)</option>
+                <option value="rust">3. 철의 녹슴 (느림)</option>
+                <option value="cave">4. 석회동굴 생성 (매우 느림)</option>
+            </select>
+            <button onclick="startExperiment()" id="startBtn">실험 시작</button>
+            <button class="reset-btn" onclick="resetExperiment()">초기화</button>
+        </div>
+
+        <div class="timer-display">경과 시간: <span id="timer">0.00</span> <span id="timeUnit">초</span></div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progressBar"></div>
+        </div>
+
+        <div class="experiment-view" style="margin-top:20px;">
+            <div>
+                <h3>👁️ 관찰 화면</h3>
+                <div class="visual-box" id="visualBox">
+                    <div id="visualContent" class="visual-img">🧨</div>
+                </div>
+            </div>
+            <div>
+                <h3>📊 실시간 데이터 & 입자 설명</h3>
+                <div class="info-box" id="dataBox">
+                    <p><strong>반응 상태:</strong> <span id="statusText">대기 중</span></p>
+                    <p><strong>실제 소요 시간:</strong> <span id="realTimeText">-</span></p>
+                </div>
+                <div class="particle-view" id="particleText">
+                    실험을 시작하면 입자 수준의 설명이 여기에 나타납니다.
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="quiz" class="section">
+        <h2>📝 학습 확인 퀴즈</h2>
+        <p>다음 반응들을 <strong>반응 속도가 빠른 순서대로</strong> (가장 빠른 것이 1위) 선택해주세요.</p>
+        
+        <div class="control-panel">
+            <label>1위 (가장 빠름): </label>
+            <select id="rank1">
+                <option value="">선택하세요</option>
+                <option value="fireworks">폭죽 터짐</option>
+                <option value="paper">종이 연소</option>
+                <option value="rust">철의 부식</option>
+                <option value="cave">석회동굴 생성</option>
+            </select>
+        </div>
+        <div class="control-panel">
+            <label>2위: </label>
+            <select id="rank2">
+                <option value="">선택하세요</option>
+                <option value="fireworks">폭죽 터짐</option>
+                <option value="paper">종이 연소</option>
+                <option value="rust">철의 부식</option>
+                <option value="cave">석회동굴 생성</option>
+            </select>
+        </div>
+        <div class="control-panel">
+            <label>3위: </label>
+            <select id="rank3">
+                <option value="">선택하세요</option>
+                <option value="fireworks">폭죽 터짐</option>
+                <option value="paper">종이 연소</option>
+                <option value="rust">철의 부식</option>
+                <option value="cave">석회동굴 생성</option>
+            </select>
+        </div>
+        <div class="control-panel">
+            <label>4위 (가장 느림): </label>
+            <select id="rank4">
+                <option value="">선택하세요</option>
+                <option value="fireworks">폭죽 터짐</option>
+                <option value="paper">종이 연소</option>
+                <option value="rust">철의 부식</option>
+                <option value="cave">석회동굴 생성</option>
+            </select>
+        </div>
+
+        <button onclick="checkAnswer()">정답 확인</button>
+        <div id="quizFeedback" class="feedback-msg"></div>
+
+        <hr>
+        <h3>🤔 심화 질문</h3>
+        <p>철이 녹스는 것은 느린 반응이지만, <strong>핫팩(철가루)</strong>은 왜 빠르게 뜨거워질까요?</p>
+        <textarea style="width:100%; height:80px; padding:10px; border-radius:5px; border:1px solid #ccc;" placeholder="여기에 생각을 적어보세요... (힌트: 표면적)"></textarea>
+    </div>
+</div>
+
+<script>
+    // Data definition
+    const reactions = {
+        fireworks: {
+            name: "폭죽",
+            icon: "🧨",
+            endIcon: "💥",
+            duration: 1, // sim seconds
+            realTime: "0.1초 미만",
+            unit: "초",
+            desc: "매우 격렬한 산화 반응",
+            particle: "💥 높은 에너지의 입자들이 순식간에 수없이 충돌하며 빛과 열을 방출합니다!"
+        },
+        paper: {
+            name: "종이 연소",
+            icon: "📄",
+            endIcon: "🔥",
+            duration: 5,
+            realTime: "수 초 ~ 수 분",
+            unit: "초",
+            desc: "빠른 산화 반응",
+            particle: "🔥 산소 분자가 종이 분자와 활발하게 충돌하여 에너지를 내놓습니다."
+        },
+        rust: {
+            name: "철의 녹슴",
+            icon: "🔩",
+            endIcon: "🟤",
+            duration: 8,
+            realTime: "수 일 ~ 수 개월",
+            unit: "일",
+            desc: "느린 산화 반응",
+            particle: "📉 공기 중의 산소와 물이 철 표면에서 천천히 만나 충돌 빈도가 낮습니다."
+        },
+        cave: {
+            name: "석회동굴 생성",
+            icon: "🪨",
+            endIcon: "🏔️",
+            duration: 10,
+            realTime: "수만 년 ~ 수십만 년",
+            unit: "년",
+            desc: "매우 느린 용해/침전 반응",
+            particle: "⏳ 탄산칼슘과 지하수의 반응은 매우 천천히 일어나며 긴 시간이 필요합니다."
+        }
+    };
+
+    let currentInterval = null;
+    let isRunning = false;
+
+    // Tab Logic
+    function switchTab(tabId) {
+        document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById(tabId).classList.add('active');
+        event.target.classList.add('active');
+    }
+
+    // Experiment Logic
+    function startExperiment() {
+        if (isRunning) return;
+        
+        const type = document.getElementById('reactionSelect').value;
+        const data = reactions[type];
+        const visualContent = document.getElementById('visualContent');
+        const progressBar = document.getElementById('progressBar');
+        const timerText = document.getElementById('timer');
+        const timeUnit = document.getElementById('timeUnit');
+        const statusText = document.getElementById('statusText');
+        const particleText = document.getElementById('particleText');
+        const realTimeText = document.getElementById('realTimeText');
+
+        isRunning = true;
+        document.getElementById('startBtn').disabled = true;
+        
+        // Setup Initial State
+        visualContent.textContent = data.icon;
+        statusText.textContent = "반응 진행 중...";
+        realTimeText.textContent = data.realTime;
+        timeUnit.textContent = "가상 시간(" + data.unit + ")";
+        particleText.textContent = data.particle;
+
+        // Animation logic
+        let progress = 0;
+        let simTime = 0;
+        const totalSimTime = 100; // split into 100 steps
+        const stepTime = (data.duration * 1000) / 100; // real ms per step
+
+        currentInterval = setInterval(() => {
+            progress++;
+            simTime += (data.duration / 100); // just logical time increment
+            
+            progressBar.style.width = progress + "%";
+            timerText.textContent = simTime.toFixed(1);
+
+            // Simple visual effect
+            if (progress % 20 === 0 && progress < 100) {
+                visualContent.style.transform = `scale(${1 + (progress/200)})`;
+                visualContent.style.opacity = (progress % 40 === 0) ? "0.7" : "1";
+            }
+
+            if (progress >= 100) {
+                clearInterval(currentInterval);
+                finishExperiment(data);
+            }
+        }, 30); // fixed animation tick, logical time varies
+    }
+
+    function finishExperiment(data) {
+        const visualContent = document.getElementById('visualContent');
+        visualContent.textContent = data.endIcon;
+        visualContent.style.transform = "scale(1.2)";
+        visualContent.style.opacity = "1";
+        
+        document.getElementById('statusText').textContent = "반응 완료!";
+        document.getElementById('statusText').style.color = "var(--success-color)";
+        isRunning = false;
+        document.getElementById('startBtn').disabled = false;
+    }
+
+    function resetExperiment() {
+        clearInterval(currentInterval);
+        isRunning = false;
+        document.getElementById('startBtn').disabled = false;
+        document.getElementById('progressBar').style.width = "0%";
+        document.getElementById('timer').textContent = "0.00";
+        document.getElementById('statusText').textContent = "대기 중";
+        document.getElementById('statusText').style.color = "var(--text-color)";
+        document.getElementById('realTimeText').textContent = "-";
+        document.getElementById('particleText').textContent = "실험을 시작하면 입자 수준의 설명이 여기에 나타납니다.";
+        
+        const type = document.getElementById('reactionSelect').value;
+        const visualContent = document.getElementById('visualContent');
+        visualContent.textContent = reactions[type].icon;
+        visualContent.style.transform = "scale(1)";
+    }
+
+    // Quiz Logic
+    function checkAnswer() {
+        const r1 = document.getElementById('rank1').value;
+        const r2 = document.getElementById('rank2').value;
+        const r3 = document.getElementById('rank3').value;
+        const r4 = document.getElementById('rank4').value;
+        
+        const feedback = document.getElementById('quizFeedback');
+        
+        // Correct Order: fireworks -> paper -> rust -> cave
+        if (r1 === 'fireworks' && r2 === 'paper' && r3 === 'rust' && r4 === 'cave') {
+            feedback.textContent = "✅ 정답입니다! 폭죽(초) < 종이(분) < 철(일) < 동굴(년) 순으로 반응 속도가 느려집니다.";
+            feedback.style.backgroundColor = "#d4edda";
+            feedback.style.color = "#155724";
+            feedback.style.display = "block";
+        } else {
+            feedback.textContent = "❌ 다시 생각해보세요. 폭발적인 반응이 가장 빠르고, 지질학적 시간이 걸리는 반응이 가장 느립니다.";
+            feedback.style.backgroundColor = "#f8d7da";
+            feedback.style.color = "#721c24";
+            feedback.style.display = "block";
+        }
+    }
+</script>
+
+</body>
+</html>

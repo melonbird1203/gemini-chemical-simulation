@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전기음성도 가상 실험실</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --bg: #F3F4F6;
+            --card: #ffffff;
+            --text: #1F2937;
+        }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        /* Header */
+        header { text-align: center; margin-bottom: 30px; }
+        h1 { color: var(--primary); margin-bottom: 10px; }
+        .mission { background: #E0E7FF; padding: 15px; border-radius: 10px; display: inline-block; }
+
+        /* Main Layout */
+        .lab-bench { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .lab-bench { grid-template-columns: 1fr; } }
+
+        /* Periodic Table Area */
+        .periodic-container { background: var(--card); padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); overflow-x: auto; }
+        .controls { margin-bottom: 20px; display: flex; gap: 10px; flex-wrap: wrap; }
+        button { padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; transition: 0.2s; background: #e5e7eb; font-weight: bold;}
+        button.active { background: var(--primary); color: white; }
+        
+        .periodic-table { 
+            display: grid; 
+            grid-template-columns: repeat(18, 1fr); 
+            gap: 4px; 
+            min-width: 800px;
+        }
+        
+        .element {
+            aspect-ratio: 1;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: flex-end;
+            font-size: 0.8rem;
+            cursor: pointer;
+            position: relative;
+            background: white;
+            transition: transform 0.2s;
+        }
+        .element:hover { transform: scale(1.1); z-index: 10; border-color: var(--primary); }
+        .element.selected { border: 2px solid var(--primary); box-shadow: 0 0 10px rgba(79, 70, 229, 0.4); }
+        .element .bar { width: 100%; position: absolute; bottom: 0; opacity: 0.6; transition: height 0.5s; }
+        .element .symbol { font-weight: bold; font-size: 1rem; z-index: 2; margin-bottom: 2px;}
+        .element .value { font-size: 0.7rem; z-index: 2; margin-bottom: 4px; }
+        .empty { border: none; background: transparent; pointer-events: none; }
+
+        /* Analysis Panel */
+        .analysis-panel { display: flex; flex-direction: column; gap: 20px; }
+        .card { background: var(--card); padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        .comparison-zone { text-align: center; }
+        .atom-pair { display: flex; justify-content: center; gap: 20px; margin: 20px 0; align-items: center; }
+        .atom-circle { width: 60px; height: 60px; border-radius: 50%; background: #eee; display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.2rem; border: 2px solid #ccc; }
+        .bond-result { font-weight: bold; padding: 10px; border-radius: 8px; margin-top: 10px; }
+        
+        .quiz-section h3 { margin-top: 0; }
+        .quiz-option { display: block; width: 100%; text-align: left; margin: 5px 0; background: white; border: 1px solid #ddd; padding: 10px; }
+        .quiz-option:hover { background: #f9fafb; }
+        .feedback { margin-top: 10px; font-weight: bold; font-size: 0.9rem; }
+        .correct { color: green; }
+        .wrong { color: red; }
+
+        /* Legends */
+        .legend { display: flex; align-items: center; gap: 5px; font-size: 0.8rem; margin-top: 10px; }
+        .color-box { width: 15px; height: 15px; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 전기음성도 탐구 실험실</h1>
+        <div class="mission">
+            <strong>오늘의 미션:</strong> 주기율표의 경향성을 파악하고, 두 원소 사이의 결합 종류를 예측해보세요.
+        </div>
+    </header>
+
+    <div class="lab-bench">
+        <div class="periodic-container">
+            <div class="controls">
+                <button onclick="setMode('all')" class="active" id="btn-all">전체 보기</button>
+                <button onclick="setMode('period2')" id="btn-period2">2주기 경향 (→)</button>
+                <button onclick="setMode('period3')" id="btn-period3">3주기 경향 (→)</button>
+                <button onclick="setMode('group17')" id="btn-group17">17족 경향 (↓)</button>
+                <button onclick="resetSelection()">선택 초기화</button>
+            </div>
+            <div id="periodic-table" class="periodic-table">
+                </div>
+            <div class="legend">
+                <span>전기음성도: </span>
+                <div class="color-box" style="background: #a5f3fc"></div> 낮음 (금속)
+                <div class="color-box" style="background: #fbbf24; margin-left: 10px;"></div> 높음 (비금속)
+                <span style="margin-left: auto;">* 막대의 높이는 전기음성도의 크기를 나타냅니다.</span>
+            </div>
+        </div>
+
+        <div class="analysis-panel">
+            <div class="card comparison-zone">
+                <h3>⚖️ 결합 극성 예측기</h3>
+                <p style="font-size: 0.9rem; color: #666;">원소 2개를 클릭하여 선택하세요.</p>
+                <div class="atom-pair">
+                    <div id="atom1" class="atom-circle">?</div>
+                    <div style="font-size: 1.5rem;">−</div>
+                    <div id="atom2" class="atom-circle">?</div>
+                </div>
+                <div id="calc-result" style="margin-bottom: 10px;">차이(ΔEN): -</div>
+                <div id="bond-prediction" class="bond-result" style="background: #f3f4f6;">결합 종류 대기 중...</div>
+            </div>
+
+            <div class="card quiz-section">
+                <h3>🧠 개념 확인 퀴즈</h3>
+                <p id="quiz-q">같은 주기에서 원자 번호가 증가할수록 전기음성도는?</p>
+                <button class="quiz-option" onclick="checkQuiz(0)">1. 작아진다 (핵전하 감소)</button>
+                <button class="quiz-option" onclick="checkQuiz(1)">2. 커진다 (유효 핵전하 증가)</button>
+                <button class="quiz-option" onclick="checkQuiz(2)">3. 변하지 않는다</button>
+                <div id="quiz-feedback" class="feedback"></div>
+                <button onclick="nextQuiz()" style="margin-top:10px; display:none;" id="next-quiz-btn">다음 문제</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Simplified Data (Focusing on Representative Elements for educational clarity)
+    const elements = [
+        { no: 1, sym: 'H', name: '수소', en: 2.1, per: 1, grp: 1 },
+        { no: 2, sym: 'He', name: '헬륨', en: 0, per: 1, grp: 18 }, // Noble gas usually 0/undefined
+        { no: 3, sym: 'Li', name: '리튬', en: 1.0, per: 2, grp: 1 },
+        { no: 4, sym: 'Be', name: '베릴륨', en: 1.5, per: 2, grp: 2 },
+        { no: 5, sym: 'B', name: '붕소', en: 2.0, per: 2, grp: 13 },
+        { no: 6, sym: 'C', name: '탄소', en: 2.5, per: 2, grp: 14 },
+        { no: 7, sym: 'N', name: '질소', en: 3.0, per: 2, grp: 15 },
+        { no: 8, sym: 'O', name: '산소', en: 3.5, per: 2, grp: 16 },
+        { no: 9, sym: 'F', name: '플루오린', en: 4.0, per: 2, grp: 17 },
+        { no: 10, sym: 'Ne', name: '네온', en: 0, per: 2, grp: 18 },
+        { no: 11, sym: 'Na', name: '나트륨', en: 0.9, per: 3, grp: 1 },
+        { no: 12, sym: 'Mg', name: '마그네슘', en: 1.2, per: 3, grp: 2 },
+        { no: 13, sym: 'Al', name: '알루미늄', en: 1.5, per: 3, grp: 13 },
+        { no: 14, sym: 'Si', name: '규소', en: 1.8, per: 3, grp: 14 },
+        { no: 15, sym: 'P', name: '인', en: 2.1, per: 3, grp: 15 },
+        { no: 16, sym: 'S', name: '황', en: 2.5, per: 3, grp: 16 },
+        { no: 17, sym: 'Cl', name: '염소', en: 3.0, per: 3, grp: 17 },
+        { no: 18, sym: 'Ar', name: '아르곤', en: 0, per: 3, grp: 18 },
+        { no: 19, sym: 'K', name: '칼륨', en: 0.8, per: 4, grp: 1 },
+        { no: 20, sym: 'Ca', name: '칼슘', en: 1.0, per: 4, grp: 2 }
+    ];
+
+    let selectedAtoms = [];
+    const tableDiv = document.getElementById('periodic-table');
+
+    function renderTable(filterFn = () => true) {
+        tableDiv.innerHTML = '';
+        
+        // Grid setup for 1-18 groups, mapping simplistic row/col
+        // Using a flat render for relevant elements for simplicity in this demo logic
+        // But to make it look like a table, we iterate 1-18 groups for rows 1-4
+        
+        const gridMap = [];
+        for(let r=1; r<=4; r++) {
+            for(let c=1; c<=18; c++) {
+                const el = elements.find(e => e.per === r && e.grp === c);
+                if(el) gridMap.push({ type: 'el', data: el });
+                else gridMap.push({ type: 'empty' });
+            }
+        }
+
+        gridMap.forEach(cell => {
+            const div = document.createElement('div');
+            if(cell.type === 'empty') {
+                div.className = 'empty';
+            } else {
+                const el = cell.data;
+                div.className = 'element';
+                if (!filterFn(el)) div.style.opacity = '0.2';
+                
+                // Color calculation (Yellow high, Blue low)
+                const hue = el.en > 0 ? 200 - (el.en * 40) : 0; // Simple scale
+                const color = el.en === 0 ? '#eee' : `hsl(${hue}, 80%, 60%)`;
+                const height = (el.en / 4.0) * 100;
+
+                div.style.borderColor = color;
+                div.innerHTML = `
+                    <div class="bar" style="height: ${height}%; background: ${color}"></div>
+                    <span class="symbol">${el.sym}</span>
+                    <span class="value">${el.en > 0 ? el.en : '-'}</span>
+                `;
+                div.onclick = () => selectAtom(el, div);
+            }
+            tableDiv.appendChild(div);
+        });
+    }
+
+    function selectAtom(el, div) {
+        if(el.en === 0) {
+            alert("18족 비활성 기체는 화학 결합을 거의 형성하지 않아 전기음성도를 일반적으로 정의하지 않습니다.");
+            return;
+        }
+
+        // Manage selection
+        if(selectedAtoms.length >= 2) {
+            selectedAtoms = []; // Reset if full
+            document.querySelectorAll('.element').forEach(e => e.classList.remove('selected'));
+        }
+
+        selectedAtoms.push(el);
+        div.classList.add('selected');
+        updateComparison();
+    }
+
+    function resetSelection() {
+        selectedAtoms = [];
+        document.querySelectorAll('.element').forEach(e => e.classList.remove('selected'));
+        updateComparison();
+    }
+
+    function updateComparison() {
+        const a1Div = document.getElementById('atom1');
+        const a2Div = document.getElementById('atom2');
+        const resDiv = document.getElementById('bond-prediction');
+        const valDiv = document.getElementById('calc-result');
+
+        if(selectedAtoms.length === 0) {
+            a1Div.textContent = '?'; a1Div.style.background = '#eee';
+            a2Div.textContent = '?'; a2Div.style.background = '#eee';
+            resDiv.textContent = "결합 종류 대기 중...";
+            resDiv.style.background = "#f3f4f6";
+            valDiv.textContent = "차이(ΔEN): -";
+            return;
+        }
+
+        if(selectedAtoms[0]) {
+            a1Div.textContent = selectedAtoms[0].sym;
+            // Color mapping logic again for consistency
+            const hue = 200 - (selectedAtoms[0].en * 40);
+            a1Div.style.background = `hsl(${hue}, 80%, 80%)`;
+        }
+        
+        if(selectedAtoms[1]) {
+            a2Div.textContent = selectedAtoms[1].sym;
+            const hue = 200 - (selectedAtoms[1].en * 40);
+            a2Div.style.background = `hsl(${hue}, 80%, 80%)`;
+
+            // Calculation
+            const diff = Math.abs(selectedAtoms[0].en - selectedAtoms[1].en).toFixed(1);
+            valDiv.innerHTML = `차이(ΔEN): <strong>${diff}</strong>`;
+
+            // Logic for bond type
+            let type = "";
+            let color = "";
+            let desc = "";
+
+            if(diff <= 0.4) {
+                type = "무극성 공유 결합";
+                color = "#d1fae5"; // green light
+                desc = "전자쌍을 공평하게 공유합니다.";
+            } else if (diff < 1.7) {
+                type = "극성 공유 결합";
+                color = "#fef3c7"; // yellow light
+                desc = "전자가 전기음성도가 큰 쪽으로 치우칩니다.";
+            } else {
+                type = "이온 결합 성 유력";
+                color = "#fee2e2"; // red light
+                desc = "전자가 거의 이동하여 이온이 형성됩니다.";
+            }
+            
+            resDiv.innerHTML = `${type}<br><span style='font-size:0.8rem; font-weight:normal'>${desc}</span>`;
+            resDiv.style.background = color;
+        }
+    }
+
+    // Filter Logic
+    function setMode(mode) {
+        document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+        document.getElementById(`btn-${mode}`).classList.add('active');
+
+        if(mode === 'all') renderTable(() => true);
+        if(mode === 'period2') renderTable(e => e.per === 2);
+        if(mode === 'period3') renderTable(e => e.per === 3);
+        if(mode === 'group17') renderTable(e => e.grp === 17);
+    }
+
+    // Quiz Logic
+    const quizzes = [
+        { q: "2주기 원소(Li ~ F)에서 원자 번호가 증가할수록 전기음성도는 어떻게 변하나요?", a: 1, fb: "정답! 유효 핵전하가 증가하면서 전자를 더 강하게 끌어당깁니다." },
+        { q: "다음 중 전기음성도가 가장 큰 원소는 무엇인가요?", a: 0, options: ["플루오린(F)", "산소(O)", "나트륨(Na)"], fb: "정답! 플루오린은 전기음성도 4.0으로 모든 원소 중 가장 큽니다." },
+        { q: "전기음성도 차이가 매우 큰(1.7 이상) 금속과 비금속이 만나면 어떤 결합을 형성하나요?", a: 2, options: ["무극성 공유결합", "극성 공유결합", "이온 결합"], fb: "정답! 전자가 완전히 이동하여 이온 결합을 주로 형성합니다." }
+    ];
+    let currentQuiz = 0;
+
+    function loadQuiz() {
+        const qData = quizzes[currentQuiz];
+        document.getElementById('quiz-q').textContent = `Q${currentQuiz+1}. ${qData.q}`;
+        const options = qData.options || ["1. 작아진다", "2. 커진다", "3. 변하지 않는다"];
+        const buttons = document.querySelectorAll('.quiz-option');
+        buttons.forEach((btn, i) => {
+            btn.textContent = options[i];
+            btn.onclick = () => checkQuiz(i);
+            btn.disabled = false;
+        });
+        document.getElementById('quiz-feedback').textContent = "";
+        document.getElementById('next-quiz-btn').style.display = 'none';
+    }
+
+    function checkQuiz(idx) {
+        const fbDiv = document.getElementById('quiz-feedback');
+        if(idx === quizzes[currentQuiz].a) {
+            fbDiv.textContent = "⭕ " + quizzes[currentQuiz].fb;
+            fbDiv.className = "feedback correct";
+            document.getElementById('next-quiz-btn').style.display = 'inline-block';
+        } else {
+            fbDiv.textContent = "❌ 다시 생각해보세요. 주기율표의 경향성을 떠올려보세요.";
+            fbDiv.className = "feedback wrong";
+        }
+    }
+
+    function nextQuiz() {
+        currentQuiz = (currentQuiz + 1) % quizzes.length;
+        loadQuiz();
+    }
+
+    // Init
+    renderTable();
+    loadQuiz(); // Override first load with proper data
+</script>
+
+</body>
+</html>

@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>유효 충돌 가상 실험실</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ecc71;
+            --fail-color: #e74c3c;
+            --bg-color: #f5f7fa;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            width: 100%;
+            padding: 1rem 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        p { margin: 0.5rem 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            padding: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .canvas-wrapper {
+            position: relative;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+        }
+
+        canvas {
+            background: radial-gradient(circle, #ffffff 0%, #eef2f3 100%);
+            display: block;
+        }
+
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .control-group {
+            margin-bottom: 10px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+            color: #555;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .value-display {
+            float: right;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.2s;
+            font-weight: bold;
+        }
+
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .stats-panel {
+            background: #fff;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+            margin-top: 10px;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-size: 0.9rem;
+        }
+
+        #feedback-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 6px;
+            text-align: center;
+            font-weight: bold;
+            min-height: 20px;
+            background-color: #eee;
+            color: #777;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 10px;
+            font-size: 0.8rem;
+        }
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 반응 충돌 시뮬레이션</h1>
+    <p>NO(일산화질소) + O₃(오존) → NO₂(이산화질소) + O₂(산소)</p>
+</header>
+
+<div class="container">
+    <div class="canvas-wrapper">
+        <canvas id="simCanvas" width="500" height="350"></canvas>
+        <div id="feedback-box">실험 조건을 설정하고 '실험 시작'을 누르세요.</div>
+    </div>
+
+    <div class="controls">
+        <h3>🎛️ 실험 제어판</h3>
+        
+        <div class="control-group">
+            <label>입자 속도 (에너지) <span id="speedVal" class="value-display">50</span></label>
+            <input type="range" id="speedSlider" min="10" max="100" value="50">
+            <small style="color:#888;">속도가 빠를수록 에너지가 큽니다.</small>
+        </div>
+
+        <div class="control-group">
+            <label>충돌 각도 (배향) <span id="angleVal" class="value-display">0°</span></label>
+            <input type="range" id="angleSlider" min="-180" max="180" value="0">
+            <small style="color:#888;">0도가 완벽한 정면 충돌입니다.</small>
+        </div>
+
+        <div class="stats-panel">
+            <div class="stat-item"><span>총 시도:</span> <strong id="totalCount">0</strong></div>
+            <div class="stat-item"><span>반응 성공:</span> <strong id="successCount" style="color:var(--success-color)">0</strong></div>
+            <div class="stat-item"><span>성공률:</span> <strong id="successRate">0%</strong></div>
+        </div>
+
+        <button id="startBtn">▶ 실험 시작</button>
+        <button id="resetBtn" style="background-color: #95a5a6;">↺ 초기화</button>
+
+        <div class="legend">
+            <div><span class="dot" style="background:blue"></span>N</div>
+            <div><span class="dot" style="background:red"></span>O</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 설정 변수 ---
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // DOM 요소
+    const speedSlider = document.getElementById('speedSlider');
+    const angleSlider = document.getElementById('angleSlider');
+    const speedVal = document.getElementById('speedVal');
+    const angleVal = document.getElementById('angleVal');
+    const startBtn = document.getElementById('startBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const feedbackBox = document.getElementById('feedback-box');
+    
+    // 통계 변수
+    let totalAttempts = 0;
+    let successAttempts = 0;
+    
+    // 시뮬레이션 상태
+    let isRunning = false;
+    let animationId;
+    let reactionOccurred = false;
+    
+    // 반응 임계값 (정답 조건)
+    const ACTIVATION_ENERGY_SPEED = 70; // 최소 속도 70 이상이어야 반응
+    const ACCEPTABLE_ANGLE_RANGE = 30;  // -30 ~ +30도 사이여야 반응
+
+    // 입자 객체 정의
+    const p1 = { x: 50, y: 175, radius: 25, label: "NO", color: "#3498db", type: "reactant", vx: 0 };
+    const p2 = { x: 450, y: 175, radius: 25, label: "O₃", color: "#e74c3c", type: "reactant", vx: 0 };
+
+    // --- 이벤트 리스너 ---
+    speedSlider.addEventListener('input', (e) => speedVal.textContent = e.target.value);
+    angleSlider.addEventListener('input', (e) => {
+        angleVal.textContent = e.target.value + "°";
+        drawStaticScene(); // 각도 변경 시각화
+    });
+
+    startBtn.addEventListener('click', startSimulation);
+    resetBtn.addEventListener('click', resetStats);
+
+    // --- 핵심 로직 ---
+
+    function resetPositions() {
+        p1.x = 50;
+        p1.y = 175;
+        p2.x = 450;
+        p2.y = 175;
+        
+        p1.label = "NO";
+        p2.label = "O₃";
+        p1.color = "#3498db"; // Blue
+        p2.color = "#e74c3c"; // Red
+        
+        reactionOccurred = false;
+        feedbackBox.style.background = "#eee";
+        feedbackBox.style.color = "#777";
+        feedbackBox.textContent = "실험 중...";
+    }
+
+    function drawParticle(p, angle = 0, isRightSide = false) {
+        ctx.save();
+        ctx.translate(p.x, p.y);
+        
+        // 각도 시각화 (NO 분자만 회전시킴)
+        if (!isRightSide && !reactionOccurred) {
+            ctx.rotate(angle * Math.PI / 180);
+        }
+
+        // 분자 그리기 (단순화된 모델)
+        ctx.beginPath();
+        ctx.arc(0, 0, p.radius, 0, Math.PI * 2);
+        ctx.fillStyle = p.color;
+        ctx.fill();
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.closePath();
+
+        // 텍스트 라벨 (회전하지 않도록 역회전)
+        if (!isRightSide && !reactionOccurred) {
+            ctx.rotate(-angle * Math.PI / 180);
+        }
+        
+        ctx.fillStyle = "white";
+        ctx.font = "bold 14px Arial";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(p.label, 0, 0);
+
+        // 방향 화살표 (반응 전)
+        if (!reactionOccurred && isRunning) {
+             ctx.beginPath();
+             ctx.moveTo(isRightSide ? -30 : 30, 0);
+             ctx.lineTo(isRightSide ? -40 : 40, 0);
+             ctx.strokeStyle = "#333";
+             ctx.lineWidth = 2;
+             ctx.stroke();
+        }
+
+        ctx.restore();
+    }
+
+    function drawStaticScene() {
+        if (isRunning) return;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 초기 위치 그리기
+        resetPositions();
+        
+        // 왼쪽 분자(NO)는 각도에 따라 회전된 상태로 대기
+        drawParticle(p1, parseInt(angleSlider.value), false);
+        drawParticle(p2, 0, true);
+        
+        // 중앙선 (충돌 지점 예상)
+        ctx.setLineDash([5, 5]);
+        ctx.beginPath();
+        ctx.moveTo(250, 50);
+        ctx.lineTo(250, 300);
+        ctx.strokeStyle = "#ddd";
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function startSimulation() {
+        if (isRunning) return;
+        resetPositions();
+        isRunning = true;
+        startBtn.disabled = true;
+        
+        const speed = parseInt(speedSlider.value);
+        const angle = parseInt(angleSlider.value);
+        
+        // 애니메이션 속도 보정 (너무 느리거나 빠르지 않게)
+        const moveSpeed = (speed / 10) + 1; 
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 이동 로직
+            if (!reactionOccurred) {
+                // 충돌 전 접근
+                if (p1.x + p1.radius < p2.x - p2.radius) {
+                    p1.x += moveSpeed;
+                    p2.x -= moveSpeed;
+                } else {
+                    // 충돌 감지!
+                    checkReaction(speed, angle);
+                }
+            } else {
+                // 반응 또는 튕김 후 이동
+                p1.x -= moveSpeed;
+                p2.x += moveSpeed;
+            }
+            
+            // 화면 밖으로 나가면 종료
+            if (p1.x < -50 || p1.x > 550) {
+                endSimulation();
+                return;
+            }
+
+            drawParticle(p1, angle, false);
+            drawParticle(p2, 0, true); // O3는 고정 각도 가정
+
+            animationId = requestAnimationFrame(animate);
+        }
+        animate();
+    }
+
+    function checkReaction(speed, angle) {
+        // 반응 조건 판단
+        const isEnergeticEnough = speed >= ACTIVATION_ENERGY_SPEED;
+        const isOrientedCorrectly = Math.abs(angle) <= ACCEPTABLE_ANGLE_RANGE;
+
+        reactionOccurred = true; // 이제 뒤로 이동 시작
+
+        if (isEnergeticEnough && isOrientedCorrectly) {
+            // [반응 성공]
+            successAttempts++;
+            
+            // 입자 변화 (생성물로 변신)
+            p1.label = "NO₂";
+            p1.color = "#9b59b6"; // Purple (New Product)
+            p2.label = "O₂";
+            p2.color = "#2ecc71"; // Green (New Product)
+            
+            // 피드백
+            feedbackBox.style.background = "#d4edda";
+            feedbackBox.style.color = "#155724";
+            feedbackBox.innerHTML = "🎉 <b>반응 성공!</b> (유효 충돌 발생)<br>충분한 에너지와 올바른 각도입니다.";
+        } else {
+            // [반응 실패]
+            let reason = "";
+            if (!isEnergeticEnough) reason += "에너지가 부족합니다 (속도 UP 필요). ";
+            if (!isOrientedCorrectly) reason += "충돌 각도가 맞지 않습니다. ";
+            
+            feedbackBox.style.background = "#f8d7da";
+            feedbackBox.style.color = "#721c24";
+            feedbackBox.innerHTML = `💨 <b>반응 실패!</b><br>${reason}`;
+        }
+    }
+
+    function endSimulation() {
+        isRunning = false;
+        startBtn.disabled = false;
+        cancelAnimationFrame(animationId);
+        
+        // 통계 업데이트
+        totalAttempts++;
+        document.getElementById('totalCount').textContent = totalAttempts;
+        document.getElementById('successCount').textContent = successAttempts;
+        const rate = Math.round((successAttempts / totalAttempts) * 100);
+        document.getElementById('successRate').textContent = rate + "%";
+    }
+
+    function resetStats() {
+        totalAttempts = 0;
+        successAttempts = 0;
+        document.getElementById('totalCount').textContent = 0;
+        document.getElementById('successCount').textContent = 0;
+        document.getElementById('successRate').textContent = "0%";
+        drawStaticScene();
+        feedbackBox.textContent = "통계가 초기화되었습니다.";
+        feedbackBox.style.background = "#eee";
+        feedbackBox.style.color = "#777";
+    }
+
+    // 초기 화면 그리기
+    drawStaticScene();
+
+</script>
+
+</body>
+</html>

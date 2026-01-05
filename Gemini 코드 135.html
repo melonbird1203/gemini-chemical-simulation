@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 생체 내 완충 용액의 작용</title>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --danger-color: #e74c3c;
+            --success-color: #27ae60;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--primary-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h1 { margin: 0; color: var(--accent-color); }
+        .subtitle { font-size: 0.9em; color: #7f8c8d; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .panel-title {
+            font-weight: bold;
+            margin-bottom: 15px;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Controls */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-size: 0.9em; margin-bottom: 5px; font-weight: bold; }
+        input[type=range] { width: 100%; cursor: pointer; }
+        .value-display { font-size: 0.85em; color: var(--accent-color); float: right; }
+
+        .scenario-btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 1px solid #ddd;
+            background: #fff;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.9em;
+        }
+        .scenario-btn:hover { background: #eef2f3; border-color: var(--accent-color); }
+
+        /* Visualization Area */
+        .vis-container {
+            position: relative;
+            height: 400px;
+            background: linear-gradient(to bottom, #ffffff, #ffecec);
+            border-radius: 15px;
+            overflow: hidden;
+            border: 1px solid #ddd;
+            transition: background 1s;
+        }
+
+        .blood-vessel {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Particles */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.7;
+            transition: top 2s ease-in-out, left 2s ease-in-out;
+        }
+        .p-h { background: #e74c3c; width: 8px; height: 8px; } /* H+ */
+        .p-hco3 { background: #3498db; width: 12px; height: 12px; } /* HCO3- */
+        .p-h2co3 { background: #95a5a6; width: 14px; height: 14px; } /* H2CO3 */
+
+        /* Chemical Equation */
+        .equation-box {
+            text-align: center;
+            font-size: 1.2em;
+            margin: 20px 0;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .arrow-container { display: inline-block; position: relative; width: 50px; text-align: center; }
+        .arrow-right, .arrow-left { font-size: 1.5em; display: block; line-height: 0.5; transition: opacity 0.3s; }
+        
+        /* pH Meter */
+        .ph-meter {
+            text-align: center;
+            padding: 20px;
+            background: #333;
+            color: #fff;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .ph-value { font-size: 2.5em; font-weight: bold; font-family: monospace; }
+        .ph-status { margin-top: 5px; font-weight: bold; }
+
+        /* Graph */
+        canvas { width: 100%; height: 200px; }
+
+        /* Feedback Box */
+        .ai-feedback {
+            background-color: #e8f4fc;
+            border-left: 5px solid var(--accent-color);
+            padding: 15px;
+            margin-top: 20px;
+            font-size: 0.95em;
+        }
+
+        /* Responsive */
+        @media (max-width: 1000px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        /* Tooltip help */
+        .tooltip {
+            font-size: 0.8em;
+            color: #666;
+            margin-top: 5px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧬 생체 내 완충 용액 실험실</h1>
+    <div class="subtitle">화학Ⅱ: 평형 이동과 완충 작용의 원리 (탄산-수소탄산 이온계)</div>
+</header>
+
+<div class="container">
+    <div class="panel">
+        <div class="panel-title">🔬 실험 조건 조작</div>
+        
+        <div class="control-group">
+            <label>1. 체내 CO₂ 농도 (호흡) <span id="val-co2" class="value-display">1.2 mM</span></label>
+            <input type="range" id="slider-co2" min="0.5" max="3.0" step="0.1" value="1.2">
+            <div class="tooltip">증가 시: 호흡 억제 / 감소 시: 과호흡</div>
+        </div>
+
+        <div class="control-group">
+            <label>2. [HCO₃⁻] 농도 (신장 조절) <span id="val-hco3" class="value-display">24 mM</span></label>
+            <input type="range" id="slider-hco3" min="10" max="40" step="1" value="24">
+            <div class="tooltip">공통 이온 효과 발생 요인</div>
+        </div>
+
+        <div class="control-group">
+            <label>3. 젖산(Lactic Acid) 생성 <span id="val-lactic" class="value-display">0 mM</span></label>
+            <input type="range" id="slider-lactic" min="0" max="15" step="1" value="0">
+            <div class="tooltip">심한 운동 또는 대사 이상 시 증가</div>
+        </div>
+
+        <hr>
+        <label>🏥 질병 시나리오 선택</label>
+        <button class="scenario-btn" onclick="setScenario('normal')">✅ 정상 상태</button>
+        <button class="scenario-btn" onclick="setScenario('hyperventilation')">💨 과호흡 (고산병 초기)</button>
+        <button class="scenario-btn" onclick="setScenario('ketoacidosis')">🍬 당뇨병성 케톤산증</button>
+        <button class="scenario-btn" onclick="setScenario('copd')">🫁 만성 폐쇄성 폐질환 (COPD)</button>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">🩸 혈액 내 입자 모형</div>
+        
+        <div class="equation-box">
+            CO₂(aq) + H₂O ⇌ 
+            <span style="color:#95a5a6">H₂CO₃</span> 
+            <div class="arrow-container">
+                <span id="arrow-right" class="arrow-right">⇀</span>
+                <span id="arrow-left" class="arrow-left">↽</span>
+            </div>
+            <span style="color:#e74c3c">H⁺</span> + <span style="color:#3498db">HCO₃⁻</span>
+        </div>
+
+        <div class="vis-container" id="visual-container">
+            </div>
+
+        <div class="ph-meter">
+            <div>현재 혈액 pH</div>
+            <div class="ph-value" id="ph-display">7.40</div>
+            <div class="ph-status" id="ph-status">정상 (Normal)</div>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-title">📊 실시간 분석 및 피드백</div>
+        
+        <canvas id="graphCanvas"></canvas>
+        <div style="text-align: center; font-size: 0.8em; color:#666; margin-bottom:10px;">시간에 따른 pH 변화 그래프</div>
+
+        <div class="ai-feedback" id="ai-feedback">
+            👋 안녕하세요! 슬라이더를 움직여 체내 환경을 변화시켜 보세요. 우리 몸이 어떻게 pH를 일정하게 유지하려 노력하는지 평형 이동의 관점에서 설명해 드릴게요.
+        </div>
+
+        <hr>
+        <div class="panel-title">📝 핵심 개념 퀴즈</div>
+        <div id="quiz-section">
+            <p style="font-size:0.9em; margin-bottom:10px;" id="quiz-question">Q. 젖산이 생성되어 H⁺가 많아지면 평형은 어느 쪽으로 이동할까요?</p>
+            <button class="scenario-btn" onclick="checkAnswer('left')">왼쪽 (역반응, CO₂ 생성)</button>
+            <button class="scenario-btn" onclick="checkAnswer('right')">오른쪽 (정반응, H⁺ 생성)</button>
+            <div id="quiz-result" style="font-size: 0.9em; font-weight:bold; margin-top:5px;"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- Simulation Logic & State ---
+    const state = {
+        co2: 1.2,    // mM (dissolved CO2, proportional to pCO2)
+        hco3: 24,    // mM
+        lactic: 0,   // mM
+        ph: 7.4,
+        history: []  // For graph
+    };
+
+    // Constants based on Henderson-Hasselbalch for Bicarbonate
+    // pH = 6.1 + log([HCO3-] / 0.03*pCO2)
+    // Simplified for simulation: [H2CO3] approx proportional to dissolved CO2
+    const pKa = 6.1;
+
+    // DOM Elements
+    const slCo2 = document.getElementById('slider-co2');
+    const slHco3 = document.getElementById('slider-hco3');
+    const slLactic = document.getElementById('slider-lactic');
+    const dispCo2 = document.getElementById('val-co2');
+    const dispHco3 = document.getElementById('val-hco3');
+    const dispLactic = document.getElementById('val-lactic');
+    const phDisp = document.getElementById('ph-display');
+    const phStatus = document.getElementById('ph-status');
+    const visContainer = document.getElementById('visual-container');
+    const arrowRight = document.getElementById('arrow-right');
+    const arrowLeft = document.getElementById('arrow-left');
+    const aiFeedback = document.getElementById('ai-feedback');
+
+    // Canvas for Graph
+    const canvas = document.getElementById('graphCanvas');
+    const ctx = canvas.getContext('2d');
+    canvas.width = 300;
+    canvas.height = 200;
+
+    // --- Core Functions ---
+
+    function calculatePH() {
+        // Lactic acid adds H+, which consumes HCO3-. 
+        // Simplified Logic: Effective HCO3 = Actual HCO3 - Lactic (Buffering action)
+        // If Lactic > HCO3, pH drops drastically (acidosis).
+        
+        let effectiveHco3 = state.hco3 - (state.lactic * 0.8); 
+        if (effectiveHco3 < 0.1) effectiveHco3 = 0.1; // prevent log(0)
+
+        // Effective Acid = CO2 + factor of Lactic that couldn't be buffered
+        let effectiveAcid = state.co2 + (state.lactic * 0.1);
+
+        // Henderson-Hasselbalch Approximation
+        let ratio = effectiveHco3 / effectiveAcid;
+        state.ph = pKa + Math.log10(ratio / 20) + 1.3; // +1.3 is a correction factor to align simulation numbers to 7.4 at default
+        
+        // Clamp visually realistic range
+        state.ph = Math.max(6.8, Math.min(7.8, state.ph));
+        
+        updateUI();
+    }
+
+    function updateUI() {
+        // Update Text
+        dispCo2.innerText = state.co2.toFixed(1) + " mM";
+        dispHco3.innerText = state.hco3.toFixed(0) + " mM";
+        dispLactic.innerText = state.lactic.toFixed(0) + " mM";
+        phDisp.innerText = state.ph.toFixed(2);
+
+        // Color & Status
+        let bgColor, statusText;
+        if (state.ph < 7.35) {
+            statusText = "⚠️ 산증 (Acidosis)";
+            phStatus.style.color = "#e74c3c";
+            bgColor = `linear-gradient(to bottom, #fff, #fff3cd)`; // Yellowish
+        } else if (state.ph > 7.45) {
+            statusText = "⚠️ 알칼리증 (Alkalosis)";
+            phStatus.style.color = "#8e44ad";
+            bgColor = `linear-gradient(to bottom, #fff, #e8daef)`; // Purplish
+        } else {
+            statusText = "✅ 정상 (Normal)";
+            phStatus.style.color = "#27ae60";
+            bgColor = `linear-gradient(to bottom, #fff, #ffecec)`; // Normal pinkish blood
+        }
+        phStatus.innerText = statusText;
+        visContainer.style.background = bgColor;
+
+        // Equilibrium Arrows & Le Chatelier Logic
+        // Compare current ratio to ideal ratio (20:1)
+        let idealRatio = 20;
+        let currentRatio = (state.hco3 - state.lactic) / state.co2;
+
+        if (state.lactic > 2) {
+            // Adding acid pushes equilibrium LEFT (consume H+)
+            arrowLeft.style.opacity = "1";
+            arrowRight.style.opacity = "0.2";
+            arrowLeft.style.fontWeight = "bold";
+        } else if (state.co2 > 1.5) {
+            // Too much CO2 pushes RIGHT (create H+)
+            arrowRight.style.opacity = "1";
+            arrowLeft.style.opacity = "0.2";
+        } else if (state.co2 < 0.8) {
+             // Low CO2 pulls LEFT
+            arrowLeft.style.opacity = "1";
+            arrowRight.style.opacity = "0.2";
+        } else {
+            // Balanced
+            arrowLeft.style.opacity = "0.6";
+            arrowRight.style.opacity = "0.6";
+        }
+
+        updateParticles();
+        generateFeedback();
+        updateGraph();
+    }
+
+    function updateParticles() {
+        visContainer.innerHTML = ''; // Clear
+        
+        // H+ (Red): Increases as pH drops (low pH = high H+)
+        let hCount = Math.floor((7.8 - state.ph) * 15);
+        // HCO3- (Blue): Based on concentration slider
+        let hco3Count = Math.floor(state.hco3 / 2); 
+        // H2CO3/CO2 (Grey): Based on CO2 slider
+        let co2Count = Math.floor(state.co2 * 8);
+
+        createDots(hCount, 'p-h');
+        createDots(hco3Count, 'p-hco3');
+        createDots(co2Count, 'p-h2co3');
+    }
+
+    function createDots(count, className) {
+        for (let i = 0; i < count; i++) {
+            let dot = document.createElement('div');
+            dot.className = `particle ${className}`;
+            dot.style.left = Math.random() * 90 + '%';
+            dot.style.top = Math.random() * 90 + '%';
+            
+            // Simple animation loop
+            setInterval(() => {
+                dot.style.left = Math.random() * 90 + '%';
+                dot.style.top = Math.random() * 90 + '%';
+            }, 2000 + Math.random() * 1000);
+
+            visContainer.appendChild(dot);
+        }
+    }
+
+    function generateFeedback() {
+        let msg = "";
+        if (state.lactic > 5) {
+            msg = "젖산(H⁺ 공급원)이 증가했습니다. 공통 이온 효과에 의해 평형은 <b>왼쪽(역반응)</b>으로 이동하여 H⁺를 줄이려 합니다. 이때 호흡을 늘려 CO₂를 배출하면 pH를 회복할 수 있습니다.";
+        } else if (state.co2 > 1.5) {
+            msg = "체내 CO₂가 축적되었습니다(호흡 저하). 평형이 <b>오른쪽(정반응)</b>으로 이동하여 H⁺ 농도가 높아져 pH가 낮아집니다(호흡성 산증).";
+        } else if (state.co2 < 0.9) {
+            msg = "과호흡으로 CO₂가 너무 많이 빠져나갔습니다. 평형이 <b>왼쪽(역반응)</b>으로 이동하며 H⁺가 감소해 pH가 높아집니다(호흡성 알칼리증).";
+        } else if (state.ph >= 7.35 && state.ph <= 7.45) {
+            msg = "완충 작용이 원활하게 일어나고 있습니다. 르 샤틀리에의 원리에 따라 외부 변화를 상쇄하는 방향으로 평형이 유지됩니다.";
+        } else {
+            msg = "화학 평형이 깨져 pH 조절이 필요한 상태입니다.";
+        }
+        aiFeedback.innerHTML = "🤖 <b>AI 분석:</b> " + msg;
+    }
+
+    // --- Scenarios ---
+    function setScenario(type) {
+        if (type === 'normal') {
+            updateState(1.2, 24, 0);
+        } else if (type === 'hyperventilation') {
+            updateState(0.6, 24, 0); // Low CO2
+        } else if (type === 'ketoacidosis') {
+            updateState(1.2, 18, 10); // High Lactic/Acid, Low HCO3 usage
+        } else if (type === 'copd') {
+            updateState(2.2, 28, 0); // High CO2, Compensatory High HCO3
+        }
+    }
+
+    function updateState(c, h, l) {
+        slCo2.value = c; state.co2 = c;
+        slHco3.value = h; state.hco3 = h;
+        slLactic.value = l; state.lactic = l;
+        calculatePH();
+    }
+
+    // --- Input Listeners ---
+    slCo2.oninput = (e) => { state.co2 = parseFloat(e.target.value); calculatePH(); };
+    slHco3.oninput = (e) => { state.hco3 = parseFloat(e.target.value); calculatePH(); };
+    slLactic.oninput = (e) => { state.lactic = parseFloat(e.target.value); calculatePH(); };
+
+    // --- Quiz Logic ---
+    function checkAnswer(ans) {
+        const resultDiv = document.getElementById('quiz-result');
+        if (ans === 'left') {
+            resultDiv.innerText = "⭕ 정답입니다! H⁺가 추가되면 이를 소모하기 위해 역반응이 일어납니다.";
+            resultDiv.style.color = "green";
+        } else {
+            resultDiv.innerText = "❌ 다시 생각해 보세요. 르 샤틀리에의 원리에 따르면, 생성물(H⁺)이 늘어나면 이를 줄이는 방향으로 이동합니다.";
+            resultDiv.style.color = "red";
+        }
+    }
+
+    // --- Graph Logic ---
+    function updateGraph() {
+        state.history.push(state.ph);
+        if(state.history.length > 50) state.history.shift();
+
+        // Clear Canvas
+        ctx.fillStyle = "#fff";
+        ctx.fillRect(0,0,300,200);
+
+        // Draw Zones
+        ctx.fillStyle = "rgba(231, 76, 60, 0.1)"; // Acid
+        ctx.fillRect(0, 100, 300, 100);
+        ctx.fillStyle = "rgba(142, 68, 173, 0.1)"; // Base
+        ctx.fillRect(0, 0, 300, 60);
+        
+        // Draw Normal Line
+        ctx.beginPath();
+        ctx.strokeStyle = "#27ae60";
+        ctx.setLineDash([5, 5]);
+        ctx.moveTo(0, 80); // Corresponds to approx 7.4
+        ctx.lineTo(300, 80);
+        ctx.stroke();
+
+        // Draw Line
+        ctx.beginPath();
+        ctx.strokeStyle = "#2c3e50";
+        ctx.lineWidth = 2;
+        ctx.setLineDash([]);
+        
+        // Mapping: pH 6.8 -> y=180, pH 7.8 -> y=20
+        // Range = 1.0, Height = 160
+        for(let i=0; i<state.history.length; i++) {
+            let x = i * (300 / 50);
+            let phVal = state.history[i];
+            let y = 180 - (phVal - 6.8) * 160;
+            if (i===0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+    }
+
+    // Initialize
+    calculatePH();
+
+</script>
+
+</body>
+</html>

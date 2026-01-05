@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 헤스 법칙과 반응 엔탈피</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --accent: #FF6B6B;
+            --bg: #F5F7FA;
+            --text: #2C3E50;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+        }
+        h1, h2 { text-align: center; color: var(--text); }
+        .experiment-area {
+            display: flex;
+            justify-content: space-around;
+            flex-wrap: wrap;
+            margin-top: 30px;
+            gap: 20px;
+        }
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 10px;
+            border: 1px solid #e1e4e8;
+        }
+        .visual-panel {
+            flex: 1;
+            min-width: 300px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border: 4px solid #333;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background: rgba(255,255,255,0.8);
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60%;
+            background: var(--primary);
+            opacity: 0.6;
+            transition: height 1s, background-color 1s;
+        }
+        .particle {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            background: white;
+            border-radius: 50%;
+            animation: float 2s infinite;
+        }
+        @keyframes float {
+            0% { transform: translateY(0px); opacity: 1; }
+            50% { transform: translateY(-20px); opacity: 0.7; }
+            100% { transform: translateY(0px); opacity: 1; }
+        }
+        .thermometer-wrapper {
+            position: absolute;
+            right: -40px;
+            bottom: 0;
+            height: 220px;
+            width: 20px;
+            background: #eee;
+            border-radius: 10px;
+            border: 1px solid #ccc;
+        }
+        .mercury {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 20%;
+            background: var(--accent);
+            border-radius: 0 0 10px 10px;
+            transition: height 2s ease-out;
+        }
+        .temp-display {
+            position: absolute;
+            top: -30px;
+            right: -50px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            color: var(--accent);
+        }
+        button {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            margin-bottom: 10px;
+            transition: transform 0.1s;
+        }
+        button:hover { transform: translateY(-2px); opacity: 0.9; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.reset { background: #95a5a6; }
+        
+        .result-charts {
+            margin-top: 30px;
+            width: 100%;
+            padding: 20px;
+            background: #f0f4f8;
+            border-radius: 10px;
+        }
+        .bar-container {
+            display: flex;
+            align-items: flex-end;
+            height: 200px;
+            gap: 30px;
+            padding-bottom: 30px;
+            border-bottom: 2px solid #333;
+        }
+        .bar-group {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 120px;
+        }
+        .bar {
+            width: 60px;
+            background: var(--secondary);
+            transition: height 1s ease;
+            position: relative;
+            border-radius: 5px 5px 0 0;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            color: #333;
+            font-weight: bold;
+            font-size: 0.9rem;
+            padding-bottom: 5px;
+        }
+        .bar.path1 { background: #4A90E2; }
+        .bar.path2 { background: #50E3C2; }
+        .bar.total { background: #FF6B6B; }
+        
+        .label { margin-top: 10px; text-align: center; font-size: 0.9rem; }
+        .quiz-section {
+            margin-top: 30px;
+            padding: 20px;
+            background: #fff3cd;
+            border: 1px solid #ffeeba;
+            border-radius: 10px;
+            display: none;
+        }
+        .status-msg {
+            margin-top: 15px;
+            font-weight: bold;
+            color: #2c3e50;
+            min-height: 1.5em;
+        }
+        .hiker-viz {
+            margin-top: 20px;
+            text-align: center;
+        }
+        .hiker-viz svg {
+            max-width: 100%;
+            height: auto;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 가상 실험: 헤스 법칙 증명</h1>
+    <p style="text-align: center;">"경로가 달라도 에너지의 총 변화량은 같을까요?"</p>
+
+    <div class="experiment-area">
+        <div class="control-panel">
+            <h3>🔬 실험 설정</h3>
+            <p>초기 온도: <strong>25.0°C</strong></p>
+            
+            <div style="margin-bottom: 20px;">
+                <strong>실험 선택:</strong>
+                <button id="btn-path1" onclick="runPath1()">⛰️ 경로 1: 2단계 반응 (돌아가기)</button>
+                <div style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+                    ① NaOH(s) + 물 → NaOH(aq)<br>
+                    ② NaOH(aq) + HCl(aq) → NaCl(aq) + H₂O(l)
+                </div>
+                
+                <button id="btn-path2" onclick="runPath2()">🚀 경로 2: 1단계 반응 (지름길)</button>
+                <div style="font-size: 0.9rem; color: #666;">
+                    ① NaOH(s) + HCl(aq) → NaCl(aq) + H₂O(l)
+                </div>
+            </div>
+
+            <div class="status-msg" id="status-text">실험 경로를 선택해주세요.</div>
+            <button class="reset" onclick="resetExperiment()" style="margin-top: 20px;">🔄 실험 초기화</button>
+        </div>
+
+        <div class="visual-panel">
+            <div class="beaker">
+                <div class="liquid" id="liquid"></div>
+                </div>
+            <div class="thermometer-wrapper">
+                <div class="mercury" id="mercury"></div>
+                <div class="temp-display" id="temp-display">25.0°C</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="result-charts">
+        <h3>📊 에너지(엔탈피) 변화 결과</h3>
+        <div class="bar-container">
+            <div class="bar-group">
+                <div class="bar path1" id="bar-h1" style="height: 0px;"></div>
+                <div class="label">ΔH₁<br>(용해)</div>
+            </div>
+            <div class="bar-group">
+                <div class="bar path1" id="bar-h2" style="height: 0px;"></div>
+                <div class="label">ΔH₂<br>(중화)</div>
+            </div>
+            <div class="bar-group">
+                <div class="bar total" id="bar-path1-total" style="height: 0px;"></div>
+                <div class="label">경로 1 합계<br>(ΔH₁ + ΔH₂)</div>
+            </div>
+            <div class="bar-group" style="border-left: 2px dashed #ccc; padding-left: 20px;">
+                <div class="bar path2" id="bar-h3" style="height: 0px;"></div>
+                <div class="label">경로 2<br>ΔH₃ (한번에)</div>
+            </div>
+        </div>
+        <p id="result-summary" style="text-align: center; margin-top: 15px; font-weight: bold;"></p>
+    </div>
+
+    <div class="quiz-section" id="quiz-section">
+        <h3>🤔 생각해보기</h3>
+        <p><strong>문제:</strong> 경로 1의 엔탈피 합(ΔH₁ + ΔH₂)과 경로 2의 엔탈피(ΔH₃) 값이 거의 비슷하게 나왔습니다. 그 이유는 무엇인가요?</p>
+        <textarea id="student-answer" style="width: 100%; height: 60px; margin-bottom: 10px;" placeholder="여기에 답을 적어보세요..."></textarea>
+        <button onclick="checkAnswer()">정답 확인</button>
+        <p id="feedback" style="margin-top: 10px; color: #d35400;"></p>
+    </div>
+</div>
+
+<script>
+    // 상수 설정 (교육용 근사치)
+    const BASE_TEMP = 25.0;
+    const DH1 = 44.5; // kJ/mol (크기)
+    const DH2 = 55.8; // kJ/mol
+    const DH3 = 100.3; // kJ/mol
+    
+    // 상태 변수
+    let path1Done = false;
+    let path2Done = false;
+
+    function updateStatus(text) {
+        document.getElementById('status-text').innerText = text;
+    }
+
+    function setTemp(temp) {
+        // 온도계 시각화 계산 (20~100도 범위 매핑)
+        const height = ((temp - 20) / 80) * 100; 
+        document.getElementById('mercury').style.height = `${Math.min(height, 100)}%`;
+        document.getElementById('temp-display').innerText = `${temp.toFixed(1)}°C`;
+    }
+
+    function createParticles() {
+        const beaker = document.querySelector('.beaker');
+        for(let i=0; i<5; i++) {
+            let p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 130 + 'px';
+            p.style.top = Math.random() * 100 + 50 + 'px';
+            beaker.appendChild(p);
+            setTimeout(() => p.remove(), 1900);
+        }
+    }
+
+    function runPath1() {
+        if(path1Done) return;
+        document.getElementById('btn-path1').disabled = true;
+        document.getElementById('btn-path2').disabled = true;
+        
+        // 1단계: 용해
+        updateStatus("1단계: 고체 NaOH를 물에 녹입니다...");
+        document.getElementById('liquid').style.backgroundColor = "#81ecec"; // 물 색깔
+        
+        let currentTemp = BASE_TEMP;
+        let step = 0;
+        
+        let interval = setInterval(() => {
+            step++;
+            createParticles();
+            // 용해열에 의한 온도 상승 시뮬레이션
+            currentTemp += (DH1 / 20); // 시각적 속도 조절
+            setTemp(currentTemp);
+
+            if(step >= 20) {
+                clearInterval(interval);
+                animateStep2(currentTemp);
+            }
+        }, 100);
+    }
+
+    function animateStep2(startTemp) {
+        setTimeout(() => {
+            updateStatus("2단계: HCl 수용액을 넣어 중화시킵니다...");
+            document.getElementById('liquid').style.height = "80%";
+            document.getElementById('liquid').style.backgroundColor = "#a29bfe"; // 혼합 용액 색
+            
+            let currentTemp = startTemp;
+            let step = 0;
+            let interval = setInterval(() => {
+                step++;
+                createParticles();
+                currentTemp += (DH2 / 20);
+                setTemp(currentTemp);
+
+                if(step >= 20) {
+                    clearInterval(interval);
+                    path1Done = true;
+                    updateStatus("경로 1 실험 완료! 데이터를 기록합니다.");
+                    drawBar('bar-h1', DH1);
+                    drawBar('bar-h2', DH2);
+                    setTimeout(() => {
+                        drawBar('bar-path1-total', DH1 + DH2);
+                        checkCompletion();
+                    }, 1000);
+                    document.getElementById('btn-path2').disabled = path2Done;
+                }
+            }, 100);
+        }, 1500);
+    }
+
+    function runPath2() {
+        if(path2Done) return;
+        document.getElementById('btn-path1').disabled = true;
+        document.getElementById('btn-path2').disabled = true;
+
+        updateStatus("경로 2: 고체 NaOH를 HCl에 바로 넣습니다 (한번 반응)...");
+        document.getElementById('liquid').style.backgroundColor = "#ff7675"; 
+        
+        let currentTemp = BASE_TEMP;
+        let step = 0;
+        
+        let interval = setInterval(() => {
+            step++;
+            createParticles();
+            // 한 번에 큰 폭으로 상승
+            currentTemp += (DH3 / 30); 
+            setTemp(currentTemp);
+
+            if(step >= 30) {
+                clearInterval(interval);
+                path2Done = true;
+                updateStatus("경로 2 실험 완료!");
+                drawBar('bar-h3', DH3);
+                checkCompletion();
+                document.getElementById('btn-path1').disabled = path1Done;
+            }
+        }, 100);
+    }
+
+    function drawBar(id, value) {
+        const bar = document.getElementById(id);
+        // 그래프 높이 스케일링
+        bar.style.height = `${value * 1.5}px`; 
+        bar.innerText = `-${value}kJ`;
+    }
+
+    function checkCompletion() {
+        if(path1Done && path2Done) {
+            updateStatus("모든 실험이 완료되었습니다. 결과를 비교해보세요.");
+            document.getElementById('quiz-section').style.display = 'block';
+            document.getElementById('result-summary').innerHTML = 
+                `경로 1 합계(${(DH1+DH2).toFixed(1)}kJ) ≈ 경로 2(${(DH3).toFixed(1)}kJ)<br>
+                <span style="color:blue">헤스 법칙 성립!</span>`;
+        } else {
+             document.getElementById('btn-path1').disabled = path1Done;
+             document.getElementById('btn-path2').disabled = path2Done;
+        }
+    }
+
+    function checkAnswer() {
+        const answer = document.getElementById('student-answer').value;
+        const feedback = document.getElementById('feedback');
+        
+        if(answer.length < 5) {
+            feedback.innerText = "조금 더 구체적으로 설명해볼까요?";
+            return;
+        }
+        
+        feedback.innerHTML = `<strong>훌륭합니다!</strong><br>
+        엔탈피는 '상태 함수'이기 때문에, <br>
+        반응이 일어나는 경로(1단계 vs 2단계)와 관계없이<br> 
+        <strong>처음 상태와 나중 상태가 같다면 총 엔탈피 변화량은 동일합니다.</strong><br>
+        마치 산 정상에 오를 때, 완만한 길로 돌아가든 가파른 길로 바로 가든 <br>
+        올라간 높이(위치 에너지 변화)는 같은 것과 같습니다. ⛰️`;
+    }
+
+    function resetExperiment() {
+        path1Done = false;
+        path2Done = false;
+        document.getElementById('btn-path1').disabled = false;
+        document.getElementById('btn-path2').disabled = false;
+        setTemp(25.0);
+        document.getElementById('liquid').style.height = "60%";
+        document.getElementById('liquid').style.backgroundColor = "#4A90E2";
+        
+        ['bar-h1', 'bar-h2', 'bar-path1-total', 'bar-h3'].forEach(id => {
+            document.getElementById(id).style.height = '0px';
+            document.getElementById(id).innerText = '';
+        });
+        
+        document.getElementById('quiz-section').style.display = 'none';
+        document.getElementById('result-summary').innerText = '';
+        document.getElementById('feedback').innerText = '';
+        document.getElementById('student-answer').value = '';
+        updateStatus("실험이 초기화되었습니다. 경로를 선택하세요.");
+    }
+</script>
+
+</body>
+</html>

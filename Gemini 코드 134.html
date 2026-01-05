@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 완충 용액의 원리</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <style>
+        :root { --primary: #4F46E5; --bg: #F3F4F6; --glass: rgba(255,255,255,0.9); }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; }
+        
+        /* Left Panel - Controls */
+        .panel { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
+        h1 { font-size: 1.5rem; color: var(--primary); margin-bottom: 10px; }
+        h2 { font-size: 1.1rem; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-top: 0;}
+        
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem;}
+        select, input[type="range"] { width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd; }
+        button { background: var(--primary); color: white; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; transition: 0.2s; }
+        button:hover { background: #4338ca; }
+        button.reset { background: #6B7280; margin-top: 10px; }
+
+        /* Visualization Area */
+        .experiment-area { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 300px; position: relative; background: #eef2ff; border-radius: 10px; margin-bottom: 20px; }
+        
+        .beaker {
+            width: 120px; height: 160px; border-bottom-left-radius: 10px; border-bottom-right-radius: 10px;
+            border: 3px solid #aaa; border-top: none; position: relative; background: rgba(255,255,255,0.2);
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute; bottom: 0; left: 0; width: 100%; height: 60%;
+            background: #aaffaa; transition: background 1s, height 0.5s;
+        }
+        .ph-meter {
+            position: absolute; top: 20px; right: 20px; background: #333; color: #0f0;
+            padding: 10px; border-radius: 5px; font-family: 'Courier New', monospace; font-size: 1.5rem;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .dropper {
+            position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+            font-size: 2rem; opacity: 0; transition: opacity 0.3s;
+        }
+
+        /* Feedback & Stats */
+        .feedback-box { background: #FFFBEB; border-left: 5px solid #F59E0B; padding: 15px; margin-top: 15px; font-size: 0.95rem; line-height: 1.5; }
+        .stat-row { display: flex; justify-content: space-between; margin-bottom: 5px; font-size: 0.9rem; }
+        
+        @media (max-width: 768px) { .container { grid-template-columns: 1fr; } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <div class="panel">
+            <h1>⚗️ 완충 용액 실험실</h1>
+            <p style="font-size:0.9rem; color:#666;">용액을 선택하고 산(HCl)을 첨가하며 pH 변화를 관찰하세요.</p>
+            
+            <div class="control-group">
+                <label>1. 용액 선택 (초기 부피 50mL)</label>
+                <select id="solutionSelect" onchange="resetExperiment()">
+                    <option value="water">증류수 (Water)</option>
+                    <option value="acid">0.1M 아세트산 (Weak Acid)</option>
+                    <option value="base">0.1M 아세트산 나트륨 (Weak Base)</option>
+                    <option value="buffer">완충 용액 (Buffer: Acid+Base)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>2. 1.0M HCl 첨가량 (<span id="acidAmountDisplay">0</span> mL)</label>
+                <input type="range" id="acidSlider" min="0" max="10" step="0.5" value="0" oninput="updateSimulation()">
+            </div>
+
+            <div class="stat-row">
+                <span>현재 pH:</span>
+                <strong id="currentPH">7.00</strong>
+            </div>
+            <div class="stat-row">
+                <span>pH 변화량(ΔpH):</span>
+                <strong id="deltaPH" style="color:#d946ef">0.00</strong>
+            </div>
+
+            <button class="reset" onclick="resetExperiment()">🔄 실험 다시하기</button>
+
+            <div class="feedback-box" id="feedbackMsg">
+                실험을 시작해 볼까요? 용액을 선택하고 슬라이더를 움직여 산을 넣어보세요.
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📊 실시간 결과 분석</h2>
+            
+            <div class="experiment-area">
+                <div class="dropper" id="dropper">💧</div>
+                <div class="ph-meter" id="phDisplay">7.00</div>
+                <div class="beaker">
+                    <div class="liquid" id="liquid"></div>
+                </div>
+            </div>
+
+            <canvas id="phChart" height="150"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Simulation State
+        let currentSolution = 'water';
+        let acidAdded = 0;
+        let initialPH = 7.0;
+        let chart;
+
+        // Configuration for Solutions (Simplified Chemical Model for Demo)
+        const solutions = {
+            water: { name: "증류수", startPH: 7.00, type: "neutral" },
+            acid: { name: "아세트산", startPH: 2.87, type: "weak_acid" },
+            base: { name: "아세트산 나트륨", startPH: 8.87, type: "weak_base" },
+            buffer: { name: "완충 용액", startPH: 4.75, type: "buffer" }
+        };
+
+        // Initialize Chart
+        function initChart() {
+            const ctx = document.getElementById('phChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [0],
+                    datasets: [{
+                        label: 'pH 변화 추이',
+                        data: [7],
+                        borderColor: '#4F46E5',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        fill: true,
+                        tension: 0.3
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: { min: 0, max: 14, title: { display: true, text: 'pH' } },
+                        x: { title: { display: true, text: '첨가된 HCl (mL)' } }
+                    },
+                    animation: { duration: 0 } // Disable animation for instant feedback
+                }
+            });
+        }
+
+        // Calculate pH Logic (Simplified for educational visualization)
+        function calculatePH(solType, acidAmount) {
+            let ph = 7.0;
+            // Base logic approximates behavior rather than exact moles to ensure clarity in visual UI
+            if (solType === 'water') {
+                // Steep drop
+                if(acidAmount === 0) return 7.00;
+                ph = 7.0 - (Math.log10(acidAmount * 10 + 1) * 6); 
+                if (ph < 1) ph = 1.0;
+            } else if (solType === 'acid') {
+                // Starts low, drops slowly
+                ph = 2.87 - (Math.log10(acidAmount + 1) * 0.5);
+            } else if (solType === 'base') {
+                // Starts high, drops fast until neutralized
+                ph = 8.87 - (acidAmount * 0.8);
+            } else if (solType === 'buffer') {
+                // Buffer capacity: resists change
+                // Henderson-Hasselbalch simulation: pH = pKa + log([A-]/[HA])
+                // Adding HCl consumes A- and produces HA.
+                let ratio = (10 - acidAmount) / (10 + acidAmount); // Simplified ratio change
+                if (ratio <= 0) ratio = 0.001;
+                ph = 4.75 + Math.log10(ratio) * 0.5; // *0.5 to simulate strong buffering capacity
+            }
+            return parseFloat(ph.toFixed(2));
+        }
+
+        // Color mapper based on pH (Universal Indicator style)
+        function getPHColor(ph) {
+            if (ph < 3) return '#EF4444'; // Red (Acid)
+            if (ph < 5) return '#F59E0B'; // Orange
+            if (ph < 7) return '#FCD34D'; // Yellow
+            if (ph >= 7 && ph < 8) return '#10B981'; // Green (Neutral)
+            if (ph < 10) return '#3B82F6'; // Blue
+            return '#8B5CF6'; // Purple (Base)
+        }
+
+        function updateSimulation() {
+            const slider = document.getElementById('acidSlider');
+            acidAdded = parseFloat(slider.value);
+            currentSolution = document.getElementById('solutionSelect').value;
+            
+            document.getElementById('acidAmountDisplay').innerText = acidAdded;
+
+            // Dropper Animation
+            const dropper = document.getElementById('dropper');
+            if (acidAdded > 0) {
+                dropper.style.opacity = 1;
+                dropper.style.top = '40px';
+            } else {
+                dropper.style.opacity = 0;
+                dropper.style.top = '10px';
+            }
+
+            // Calculate pH
+            const newPH = calculatePH(currentSolution, acidAdded);
+            const delta = (initialPH - newPH).toFixed(2);
+
+            // Update DOM
+            document.getElementById('currentPH').innerText = newPH;
+            document.getElementById('phDisplay').innerText = newPH;
+            document.getElementById('deltaPH').innerText = delta;
+            
+            // Update Liquid Color
+            document.getElementById('liquid').style.backgroundColor = getPHColor(newPH);
+            // Slightly increase liquid height
+            document.getElementById('liquid').style.height = `${60 + acidAdded}%`;
+
+            // Update Chart
+            updateChartData(acidAdded, newPH);
+
+            // Update Feedback
+            provideFeedback(currentSolution, delta, acidAdded);
+        }
+
+        function updateChartData(x, y) {
+            // Re-generate data array for smooth curve visualization
+            // In a real app, we might just push, but here we regenerate to show history based on current selection
+            const labels = [];
+            const data = [];
+            for(let i=0; i<=x; i+=0.5) {
+                labels.push(i);
+                data.push(calculatePH(currentSolution, i));
+            }
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = data;
+            chart.update();
+        }
+
+        function provideFeedback(type, delta, amount) {
+            const msgBox = document.getElementById('feedbackMsg');
+            if (amount === 0) {
+                msgBox.innerHTML = `<strong>${solutions[type].name}</strong>이 준비되었습니다. 초기 pH는 <strong>${solutions[type].startPH}</strong>입니다. 산을 조금씩 넣어보세요.`;
+                return;
+            }
+
+            if (type === 'buffer') {
+                msgBox.innerHTML = `📢 <strong>관찰하세요:</strong> 산을 ${amount}mL나 넣었는데도 pH 변화가 <strong>${delta}</strong> 밖에 되지 않습니다! <br>이것이 바로 <strong>완충 작용</strong>입니다. 용액 속의 짝염기가 들어온 H+ 이온을 제거하고 있습니다.`;
+            } else if (type === 'water') {
+                msgBox.innerHTML = `⚠️ <strong>위험!</strong> 산을 넣자마자 pH가 급격하게 떨어졌습니다. 증류수는 외부의 산 공격을 방어할 능력이 전혀 없습니다.`;
+            } else {
+                msgBox.innerHTML = `관찰: pH가 점차 변하고 있습니다. 완충 용액과 비교했을 때 변화폭이 어떤가요?`;
+            }
+        }
+
+        function resetExperiment() {
+            document.getElementById('acidSlider').value = 0;
+            const sel = document.getElementById('solutionSelect').value;
+            initialPH = solutions[sel].startPH;
+            currentSolution = sel;
+            
+            updateSimulation();
+        }
+
+        // Init
+        window.onload = function() {
+            initChart();
+            resetExperiment();
+        };
+
+    </script>
+</body>
+</html>

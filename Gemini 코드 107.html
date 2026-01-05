@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: pH 측정 및 예측</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --accent-color: #FF6B6B;
+            --bg-color: #F7F9FC;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9em; color: #666; }
+        
+        .main-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        /* Control Panel */
+        .panel {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357ABD; }
+        button.reset { background-color: var(--accent-color); }
+
+        /* Experiment Area */
+        .lab-bench {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 300px;
+            position: relative;
+        }
+
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border: 3px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background: rgba(255,255,255,0.5);
+            overflow: hidden;
+            box-shadow: inset 0 -10px 20px rgba(0,0,0,0.05);
+        }
+
+        .solution {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 70%;
+            background-color: #E0F7FA; /* Default Water */
+            transition: background-color 1s ease, height 1s ease;
+        }
+
+        .ph-meter {
+            width: 120px;
+            background: #333;
+            color: #0f0;
+            padding: 10px;
+            text-align: center;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            border: 2px solid #555;
+            box-shadow: 0 0 10px rgba(0,255,0,0.2);
+        }
+
+        .ph-strip {
+            width: 40px;
+            height: 100px;
+            background: #fff;
+            border: 1px solid #ccc;
+            margin-top: 10px;
+            transition: background-color 1s;
+            position: absolute;
+            right: -60px;
+            bottom: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            writing-mode: vertical-rl;
+            font-size: 0.8em;
+        }
+
+        /* Info & Quiz */
+        .info-panel p { margin: 5px 0; }
+        .formula {
+            background: #eee;
+            padding: 5px;
+            border-radius: 4px;
+            text-align: center;
+            font-style: italic;
+        }
+        
+        .quiz-section {
+            margin-top: 20px;
+            border-top: 2px dashed #ddd;
+            padding-top: 10px;
+        }
+        .feedback {
+            margin-top: 10px;
+            font-weight: bold;
+            padding: 10px;
+            border-radius: 5px;
+        }
+        .feedback.correct { background-color: #d4edda; color: #155724; }
+        .feedback.wrong { background-color: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 가상 화학 실험실: pH 측정</h1>
+    <div class="subtitle">고등학교 화학Ⅰ - 산과 염기</div>
+</header>
+
+<div class="main-container">
+    <div class="panel">
+        <h3>1. 실험 설정</h3>
+        <div class="control-group">
+            <label for="chemical">용액 선택:</label>
+            <select id="chemical">
+                <option value="water">순수한 물 (H₂O)</option>
+                <option value="HCl">염산 (HCl) - 강산</option>
+                <option value="NaOH">수산화나트륨 (NaOH) - 강염기</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <label for="concentration">초기 농도 (몰 농도):</label>
+            <select id="concentration">
+                <option value="0.1">0.1 M</option>
+                <option value="0.01">0.01 M</option>
+            </select>
+        </div>
+        <div class="control-group">
+            <button onclick="measurePH()">🔬 pH 측정하기</button>
+            <button onclick="dilute()">💧 증류수 추가 (10배 희석)</button>
+            <button class="reset" onclick="resetExperiment()">🔄 실험 초기화</button>
+        </div>
+        
+        <div class="quiz-section">
+            <h3>📝 개념 퀴즈</h3>
+            <p id="quiz-question">용액을 선택하고 측정해보세요.</p>
+            <div id="quiz-options"></div>
+            <div id="quiz-feedback" class="feedback" style="display:none;"></div>
+        </div>
+    </div>
+
+    <div class="panel lab-bench">
+        <h3>2. 실험 관찰</h3>
+        <div class="ph-meter" id="ph-display">--.--</div>
+        <div class="beaker">
+            <div class="solution" id="solution-visual"></div>
+        </div>
+        <div class="ph-strip" id="ph-strip">시험지</div>
+        <p style="margin-top:10px; font-size:0.8em; color:#666;">* 실제 실험실에서는 보안경을 꼭 착용하세요!</p>
+    </div>
+
+    <div class="panel info-panel">
+        <h3>3. 결과 및 이론 분석</h3>
+        <p><strong>현재 용액:</strong> <span id="current-sol">--</span></p>
+        <p><strong>현재 농도:</strong> <span id="current-conc">--</span> M</p>
+        <div class="formula">pH = -log[H⁺]</div>
+        <hr>
+        <p><strong>계산된 [H⁺]:</strong> <span id="calc-h">--</span> M</p>
+        <p><strong>이론적 pH:</strong> <span id="calc-ph">--</span></p>
+        <hr>
+        <p><strong>💡 핵심 포인트:</strong></p>
+        <ul style="font-size: 0.9em; padding-left: 20px;">
+            <li>pH가 1 감소하면 [H⁺]는 10배 증가합니다.</li>
+            <li>pH + pOH = 14 (25℃ 기준)</li>
+            <li>물은 자동 이온화하여 pH 7을 나타냅니다.</li>
+        </ul>
+    </div>
+</div>
+
+<script>
+    let currentPh = 7.0;
+    let currentConc = 0;
+    let currentChemical = 'water';
+    let isDiluted = false;
+
+    const phColors = {
+        1: '#EE3E32', 2: '#F37D33', 3: '#F8B635', 4: '#F6D338', 5: '#CAD93F',
+        6: '#9ACD32', 7: '#4DB748', 8: '#2EAE63', 9: '#00A388', 10: '#0097A7',
+        11: '#0079C1', 12: '#1D4E89', 13: '#4B367C', 14: '#662D91'
+    };
+
+    function getPhColor(ph) {
+        let roundedPh = Math.round(ph);
+        if (roundedPh < 1) roundedPh = 1;
+        if (roundedPh > 14) roundedPh = 14;
+        return phColors[roundedPh];
+    }
+
+    function calculatePH(chem, conc) {
+        if (chem === 'water') return 7.0;
+        
+        // Strong Acid: [H+] = conc
+        if (chem === 'HCl') {
+            return -Math.log10(conc);
+        }
+        
+        // Strong Base: [OH-] = conc => pOH = -log[OH-], pH = 14 - pOH
+        if (chem === 'NaOH') {
+            let pOH = -Math.log10(conc);
+            return 14.0 - pOH;
+        }
+        return 7.0;
+    }
+
+    function measurePH() {
+        const chemSelect = document.getElementById('chemical');
+        const concSelect = document.getElementById('concentration');
+        
+        currentChemical = chemSelect.options[chemSelect.selectedIndex].text;
+        let baseConc = parseFloat(concSelect.value);
+        
+        // Apply dilution if active
+        currentConc = isDiluted ? baseConc / 10 : baseConc;
+        
+        // Calculate theoretical pH
+        let chemicalType = chemSelect.value;
+        currentPh = calculatePH(chemicalType, currentConc);
+
+        updateVisuals(chemicalType);
+        updateInfo(chemicalType);
+        generateQuiz(chemicalType, currentPh);
+    }
+
+    function dilute() {
+        if (isDiluted) {
+            alert("이미 희석되었습니다. 실험을 초기화하세요.");
+            return;
+        }
+        isDiluted = true;
+        measurePH(); // Re-measure with new concentration
+        document.getElementById('solution-visual').style.height = '90%'; // Increase volume visual
+    }
+
+    function resetExperiment() {
+        isDiluted = false;
+        document.getElementById('ph-display').innerText = "--.--";
+        document.getElementById('solution-visual').style.backgroundColor = '#E0F7FA';
+        document.getElementById('solution-visual').style.height = '70%';
+        document.getElementById('ph-strip').style.backgroundColor = '#fff';
+        document.getElementById('current-sol').innerText = "--";
+        document.getElementById('current-conc').innerText = "--";
+        document.getElementById('calc-h').innerText = "--";
+        document.getElementById('calc-ph').innerText = "--";
+        document.getElementById('quiz-feedback').style.display = 'none';
+        document.getElementById('quiz-question').innerText = "용액을 선택하고 측정해보세요.";
+        document.getElementById('quiz-options').innerHTML = "";
+    }
+
+    function updateVisuals(chemType) {
+        // Meter Animation
+        let display = document.getElementById('ph-display');
+        let targetPh = currentPh;
+        let tempPh = (Math.random() * 14).toFixed(2);
+        
+        let interval = setInterval(() => {
+            display.innerText = (Math.random() * 14).toFixed(2);
+        }, 50);
+
+        setTimeout(() => {
+            clearInterval(interval);
+            display.innerText = targetPh.toFixed(2);
+            
+            // Color Change
+            let color = getPhColor(targetPh);
+            if(chemType === 'water') color = '#E0F7FA'; // Keep water looking like water unless indicated
+            
+            // However, for pH strip, always show color
+            document.getElementById('ph-strip').style.backgroundColor = getPhColor(targetPh);
+            
+            // Solution tint (subtle)
+            document.getElementById('solution-visual').style.backgroundColor = color + '88'; // Add transparency
+        }, 800);
+    }
+
+    function updateInfo(chemType) {
+        document.getElementById('current-sol').innerText = currentChemical;
+        document.getElementById('current-conc').innerText = currentConc; // Floating point precision might need handling
+        
+        let hConc;
+        if (chemType === 'water') hConc = 1e-7;
+        else if (chemType === 'HCl') hConc = currentConc;
+        else if (chemType === 'NaOH') hConc = Math.pow(10, -currentPh);
+        
+        // Format scientific notation
+        document.getElementById('calc-h').innerText = hConc.toExponential(1);
+        document.getElementById('calc-ph').innerText = currentPh.toFixed(2);
+    }
+
+    function generateQuiz(chemType, ph) {
+        const qSection = document.getElementById('quiz-question');
+        const oSection = document.getElementById('quiz-options');
+        const fSection = document.getElementById('quiz-feedback');
+        
+        fSection.style.display = 'none';
+        oSection.innerHTML = '';
+
+        let question = "";
+        let answers = [];
+        let correctIndex = 0;
+
+        if (chemType === 'water') {
+            question = "순수한 물의 pH가 7인 이유는 무엇일까요?";
+            answers = ["이온이 전혀 없어서", "H⁺와 OH⁻의 농도가 같아서", "산성이기 때문에"];
+            correctIndex = 1;
+        } else if (isDiluted) {
+            question = `용액을 10배 희석했을 때 pH는 어떻게 변했나요?`;
+            if (ph < 7) { // Acid
+                answers = ["1만큼 증가했다", "1만큼 감소했다", "변하지 않았다"];
+                correctIndex = 0;
+            } else { // Base
+                answers = ["1만큼 증가했다", "1만큼 감소했다", "변하지 않았다"];
+                correctIndex = 1;
+            }
+        } else {
+            question = `현재 농도(${currentConc}M)에서 pH가 ${ph}인 이유는?`;
+            answers = ["농도와 pH는 관계없다", `로그 계산 결과 -log(${currentConc}) 값이다`, "온도가 높아서 그렇다"];
+            correctIndex = 1;
+        }
+
+        qSection.innerText = question;
+
+        answers.forEach((ans, idx) => {
+            let btn = document.createElement('button');
+            btn.innerText = ans;
+            btn.style.marginTop = '5px';
+            btn.style.backgroundColor = '#fff';
+            btn.style.color = '#333';
+            btn.onclick = () => checkAnswer(idx, correctIndex);
+            oSection.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected, correct) {
+        const fSection = document.getElementById('quiz-feedback');
+        fSection.style.display = 'block';
+        if (selected === correct) {
+            fSection.className = 'feedback correct';
+            fSection.innerText = "✅ 정답입니다! 개념을 정확히 이해했네요.";
+        } else {
+            fSection.className = 'feedback wrong';
+            fSection.innerText = "❌ 다시 생각해보세요. pH는 수소 이온 농도의 로그 함수입니다.";
+        }
+    }
+</script>
+
+</body>
+</html>

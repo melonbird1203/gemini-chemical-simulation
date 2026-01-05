@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 증기압 내림과 라울의 법칙</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50E3C2;
+            --danger-color: #FF5F5F;
+            --text-color: #333;
+            --bg-color: #F5F7FA;
+            --panel-bg: #FFFFFF;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 20px;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        select, input[type="range"], button {
+            width: 100%;
+            padding: 8px;
+            border-radius: 6px;
+            border: 1px solid #ddd;
+            font-size: 1rem;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background 0.3s;
+            margin-top: 10px;
+        }
+        button:hover {
+            background-color: #357ABD;
+        }
+        
+        .value-display {
+            font-size: 1.2rem;
+            color: var(--primary-color);
+            font-weight: bold;
+            text-align: right;
+        }
+
+        /* Simulation Area */
+        .sim-area {
+            position: relative;
+            height: 400px;
+            background: #eef2f5;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 2px solid #ccc;
+        }
+        
+        #particleCanvas {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Manometer Animation */
+        .manometer-container {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 60px;
+            height: 200px;
+            background: rgba(255,255,255,0.8);
+            border: 1px solid #aaa;
+            border-radius: 4px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+        }
+        .mercury-column {
+            width: 20px;
+            background: linear-gradient(to right, #777, #aaa, #777);
+            transition: height 0.5s ease-out;
+            border-radius: 2px 2px 0 0;
+        }
+        .manometer-label {
+            font-size: 0.8rem;
+            margin-bottom: 5px;
+        }
+
+        /* Graph & Data */
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 6px;
+            text-align: center;
+        }
+        .data-table th {
+            background-color: #f0f0f0;
+        }
+
+        #graphCanvas {
+            width: 100%;
+            height: 150px;
+            margin-top: 10px;
+            border: 1px solid #eee;
+        }
+
+        /* Quiz & Feedback */
+        .quiz-section {
+            grid-column: 1 / -1;
+            background: #e8f4fd;
+            border-left: 5px solid var(--primary-color);
+        }
+        .feedback-box {
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff;
+            border-radius: 6px;
+            font-size: 0.95rem;
+            display: none;
+        }
+        .feedback-box.correct { border: 1px solid var(--secondary-color); color: #00796B; }
+        .feedback-box.incorrect { border: 1px solid var(--danger-color); color: #C62828; }
+
+        .safety-note {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 10px;
+            padding: 10px;
+            background: #fff3cd;
+            border-radius: 6px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 증기압 내림 (Raoult's Law)</h1>
+
+    <div class="container">
+        <div class="panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label for="solventSelect">용매 선택 (순수 증기압 $P^0$)</label>
+                <select id="solventSelect" onchange="updateSystem()">
+                    <option value="water">물 ($P^0 = 24$ mmHg)</option>
+                    <option value="benzene">벤젠 ($P^0 = 95$ mmHg)</option>
+                    <option value="acetone">아세톤 ($P^0 = 230$ mmHg)</option>
+                </select>
+                <div class="safety-note">
+                    ⚠️ <strong>안전 주의:</strong> 실제 실험실에서 벤젠과 아세톤은 인화성이 강하고 유독하므로 반드시 후드(Hood) 안에서 다뤄야 합니다.
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="soluteSlider">용질의 몰분율 ($X_{solute}$)</label>
+                <input type="range" id="soluteSlider" min="0" max="0.2" step="0.01" value="0" oninput="updateSystem()">
+                <div class="value-display" id="soluteDisplay">0.00</div>
+            </div>
+            
+            <div class="control-group">
+                <label>용질 종류</label>
+                <select id="soluteType">
+                    <option>설탕 (비휘발성/비전해질)</option>
+                    <option>포도당 (비휘발성/비전해질)</option>
+                </select>
+            </div>
+
+            <button onclick="resetExperiment()">🔄 실험 초기화</button>
+        </div>
+
+        <div class="panel" style="display: flex; flex-direction: column;">
+            <h3>👁️ 입자 모형 & 압력계</h3>
+            <div class="sim-area">
+                <canvas id="particleCanvas"></canvas>
+                <div class="manometer-container">
+                    <span class="manometer-label">압력</span>
+                    <div class="mercury-column" id="mercuryColumn" style="height: 100%;"></div>
+                </div>
+                <div style="position: absolute; bottom: 10px; left: 10px; background: rgba(255,255,255,0.7); padding: 5px; border-radius: 4px; font-size: 0.8rem;">
+                    🔵 용매 입자 (증발 가능)<br>
+                    🔴 용질 입자 (증발 불가)
+                </div>
+            </div>
+            <p style="text-align: center; font-size: 0.9rem; color: #555;">
+                * 용질 입자가 표면을 막아 용매의 증발을 방해하는 모습을 관찰하세요.
+            </p>
+        </div>
+
+        <div class="panel">
+            <h3>📊 실시간 데이터</h3>
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>변수</th>
+                        <th>값</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>순수 증기압 ($P^0$)</td>
+                        <td id="valP0">-</td>
+                    </tr>
+                    <tr>
+                        <td>용매 몰분율 ($X_{solv}$)</td>
+                        <td id="valXsolv">-</td>
+                    </tr>
+                    <tr>
+                        <td><strong>용액 증기압 ($P$)</strong></td>
+                        <td id="valP" style="color: var(--primary-color); font-weight: bold;">-</td>
+                    </tr>
+                    <tr>
+                        <td>증기압 내림 ($\Delta P$)</td>
+                        <td id="valDeltaP">-</td>
+                    </tr>
+                </tbody>
+            </table>
+
+            <h3>📈 $X_{solute}$ vs $P$ 그래프</h3>
+            <canvas id="graphCanvas"></canvas>
+        </div>
+
+        <div class="panel quiz-section">
+            <h3>💡 개념 확인 퀴즈</h3>
+            <p id="quizQuestion">현재 상태에서 용질의 몰분율을 0.1 증가시키면 증기압은 어떻게 변할까요?</p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="checkAnswer('decrease')">감소한다</button>
+                <button onclick="checkAnswer('increase')">증가한다</button>
+                <button onclick="checkAnswer('same')">변하지 않는다</button>
+            </div>
+            <div id="feedbackBox" class="feedback-box"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Scientific Constants & State ---
+        const solvents = {
+            water: { p0: 24, color: '#3498db', name: '물' }, // 25C
+            benzene: { p0: 95, color: '#9b59b6', name: '벤젠' },
+            acetone: { p0: 230, color: '#e74c3c', name: '아세톤' }
+        };
+
+        let state = {
+            solvent: 'water',
+            xSolute: 0.0,
+            particles: []
+        };
+
+        // --- 2. Canvas & Physics Setup ---
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        let animationId;
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.offsetWidth;
+            canvas.height = canvas.parentElement.offsetHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        class Particle {
+            constructor(type, isGas = false) {
+                this.type = type; // 'solvent' or 'solute'
+                this.isGas = isGas;
+                this.r = type === 'solute' ? 6 : 3;
+                this.x = Math.random() * canvas.width;
+                // Liquid particles at bottom, Gas everywhere
+                this.y = isGas ? Math.random() * (canvas.height * 0.6) : (canvas.height * 0.6) + Math.random() * (canvas.height * 0.4);
+                
+                this.vx = (Math.random() - 0.5) * (type === 'solvent' ? 2 : 0.5);
+                this.vy = (Math.random() - 0.5) * (type === 'solvent' ? 2 : 0.5);
+            }
+
+            move() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundaries
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                
+                if (this.isGas) {
+                    // Gas bounces around top area
+                    if (this.y < 0 || this.y > canvas.height * 0.6) this.vy *= -1;
+                } else {
+                    // Liquid stays in bottom area
+                    if (this.y < canvas.height * 0.6 || this.y > canvas.height) this.vy *= -1;
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+                if (this.type === 'solute') {
+                    ctx.fillStyle = '#FF5F5F'; // Red
+                } else {
+                    ctx.fillStyle = solvents[state.solvent].color;
+                }
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // --- 3. Main Logic Functions ---
+
+        function initParticles() {
+            state.particles = [];
+            const totalParticles = 100;
+            const soluteCount = Math.floor(totalParticles * state.xSolute);
+            const solventCount = totalParticles - soluteCount;
+
+            // Liquid Phase
+            for(let i=0; i<soluteCount; i++) state.particles.push(new Particle('solute'));
+            for(let i=0; i<solventCount; i++) state.particles.push(new Particle('solvent'));
+
+            // Gas Phase (Simplified representation of vapor pressure)
+            // Number of gas particles is proportional to vapor pressure
+            const p0 = solvents[state.solvent].p0;
+            const pSolution = p0 * (1 - state.xSolute);
+            
+            // Normalize gas count for visual comfort (max approx 30 particles)
+            const gasCount = Math.floor((pSolution / 230) * 30); 
+            
+            for(let i=0; i<gasCount; i++) state.particles.push(new Particle('solvent', true));
+        }
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Draw Liquid Surface Line
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height * 0.6);
+            ctx.lineTo(canvas.width, canvas.height * 0.6);
+            ctx.strokeStyle = '#aaa';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            state.particles.forEach(p => {
+                p.move();
+                p.draw();
+            });
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function updateGraph() {
+            const gCanvas = document.getElementById('graphCanvas');
+            const gCtx = gCanvas.getContext('2d');
+            gCanvas.width = gCanvas.parentElement.offsetWidth;
+            gCanvas.height = 150;
+
+            const p0 = solvents[state.solvent].p0;
+            
+            // Clear & Draw Axes
+            gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+            gCtx.beginPath();
+            gCtx.moveTo(40, 10);
+            gCtx.lineTo(40, 130); // Y axis
+            gCtx.lineTo(gCanvas.width - 10, 130); // X axis
+            gCtx.stroke();
+
+            // Labels
+            gCtx.fillStyle = '#666';
+            gCtx.font = '10px Arial';
+            gCtx.fillText('P (mmHg)', 5, 15);
+            gCtx.fillText('X_solute', gCanvas.width - 40, 145);
+
+            // Plot Line (Theoretical Raoult's Law)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#ccc';
+            gCtx.setLineDash([5, 5]);
+            
+            // Point 1: X=0, Y=P0
+            const yStart = 130 - (p0 / 250) * 120; // Scale factor
+            gCtx.moveTo(40, yStart);
+            
+            // Point 2: X=0.2, Y=P0*(0.8)
+            const pEnd = p0 * 0.8;
+            const yEnd = 130 - (pEnd / 250) * 120;
+            const xEnd = 40 + (0.2 / 0.25) * (gCanvas.width - 50); // Scale X so 0.25 fills width
+            
+            gCtx.lineTo(xEnd, yEnd);
+            gCtx.stroke();
+            gCtx.setLineDash([]);
+
+            // Plot Current Point
+            const currentP = p0 * (1 - state.xSolute);
+            const currentY = 130 - (currentP / 250) * 120;
+            const currentX = 40 + (state.xSolute / 0.25) * (gCanvas.width - 50);
+
+            gCtx.beginPath();
+            gCtx.arc(currentX, currentY, 5, 0, Math.PI * 2);
+            gCtx.fillStyle = varColor = '#FF5F5F';
+            gCtx.fill();
+        }
+
+        function updateSystem() {
+            // Get Inputs
+            state.solvent = document.getElementById('solventSelect').value;
+            state.xSolute = parseFloat(document.getElementById('soluteSlider').value);
+
+            // Calculations
+            const p0 = solvents[state.solvent].p0;
+            const xSolv = 1 - state.xSolute;
+            const pSolution = p0 * xSolv;
+            const deltaP = p0 - pSolution;
+
+            // UI Updates
+            document.getElementById('soluteDisplay').innerText = state.xSolute.toFixed(2);
+            document.getElementById('valP0').innerText = p0;
+            document.getElementById('valXsolv').innerText = xSolv.toFixed(2);
+            document.getElementById('valP').innerText = pSolution.toFixed(1) + " mmHg";
+            document.getElementById('valDeltaP').innerText = deltaP.toFixed(1);
+
+            // Update Manometer (Height proportional to Pressure)
+            // Max P is 230 (Acetone), let's map that to 100% height
+            const heightPercent = (pSolution / 250) * 100;
+            document.getElementById('mercuryColumn').style.height = `${heightPercent}%`;
+
+            // Re-init Particles & Graph
+            initParticles();
+            updateGraph();
+        }
+
+        function resetExperiment() {
+            document.getElementById('soluteSlider').value = 0;
+            document.getElementById('solventSelect').value = 'water';
+            updateSystem();
+            document.getElementById('feedbackBox').style.display = 'none';
+        }
+
+        // --- 4. Quiz Logic ---
+        function checkAnswer(answer) {
+            const feedback = document.getElementById('feedbackBox');
+            feedback.style.display = 'block';
+            
+            // Logic: Increasing solute always decreases vapor pressure
+            if (answer === 'decrease') {
+                feedback.className = 'feedback-box correct';
+                feedback.innerHTML = "✅ <strong>정답입니다!</strong><br>용질 입자가 용매 표면의 일부를 차지하여 용매가 증발하는 것을 방해하므로 증기압은 낮아집니다. (라울의 법칙)";
+            } else {
+                feedback.className = 'feedback-box incorrect';
+                feedback.innerHTML = "❌ <strong>다시 생각해보세요.</strong><br>비휘발성 용질이 들어가면 표면에 있는 용매 입자 수가 줄어듭니다. 증발이 더 잘 일어날까요, 덜 일어날까요?";
+            }
+        }
+
+        // Initial Start
+        updateSystem();
+        animate();
+
+    </script>
+</body>
+</html>

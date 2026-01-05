@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 산화제와 환원제의 구분 (SO₂)</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --secondary: #10B981;
+            --danger: #EF4444;
+            --bg: #F3F4F6;
+            --card: #FFFFFF;
+            --text: #1F2937;
+        }
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 900px;
+            width: 100%;
+            background: var(--card);
+            border-radius: 16px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            box-sizing: border-box;
+        }
+        h1 {
+            text-align: center;
+            color: var(--primary);
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            text-align: center;
+            color: #6B7280;
+            margin-bottom: 30px;
+            font-size: 0.95em;
+        }
+        
+        /* Control Panel */
+        .controls {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-bottom: 30px;
+            background: #EEF2FF;
+            padding: 15px;
+            border-radius: 12px;
+        }
+        select, button {
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 1px solid #D1D5DB;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        button.primary {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            font-weight: bold;
+        }
+        button.primary:hover {
+            background-color: #4338CA;
+        }
+        button.toggle {
+            background-color: white;
+            color: var(--text);
+        }
+        button.toggle.active {
+            background-color: var(--secondary);
+            color: white;
+            border-color: var(--secondary);
+        }
+
+        /* Simulation Area */
+        .simulation-stage {
+            border: 2px solid #E5E7EB;
+            border-radius: 12px;
+            height: 300px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            background: #FAFAFA;
+            margin-bottom: 20px;
+        }
+        .molecule {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0 30px;
+            transition: all 1s ease;
+            position: relative;
+        }
+        .atom-group {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            padding: 15px;
+            background: white;
+            border-radius: 50%;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            border: 3px solid #E5E7EB;
+            min-width: 60px;
+            justify-content: center;
+        }
+        .ox-num {
+            font-size: 0.8rem;
+            color: var(--danger);
+            font-weight: bold;
+            margin-top: 5px;
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .ox-num.visible {
+            opacity: 1;
+        }
+        
+        /* Animation Elements */
+        .electron {
+            width: 12px;
+            height: 12px;
+            background-color: #F59E0B; /* Yellow */
+            border-radius: 50%;
+            position: absolute;
+            display: none;
+            box-shadow: 0 0 8px #F59E0B;
+            z-index: 10;
+        }
+
+        /* Results & Quiz */
+        .equation-box {
+            text-align: center;
+            font-size: 1.2rem;
+            margin: 20px 0;
+            padding: 15px;
+            background: #F9FAFB;
+            border-radius: 8px;
+        }
+        .quiz-section {
+            margin-top: 30px;
+            border-top: 2px dashed #E5E7EB;
+            padding-top: 20px;
+            display: none;
+        }
+        .quiz-options {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            margin-top: 15px;
+        }
+        .feedback-box {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+        .feedback-correct { background-color: #D1FAE5; color: #065F46; }
+        .feedback-wrong { background-color: #FEE2E2; color: #991B1B; }
+
+        /* Helpers */
+        .badge {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-left: 5px;
+        }
+        .badge-ox { background-color: #DBEAFE; color: #1E40AF; } /* Blue for Ox */
+        .badge-red { background-color: #FCE7F3; color: #9D174D; } /* Pink for Red */
+
+        .safety-note {
+            margin-top: 20px;
+            font-size: 0.8rem;
+            color: #6B7280;
+            text-align: center;
+            background: #FEF3C7;
+            padding: 10px;
+            border-radius: 8px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🔬 가상 실험실: 산화제와 환원제</h1>
+    <div class="subtitle">이산화 황(SO₂)은 누구를 만나느냐에 따라 역할이 달라집니다.</div>
+
+    <div class="controls">
+        <label style="display:flex; align-items:center; gap:10px;">
+            <strong>실험 선택:</strong>
+            <select id="reactionSelect">
+                <option value="react1">실험 A: SO₂ + Cl₂ (염소 기체와의 반응)</option>
+                <option value="react2">실험 B: SO₂ + H₂S (황화 수소와의 반응)</option>
+            </select>
+        </label>
+        <button class="primary" onclick="startExperiment()">실험 시작 ▶</button>
+        <button class="toggle" id="oxToggleBtn" onclick="toggleOxidationNumbers()">산화수 보기 OFF</button>
+    </div>
+
+    <div class="simulation-stage" id="stage">
+        <div style="text-align:center; color:#9CA3AF;">
+            실험을 선택하고 [실험 시작] 버튼을 눌러보세요.<br>
+            비커 안에서 일어나는 전자 이동을 관찰할 수 있습니다.
+        </div>
+    </div>
+    
+    <div id="electron" class="electron"></div>
+
+    <div class="equation-box" id="equationDisplay">
+        반응식 대기 중...
+    </div>
+
+    <div class="quiz-section" id="quizSection">
+        <h3>🤔 생각 넓히기: 이 반응에서 누가 '산화제'일까요?</h3>
+        <p>전자를 얻어 자신의 산화수가 감소한 물질을 찾아보세요.</p>
+        <div class="quiz-options" id="quizButtons">
+            </div>
+        <div class="feedback-box" id="feedback"></div>
+    </div>
+
+    <div class="safety-note">
+        ⚠️ <strong>안전 주의:</strong> 실제 실험실에서 SO₂와 Cl₂, H₂S는 독성이 강한 기체입니다. 반드시 후드(Hood) 내에서 보호 장구를 착용하고 수행해야 합니다. 이 시뮬레이션은 안전한 학습을 위해 제작되었습니다.
+    </div>
+</div>
+
+<script>
+    // --- Data & State ---
+    const reactions = {
+        react1: {
+            title: "SO₂ + Cl₂ + 2H₂O → H₂SO₄ + 2HCl",
+            reactants: [
+                { name: "SO₂", s_ox: "+4", role: "reduction_agent" }, // 환원제 (자신은 산화됨)
+                { name: "Cl₂", cl_ox: "0", role: "oxidizing_agent" }   // 산화제 (자신은 환원됨)
+            ],
+            products: [
+                { name: "SO₄²⁻", s_ox: "+6" },
+                { name: "Cl⁻", cl_ox: "-1" }
+            ],
+            desc: "황(S)의 산화수가 +4에서 +6으로 증가했습니다.<br>염소(Cl)의 산화수는 0에서 -1로 감소했습니다.",
+            electronFlow: "SO₂ → Cl₂", // 전자는 환원제에서 산화제로 이동
+            quizAnswer: "Cl₂",
+            quizExplanation: "Cl₂는 전자를 얻어(0 → -1) 환원되었습니다. 남을 산화시켰으므로 <strong>산화제</strong>입니다!"
+        },
+        react2: {
+            title: "2H₂S + SO₂ → 3S + 2H₂O",
+            reactants: [
+                { name: "SO₂", s_ox: "+4", role: "oxidizing_agent" }, // 산화제
+                { name: "H₂S", s_ox: "-2", role: "reduction_agent" }  // 환원제
+            ],
+            products: [
+                { name: "S", s_ox: "0" }
+            ],
+            desc: "SO₂의 황(S)은 +4에서 0으로 감소했습니다.<br>H₂S의 황(S)은 -2에서 0으로 증가했습니다.",
+            electronFlow: "H₂S → SO₂",
+            quizAnswer: "SO₂",
+            quizExplanation: "SO₂는 전자를 얻어(+4 → 0) 환원되었습니다. 남을 산화시켰으므로 <strong>산화제</strong>입니다!"
+        }
+    };
+
+    let currentReaction = null;
+    let showOxidation = false;
+
+    // --- Core Functions ---
+
+    function toggleOxidationNumbers() {
+        showOxidation = !showOxidation;
+        const btn = document.getElementById('oxToggleBtn');
+        const oxNums = document.querySelectorAll('.ox-num');
+        
+        if (showOxidation) {
+            btn.textContent = "산화수 보기 ON";
+            btn.classList.add('active');
+            oxNums.forEach(el => el.classList.add('visible'));
+        } else {
+            btn.textContent = "산화수 보기 OFF";
+            btn.classList.remove('active');
+            oxNums.forEach(el => el.classList.remove('visible'));
+        }
+    }
+
+    function startExperiment() {
+        const select = document.getElementById('reactionSelect');
+        const stage = document.getElementById('stage');
+        const eqDisplay = document.getElementById('equationDisplay');
+        const quizSection = document.getElementById('quizSection');
+        const feedback = document.getElementById('feedback');
+
+        // Reset UI
+        stage.innerHTML = '';
+        quizSection.style.display = 'none';
+        feedback.style.display = 'none';
+        currentReaction = reactions[select.value];
+
+        // 1. Render Reactants
+        const leftSide = document.createElement('div');
+        leftSide.className = 'molecule';
+        leftSide.innerHTML = `
+            <div class="atom-group" style="border-color:#60A5FA;">
+                ${currentReaction.reactants[0].name}
+            </div>
+            <div class="ox-num ${showOxidation ? 'visible' : ''}">S: ${currentReaction.reactants[0].s_ox}</div>
+        `;
+        
+        const rightSide = document.createElement('div');
+        rightSide.className = 'molecule';
+        const reactant2 = currentReaction.reactants[1];
+        // Dynamic ox label logic
+        let oxLabel = "";
+        if(reactant2.name === "Cl₂") oxLabel = `Cl: ${reactant2.cl_ox}`;
+        else oxLabel = `S: ${reactant2.s_ox}`;
+
+        rightSide.innerHTML = `
+            <div class="atom-group" style="border-color:#34D399;">
+                ${reactant2.name}
+            </div>
+            <div class="ox-num ${showOxidation ? 'visible' : ''}">${oxLabel}</div>
+        `;
+
+        stage.appendChild(leftSide);
+        
+        // Plus sign
+        const plus = document.createElement('div');
+        plus.innerHTML = "➕";
+        plus.style.fontSize = "1.5rem";
+        stage.appendChild(plus);
+
+        stage.appendChild(rightSide);
+
+        // Update Equation Text
+        eqDisplay.innerHTML = `<strong>반응식:</strong> ${currentReaction.title}`;
+
+        // 2. Animate Electrons (Wait a bit then animate)
+        setTimeout(() => {
+            runElectronAnimation(leftSide, rightSide);
+        }, 500);
+    }
+
+    function runElectronAnimation(leftEl, rightEl) {
+        const electron = document.getElementById('electron');
+        const stage = document.getElementById('stage');
+        const rectStage = stage.getBoundingClientRect();
+        
+        // Determine Start and End based on electron flow logic
+        // react1: SO2(Left) -> Cl2(Right)
+        // react2: H2S(Right) -> SO2(Left) logic needs to be mapped
+        
+        let startRect, endRect;
+        const selectValue = document.getElementById('reactionSelect').value;
+
+        if (selectValue === 'react1') {
+            // SO2 is Left, Cl2 is Right. Flow: Left -> Right
+            startRect = leftEl.getBoundingClientRect();
+            endRect = rightEl.getBoundingClientRect();
+        } else {
+            // SO2 is Left, H2S is Right. Flow: H2S -> SO2 (Right -> Left)
+            startRect = rightEl.getBoundingClientRect();
+            endRect = leftEl.getBoundingClientRect();
+        }
+
+        // Setup Electron Position relative to stage
+        electron.style.display = 'block';
+        electron.style.left = (startRect.left - rectStage.left + startRect.width/2) + 'px';
+        electron.style.top = (startRect.top - rectStage.top + startRect.height/2) + 'px';
+
+        // Animate
+        const animation = electron.animate([
+            { transform: 'scale(1)' },
+            { 
+                left: (endRect.left - rectStage.left + endRect.width/2) + 'px', 
+                top: (endRect.top - rectStage.top + endRect.height/2) + 'px',
+                transform: 'scale(1.5)',
+                background: '#EF4444' // Turn red during transfer
+            },
+            { transform: 'scale(1)', background: '#F59E0B' }
+        ], {
+            duration: 1500,
+            iterations: 2,
+            easing: 'ease-in-out'
+        });
+
+        animation.onfinish = () => {
+            electron.style.display = 'none';
+            showResult();
+        };
+    }
+
+    function showResult() {
+        const quizSection = document.getElementById('quizSection');
+        const quizButtons = document.getElementById('quizButtons');
+        const eqDisplay = document.getElementById('equationDisplay');
+
+        // Show changes description
+        eqDisplay.innerHTML += `<br><span style="color:#4B5563; font-size:0.9rem;">ℹ️ ${currentReaction.desc}</span>`;
+        
+        // Setup Quiz
+        quizSection.style.display = 'block';
+        quizButtons.innerHTML = '';
+
+        // Generate Buttons for Reactants
+        currentReaction.reactants.forEach(r => {
+            const btn = document.createElement('button');
+            btn.textContent = r.name;
+            btn.onclick = () => checkAnswer(r.name);
+            quizButtons.appendChild(btn);
+        });
+    }
+
+    function checkAnswer(selected) {
+        const feedback = document.getElementById('feedback');
+        feedback.style.display = 'block';
+        
+        if (selected === currentReaction.quizAnswer) {
+            feedback.className = 'feedback-box feedback-correct';
+            feedback.innerHTML = `✅ 정답입니다! <br> ${currentReaction.quizExplanation}`;
+        } else {
+            feedback.className = 'feedback-box feedback-wrong';
+            feedback.innerHTML = `❌ 다시 생각해보세요. <br> 산화제는 **자신은 환원되면서(산화수 감소)** 남을 산화시키는 물질입니다.`;
+        }
+    }
+</script>
+
+</body>
+</html>

@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 반응 속도 가상 실험실</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f4f8; }
+        .canvas-container { position: relative; width: 100%; height: 300px; background: white; border-radius: 8px; border: 2px solid #e2e8f0; overflow: hidden; }
+        .highlight { color: #2563eb; font-weight: bold; }
+        /* 슬라이더 스타일 */
+        input[type=range] { width: 100%; }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <header class="bg-blue-600 text-white p-4 shadow-lg">
+        <div class="max-w-6xl mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">🧪 화학 반응 속도 실험실</h1>
+                <p class="text-sm opacity-90">화학Ⅱ: 반응물과 생성물의 농도 변화와 평균 반응 속도</p>
+            </div>
+            <div class="text-right text-sm">
+                <p>목표: 그래프의 기울기를 통해 반응 속도 이해하기</p>
+            </div>
+        </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 gap-6 grid grid-cols-1 lg:grid-cols-3">
+        
+        <div class="lg:col-span-1 space-y-4">
+            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <h2 class="font-bold text-lg mb-3 border-b pb-2">⚙️ 실험 조작</h2>
+                
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">반응 유형 선택</label>
+                    <select id="reactionType" class="w-full border rounded p-2 text-sm bg-gray-50">
+                        <option value="1">1차 반응 (A → B)</option>
+                        <option value="2">가상의 빠른 반응 (2A → B)</option>
+                    </select>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">반응 속도 상수 (k)</label>
+                    <input type="range" id="rateConstant" min="0.05" max="0.3" step="0.01" value="0.1" class="accent-blue-600">
+                    <div class="text-right text-xs text-gray-500">느림 <span id="kValueDisplay">0.1</span> 빠름</div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="startSimulation()" id="btnStart" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded font-bold transition">▶ 반응 시작</button>
+                    <button onclick="resetSimulation()" id="btnReset" class="flex-1 bg-gray-500 hover:bg-gray-600 text-white py-2 rounded font-bold transition">↺ 초기화</button>
+                </div>
+            </div>
+
+            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <div class="flex justify-between items-center mb-2">
+                    <h2 class="font-bold text-lg">🔍 입자 모형 (Micro)</h2>
+                    <span class="text-sm bg-gray-100 px-2 py-1 rounded">Time: <span id="timerDisplay" class="text-red-600 font-bold">0.0</span>s</span>
+                </div>
+                <div class="canvas-container" id="simContainer">
+                    <canvas id="particleCanvas"></canvas>
+                </div>
+                <div class="flex justify-center gap-4 mt-2 text-sm">
+                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-red-500 mr-1"></span> 반응물 A: <span id="countA" class="font-mono font-bold ml-1">100</span></div>
+                    <div class="flex items-center"><span class="w-3 h-3 rounded-full bg-blue-500 mr-1"></span> 생성물 B: <span id="countB" class="font-mono font-bold ml-1">0</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="lg:col-span-2 space-y-4">
+            <div class="bg-white p-4 rounded-lg shadow border border-gray-200">
+                <h2 class="font-bold text-lg mb-2">📈 시간-농도 그래프 (Macro)</h2>
+                <div class="relative h-64 w-full">
+                    <canvas id="chartCanvas"></canvas>
+                </div>
+                <p class="text-xs text-gray-500 mt-2 text-center">* 그래프의 기울기가 가파를수록 반응 속도가 빠릅니다.</p>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="bg-white p-4 rounded-lg shadow border border-gray-200 h-64 overflow-y-auto">
+                    <h2 class="font-bold text-md mb-2">📊 실험 데이터</h2>
+                    <table class="w-full text-sm text-center border-collapse">
+                        <thead class="bg-gray-100 sticky top-0">
+                            <tr>
+                                <th class="p-2 border">시간(s)</th>
+                                <th class="p-2 border text-red-600">[A]</th>
+                                <th class="p-2 border text-blue-600">[B]</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-blue-50 p-4 rounded-lg shadow border border-blue-200">
+                    <h2 class="font-bold text-md mb-3 text-blue-800">🧮 평균 반응 속도 계산</h2>
+                    <p class="text-xs text-gray-600 mb-2">원하는 시간 구간을 입력하여 평균 속도를 확인하세요.</p>
+                    
+                    <div class="flex items-center gap-2 mb-2">
+                        <span class="text-sm">구간:</span>
+                        <input type="number" id="t1" class="w-12 p-1 border rounded text-center" placeholder="0">초 ~ 
+                        <input type="number" id="t2" class="w-12 p-1 border rounded text-center" placeholder="5">초
+                    </div>
+                    
+                    <button onclick="calculateRate()" class="w-full bg-blue-600 text-white py-1 rounded text-sm hover:bg-blue-700 mb-3">계산하기</button>
+                    
+                    <div id="resultBox" class="hidden bg-white p-3 rounded border border-blue-200 text-sm">
+                        <p><strong>Δt:</strong> <span id="resDt"></span>초</p>
+                        <p><strong>Δ[A]:</strong> <span id="resDA"></span> (감소)</p>
+                        <p class="mt-1 border-t pt-1"><strong>평균 반응 속도:</strong></p>
+                        <p class="text-lg text-center text-blue-700 font-bold"><span id="resRate"></span> 개/초</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+        // --- 설정 변수 ---
+        const PARTICLE_COUNT = 100;
+        const SIM_DURATION = 20; // 20초
+        let particles = [];
+        let time = 0;
+        let running = false;
+        let animationId;
+        let reactionRateK = 0.1;
+        let dataHistory = [];
+        let chartInstance = null;
+
+        // --- DOM 요소 ---
+        const canvas = document.getElementById('particleCanvas');
+        const ctx = canvas.getContext('2d');
+        const countADisplay = document.getElementById('countA');
+        const countBDisplay = document.getElementById('countB');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const dataTableBody = document.getElementById('dataTableBody');
+
+        // --- 캔버스 설정 ---
+        function resizeCanvas() {
+            canvas.width = document.getElementById('simContainer').offsetWidth;
+            canvas.height = document.getElementById('simContainer').offsetHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // --- 입자 클래스 ---
+        class Particle {
+            constructor() {
+                this.x = Math.random() * canvas.width;
+                this.y = Math.random() * canvas.height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.type = 'A'; // A: Red, B: Blue
+                this.radius = 4;
+            }
+
+            move() {
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // 벽 충돌
+                if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'A' ? '#ef4444' : '#3b82f6'; // Tailwind Red-500, Blue-500
+                ctx.fill();
+                ctx.closePath();
+            }
+        }
+
+        // --- 그래프 초기화 (Chart.js) ---
+        function initChart() {
+            const ctxChart = document.getElementById('chartCanvas').getContext('2d');
+            chartInstance = new Chart(ctxChart, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [
+                        { label: '반응물 [A]', data: [], borderColor: '#ef4444', tension: 0.4 },
+                        { label: '생성물 [B]', data: [], borderColor: '#3b82f6', tension: 0.4 }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    animation: { duration: 0 },
+                    scales: {
+                        x: { title: { display: true, text: '시간 (초)' }, max: 20 },
+                        y: { title: { display: true, text: '입자 수 (개)' }, min: 0, max: 100 }
+                    }
+                }
+            });
+        }
+
+        // --- 시뮬레이션 로직 ---
+        function initSimulation() {
+            particles = [];
+            for (let i = 0; i < PARTICLE_COUNT; i++) {
+                particles.push(new Particle());
+            }
+            time = 0;
+            dataHistory = [{t:0, a:100, b:0}];
+            updateDisplay();
+            updateTable(0, 100, 0, true);
+            
+            // 그래프 리셋
+            if(chartInstance) {
+                chartInstance.data.labels = [0];
+                chartInstance.data.datasets[0].data = [100];
+                chartInstance.data.datasets[1].data = [0];
+                chartInstance.update();
+            } else {
+                initChart();
+            }
+        }
+
+        function updateDisplay() {
+            const countA = particles.filter(p => p.type === 'A').length;
+            const countB = particles.filter(p => p.type === 'B').length;
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles.forEach(p => {
+                p.move();
+                p.draw();
+            });
+
+            countADisplay.innerText = countA;
+            countBDisplay.innerText = countB;
+            timerDisplay.innerText = time.toFixed(1);
+        }
+
+        function runLoop() {
+            if (!running) return;
+
+            // 1. 시간 증가
+            time += 0.05; // 프레임당 시간 (가속)
+
+            // 2. 반응 로직 (1차 반응 속도론 기반 확률적 변환)
+            // A -> B 확률: P = 1 - e^(-k*dt)
+            // 간단한 시뮬레이션을 위해 각 프레임마다 확률 체크
+            const prob = reactionRateK * 0.05; 
+            
+            particles.forEach(p => {
+                if (p.type === 'A' && Math.random() < prob) {
+                    p.type = 'B';
+                }
+            });
+
+            // 3. 데이터 기록 (0.5초 단위)
+            if (Math.floor(time * 10) % 5 === 0) { // 0.5초마다
+                const countA = particles.filter(p => p.type === 'A').length;
+                const countB = PARTICLE_COUNT - countA;
+                
+                // 데이터 중복 방지 (간단한 처리)
+                if (dataHistory.length === 0 || dataHistory[dataHistory.length-1].t < Math.floor(time * 2)/2) {
+                    const currentTime = parseFloat(time.toFixed(1));
+                    dataHistory.push({ t: currentTime, a: countA, b: countB });
+                    
+                    // 그래프 업데이트
+                    chartInstance.data.labels.push(currentTime);
+                    chartInstance.data.datasets[0].data.push(countA);
+                    chartInstance.data.datasets[1].data.push(countB);
+                    chartInstance.update();
+
+                    // 테이블 업데이트
+                    updateTable(currentTime, countA, countB);
+                }
+            }
+
+            updateDisplay();
+
+            if (time >= SIM_DURATION || particles.every(p => p.type === 'B')) {
+                running = false;
+                document.getElementById('btnStart').innerText = "▶ 반응 종료";
+                return;
+            }
+
+            animationId = requestAnimationFrame(runLoop);
+        }
+
+        function updateTable(t, a, b, clear=false) {
+            if(clear) dataTableBody.innerHTML = '';
+            const row = `<tr><td class="border p-1">${t}</td><td class="border p-1 text-red-600 font-bold">${a}</td><td class="border p-1 text-blue-600 font-bold">${b}</td></tr>`;
+            dataTableBody.insertAdjacentHTML('afterbegin', row); // 최신 데이터 위로
+        }
+
+        // --- 컨트롤러 ---
+        function startSimulation() {
+            if (running) return;
+            if (time >= SIM_DURATION) resetSimulation();
+            
+            running = true;
+            document.getElementById('btnStart').innerText = "Running...";
+            reactionRateK = parseFloat(document.getElementById('rateConstant').value);
+            runLoop();
+        }
+
+        function resetSimulation() {
+            running = false;
+            cancelAnimationFrame(animationId);
+            document.getElementById('btnStart').innerText = "▶ 반응 시작";
+            initSimulation();
+            document.getElementById('resultBox').classList.add('hidden');
+        }
+
+        // --- 계산 로직 ---
+        function calculateRate() {
+            const t1 = parseFloat(document.getElementById('t1').value);
+            const t2 = parseFloat(document.getElementById('t2').value);
+
+            if (isNaN(t1) || isNaN(t2) || t1 >= t2) {
+                alert("올바른 시간 구간을 입력하세요 (t1 < t2)");
+                return;
+            }
+
+            // 가장 가까운 데이터 포인트 찾기
+            const d1 = dataHistory.reduce((prev, curr) => Math.abs(curr.t - t1) < Math.abs(prev.t - t1) ? curr : prev);
+            const d2 = dataHistory.reduce((prev, curr) => Math.abs(curr.t - t2) < Math.abs(prev.t - t2) ? curr : prev);
+
+            const dt = d2.t - d1.t;
+            const da = d2.a - d1.a; // 나중 - 처음 (음수 나옴)
+            
+            // 반응 속도 = -Δ[A] / Δt
+            const rate = -(da / dt);
+
+            document.getElementById('resDt').innerText = dt.toFixed(1);
+            document.getElementById('resDA').innerText = Math.abs(da);
+            document.getElementById('resRate').innerText = rate.toFixed(2);
+            document.getElementById('resultBox').classList.remove('hidden');
+        }
+
+        // 슬라이더 값 표시
+        document.getElementById('rateConstant').addEventListener('input', (e) => {
+            document.getElementById('kValueDisplay').innerText = e.target.value;
+        });
+
+        // 초기 실행
+        initSimulation();
+
+    </script>
+</body>
+</html>

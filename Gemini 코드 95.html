@@ -1,0 +1,332 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 러더퍼드 알파 입자 산란</title>
+    <style>
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: #f0f4f8;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin: 0;
+            padding: 20px;
+        }
+        h1 { color: #2c3e50; margin-bottom: 10px; }
+        .container {
+            display: flex;
+            gap: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            max-width: 1000px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+        canvas {
+            background-color: #222; /* 우주 공간 같은 어두운 배경 */
+            border-radius: 8px;
+            cursor: crosshair;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.5);
+        }
+        .controls {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            min-width: 250px;
+        }
+        .control-group {
+            background: #eef2f5;
+            padding: 15px;
+            border-radius: 8px;
+        }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9em; }
+        input[type="range"] { width: 100%; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            font-size: 1em;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button.primary { background-color: #3498db; color: white; }
+        button.primary:hover { background-color: #2980b9; }
+        button.secondary { background-color: #e67e22; color: white; }
+        button.secondary:hover { background-color: #d35400; }
+        
+        .feedback-box {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            border-radius: 4px;
+            font-size: 0.9em;
+            line-height: 1.4;
+        }
+        .status { margin-top: 5px; font-size: 0.85em; color: #666; }
+    </style>
+</head>
+<body>
+
+    <h1>⚛️ 러더퍼드 알파 입자 산란 실험</h1>
+    <p>보이지 않는 원자핵(도형)을 입자의 궤적으로 찾아보세요!</p>
+
+    <div class="container">
+        <div>
+            <canvas id="simCanvas" width="600" height="400"></canvas>
+            <div class="status">📌 캔버스를 클릭하면 그 위치(Y축) 높이로 입자가 발사됩니다.</div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="shapeSelect">🎯 표적 모양 (원자핵 모형)</label>
+                <select id="shapeSelect">
+                    <option value="circle">원형 (Circle)</option>
+                    <option value="triangle">삼각형 (Triangle)</option>
+                    <option value="rect">사각형 (Rectangle)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="speedRange">🚀 입자 속도 (에너지)</label>
+                <input type="range" id="speedRange" min="2" max="10" value="5">
+                <div id="speedVal" style="text-align: right; font-size: 0.8em;">5</div>
+            </div>
+
+            <button class="primary" id="resetBtn">🔄 궤적 지우기 (새 실험)</button>
+            <button class="secondary" id="revealBtn">👁️ 정답(모양) 공개</button>
+
+            <div id="aiFeedback" class="feedback-box">
+                👋 안녕하세요! 실험을 시작해볼까요?<br>
+                왼쪽 캔버스를 클릭하여 알파 입자를 발사해보세요.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const speedRange = document.getElementById('speedRange');
+        const shapeSelect = document.getElementById('shapeSelect');
+        const revealBtn = document.getElementById('revealBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const feedbackBox = document.getElementById('aiFeedback');
+        const speedVal = document.getElementById('speedVal');
+
+        let particles = [];
+        let isRevealed = false;
+        let shape = 'circle';
+        let speed = 5;
+
+        // 중앙 장애물 정의
+        const obstacle = {
+            x: 300,
+            y: 200,
+            size: 50
+        };
+
+        // 초기화
+        function init() {
+            particles = [];
+            isRevealed = false;
+            revealBtn.textContent = "👁️ 정답(모양) 공개";
+            feedbackBox.innerHTML = "새로운 실험이 준비되었습니다.<br>입자를 발사해 보이지 않는 모양을 맞춰보세요!";
+            draw();
+        }
+
+        // 입자 클래스
+        class Particle {
+            constructor(y, velocity) {
+                this.x = 0;
+                this.y = y;
+                this.vx = velocity;
+                this.vy = 0;
+                this.trail = [{x: this.x, y: this.y}];
+                this.active = true;
+                this.color = '#00ffcc'; // 알파 입자 색상 (형광)
+            }
+
+            update() {
+                if (!this.active) return;
+
+                this.x += this.vx;
+                this.y += this.vy;
+                this.trail.push({x: this.x, y: this.y});
+
+                // 화면 밖으로 나가면 비활성화
+                if (this.x > canvas.width || this.x < 0 || this.y > canvas.height || this.y < 0) {
+                    this.active = false;
+                }
+
+                // 충돌 감지 및 처리
+                this.checkCollision();
+            }
+
+            checkCollision() {
+                // 도형에 따라 다른 충돌 로직
+                if (shape === 'circle') {
+                    const dx = this.x - obstacle.x;
+                    const dy = this.y - obstacle.y;
+                    const distance = Math.sqrt(dx * dx + dy * dy);
+
+                    if (distance < obstacle.size) {
+                        this.reflect(dx, dy);
+                    }
+                } else if (shape === 'triangle') {
+                    // 간단한 삼각형 충돌 박스 (중심 기준 정삼각형 근사)
+                    // 실제 물리 엔진보다는 교육적 시각화를 위한 근사치 사용
+                    if (this.x > obstacle.x - obstacle.size && 
+                        this.x < obstacle.x + obstacle.size &&
+                        this.y > obstacle.y - obstacle.size && 
+                        this.y < obstacle.y + obstacle.size) {
+                            
+                        // 중심에서의 상대 위치로 반사각 계산
+                        const dx = this.x - obstacle.x;
+                        const dy = this.y - obstacle.y;
+                        this.reflect(dx, dy);
+                    }
+                } else if (shape === 'rect') {
+                    if (this.x > obstacle.x - obstacle.size && 
+                        this.x < obstacle.x + obstacle.size &&
+                        this.y > obstacle.y - obstacle.size/1.5 && 
+                        this.y < obstacle.y + obstacle.size/1.5) {
+                        
+                        const dx = this.x - obstacle.x;
+                        const dy = this.y - obstacle.y;
+                        this.reflect(dx, dy);
+                    }
+                }
+            }
+
+            reflect(dx, dy) {
+                // 반사 벡터 계산 (간략화)
+                const angle = Math.atan2(dy, dx);
+                const speed = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+                
+                // 입자가 튕겨 나가는 효과
+                this.vx = Math.cos(angle) * speed;
+                this.vy = Math.sin(angle) * speed;
+                
+                // 피드백 업데이트 (최초 충돌 시)
+                if(this.active) {
+                     feedbackBox.innerHTML = "💥 <b>충돌 발생!</b><br>입자가 무언가에 맞고 경로가 휘어졌습니다.<br>이 위치에 '원자핵'이 있을 확률이 높아요.";
+                }
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.strokeStyle = `rgba(0, 255, 204, 0.5)`;
+                ctx.lineWidth = 2;
+                if (this.trail.length > 0) {
+                    ctx.moveTo(this.trail[0].x, this.trail[0].y);
+                    for (let point of this.trail) {
+                        ctx.lineTo(point.x, point.y);
+                    }
+                }
+                ctx.stroke();
+
+                ctx.beginPath();
+                ctx.fillStyle = '#fff';
+                ctx.arc(this.x, this.y, 3, 0, Math.PI * 2);
+                ctx.fill();
+            }
+        }
+
+        function drawShape() {
+            ctx.fillStyle = 'rgba(255, 99, 71, 0.8)'; // 원자핵 색상
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = 2;
+            
+            ctx.beginPath();
+            if (shape === 'circle') {
+                ctx.arc(obstacle.x, obstacle.y, obstacle.size, 0, Math.PI * 2);
+            } else if (shape === 'triangle') {
+                ctx.moveTo(obstacle.x, obstacle.y - obstacle.size);
+                ctx.lineTo(obstacle.x + obstacle.size, obstacle.y + obstacle.size);
+                ctx.lineTo(obstacle.x - obstacle.size, obstacle.y + obstacle.size);
+                ctx.closePath();
+            } else if (shape === 'rect') {
+                ctx.rect(obstacle.x - obstacle.size, obstacle.y - obstacle.size/1.5, obstacle.size*2, obstacle.size*1.33);
+            }
+            ctx.fill();
+            ctx.stroke();
+
+            // 텍스트 표시
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText("원자핵", obstacle.x, obstacle.y + 5);
+        }
+
+        function draw() {
+            // 배경 지우기 (잔상 효과를 위해 투명도 있는 검은색 덮기 가능하나 여기선 완전 삭제)
+            ctx.fillStyle = '#222';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            // 타겟 그리기 (공개 상태일 때만)
+            if (isRevealed) {
+                drawShape();
+            } else {
+                // 숨겨진 상태 힌트 (선택사항: 물음표 등)
+                ctx.fillStyle = 'rgba(255,255,255,0.05)';
+                ctx.font = '50px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText("?", obstacle.x, obstacle.y + 15);
+            }
+
+            // 입자 그리기
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+
+            requestAnimationFrame(draw);
+        }
+
+        // 이벤트 리스너
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const y = e.clientY - rect.top;
+            
+            // 입자 발사
+            particles.push(new Particle(y, parseFloat(speed)));
+            
+            if(particles.length === 1) {
+                feedbackBox.innerHTML = "🚀 입자가 발사되었습니다!<br>경로를 잘 관찰해 보세요.";
+            }
+        });
+
+        resetBtn.addEventListener('click', init);
+
+        revealBtn.addEventListener('click', () => {
+            isRevealed = !isRevealed;
+            if (isRevealed) {
+                revealBtn.textContent = "🙈 정답 숨기기";
+                feedbackBox.innerHTML = "✨ <b>정답 공개!</b><br>예측한 모양과 실제 원자핵 모양이 일치하나요?<br>이 실험으로 원자 중심에 뭉쳐있는 핵을 발견했습니다.";
+            } else {
+                revealBtn.textContent = "👁️ 정답(모양) 공개";
+            }
+        });
+
+        shapeSelect.addEventListener('change', (e) => {
+            shape = e.target.value;
+            init(); // 모양 바꾸면 초기화
+        });
+
+        speedRange.addEventListener('input', (e) => {
+            speed = e.target.value;
+            speedVal.textContent = speed;
+        });
+
+        // 애니메이션 시작
+        draw();
+
+    </script>
+</body>
+</html>

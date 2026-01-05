@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 증기압 곡선 해석</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-color: #e74c3c;
+            --text-color: #2c3e50;
+        }
+
+        body {
+            font-family: 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        p.subtitle { color: #7f8c8d; margin-top: 5px; }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .control-panel, .visual-panel, .info-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* 컨트롤 패널 */
+        .control-panel {
+            flex: 1;
+            min-width: 300px;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357abd; }
+
+        /* 시각화 패널 */
+        .visual-panel {
+            flex: 2;
+            min-width: 400px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #graph-container {
+            width: 100%;
+            height: 400px;
+        }
+
+        /* 입자 애니메이션 영역 */
+        #beaker-view {
+            width: 200px;
+            height: 250px;
+            border: 3px solid #ccc;
+            border-top: none;
+            position: relative;
+            margin-top: 20px;
+            background: linear-gradient(to bottom, #e0f7fa 0%, #b2ebf2 100%);
+            overflow: hidden;
+            border-radius: 0 0 10px 10px;
+        }
+
+        .liquid-surface {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 60%;
+            background: rgba(74, 144, 226, 0.3);
+            border-top: 2px solid #4a90e2;
+            transition: height 0.5s;
+        }
+
+        .particle {
+            position: absolute;
+            width: 8px;
+            height: 8px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            opacity: 0.7;
+        }
+
+        .bubble {
+            position: absolute;
+            width: 15px;
+            height: 15px;
+            border: 2px solid white;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            animation: rise 2s infinite linear;
+            display: none;
+        }
+
+        @keyframes rise {
+            0% { bottom: 0; opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; }
+            100% { bottom: 100%; opacity: 0; transform: scale(1.2); }
+        }
+
+        /* 정보 및 퀴즈 패널 */
+        .info-panel {
+            width: 100%;
+            max-width: 1000px;
+        }
+
+        .status-display {
+            display: flex;
+            justify-content: space-around;
+            background: #ecf0f1;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-weight: bold;
+        }
+
+        .highlight { color: var(--accent-color); }
+        
+        .quiz-section {
+            margin-top: 20px;
+            border-top: 2px dashed #ddd;
+            padding-top: 20px;
+        }
+
+        .feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .feedback.correct { background-color: #d4edda; color: #155724; }
+        .feedback.wrong { background-color: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 증기압 곡선과 끓는점 실험실</h1>
+    <p class="subtitle">온도와 압력을 조절하여 물질의 상태 변화를 관찰해보세요.</p>
+</header>
+
+<div class="container">
+    <div class="control-panel">
+        <h3>⚙️ 실험 설정</h3>
+        
+        <div class="control-group">
+            <label for="substance-select">🧪 물질 선택</label>
+            <select id="substance-select" onchange="updateSimulation()">
+                <option value="ether">다이에틸 에테르</option>
+                <option value="ethanol">에탄올</option>
+                <option value="water" selected>물</option>
+                <option value="mercury">수은 (참고용)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label for="pressure-select">⚖️ 외부 압력 ($P_{ext}$)</label>
+            <select id="pressure-select" onchange="updateSimulation()">
+                <option value="0.5">0.5 기압 (높은 산)</option>
+                <option value="1.0" selected>1.0 기압 (표준)</option>
+                <option value="2.0">2.0 기압 (압력솥)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>🌡️ 온도 조절: <span id="temp-display">25</span>°C</label>
+            <input type="range" id="temp-slider" min="0" max="150" value="25" oninput="updateSimulation()">
+        </div>
+
+        <div class="control-group">
+            <button onclick="resetExperiment()">🔄 실험 초기화</button>
+            <button onclick="window.print()">📄 보고서 인쇄 (PDF)</button>
+        </div>
+    </div>
+
+    <div class="visual-panel">
+        <div class="status-display">
+            <span>현재 증기압: <span id="vp-display" class="highlight">0</span> atm</span>
+            <span>상태: <span id="state-display">액체</span></span>
+        </div>
+
+        <div id="graph-container"></div>
+
+        <div id="beaker-view">
+            <div class="liquid-surface" id="liquid"></div>
+            </div>
+        <p style="font-size: 0.9em; color: #666;">*입자의 속도는 온도를, 기포는 끓음을 나타냅니다.</p>
+    </div>
+</div>
+
+<div class="container">
+    <div class="info-panel">
+        <h3>🧠 개념 확인 퀴즈</h3>
+        <div class="quiz-section">
+            <p><strong>Q. 현재 선택된 물질의 1기압 기준 정상 끓는점은 분자 간 인력과 어떤 관계가 있나요?</strong></p>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="checkQuiz(1)">끓는점이 높을수록 인력이 약하다.</button>
+                <button onclick="checkQuiz(2)">끓는점이 높을수록 인력이 강하다.</button>
+            </div>
+            <div id="quiz-feedback" class="feedback"></div>
+        </div>
+        
+        <div style="margin-top: 20px;">
+            <h4>📝 실험 노트</h4>
+            <p id="experiment-note">실험을 시작하여 결과를 관찰하세요.</p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 물질별 Antoine 상수 (근사치, P in mmHg -> convert to atm, T in Celsius)
+    // log10(P) = A - B / (T + C)
+    const substances = {
+        ether: { name: "다이에틸 에테르", A: 6.9203, B: 1064.07, C: 228.8, color: "#e74c3c", bp_1atm: 34.6 },
+        ethanol: { name: "에탄올", A: 8.20417, B: 1642.89, C: 230.3, color: "#2ecc71", bp_1atm: 78.3 },
+        water: { name: "물", A: 8.07131, B: 1730.63, C: 233.426, color: "#3498db", bp_1atm: 100.0 },
+        mercury: { name: "수은", A: 7.9620, B: 3300.0, C: 273.0, color: "#95a5a6", bp_1atm: 356.7 } // 수은은 데이터 근사
+    };
+
+    let particles = [];
+    const beaker = document.getElementById('beaker-view');
+
+    // 초기화 및 이벤트 리스너
+    window.onload = function() {
+        createParticles();
+        initGraph();
+        updateSimulation();
+    };
+
+    function getVaporPressure(substanceKey, tempC) {
+        const s = substances[substanceKey];
+        // 수은의 경우 범위가 달라 단순화된 식 사용 혹은 범위 제한
+        if(substanceKey === 'mercury' && tempC < 100) return 0.001; 
+
+        // Antoine Equation: P(mmHg)
+        const p_mmHg = Math.pow(10, s.A - (s.B / (tempC + s.C)));
+        return p_mmHg / 760.0; // Convert to atm
+    }
+
+    function initGraph() {
+        const layout = {
+            title: '증기압 곡선 (P vs T)',
+            xaxis: { title: '온도 (°C)', range: [0, 150] },
+            yaxis: { title: '압력 (atm)', range: [0, 2.5] },
+            margin: { t: 40, r: 20, b: 40, l: 50 },
+            showlegend: true
+        };
+        Plotly.newPlot('graph-container', [], layout, {displayModeBar: false});
+    }
+
+    function updateSimulation() {
+        const subKey = document.getElementById('substance-select').value;
+        const temp = parseFloat(document.getElementById('temp-slider').value);
+        const extP = parseFloat(document.getElementById('pressure-select').value);
+        const subData = substances[subKey];
+
+        // 1. 텍스트 업데이트
+        document.getElementById('temp-display').textContent = temp;
+        
+        // 2. 증기압 계산
+        let currentVP = getVaporPressure(subKey, temp);
+        document.getElementById('vp-display').textContent = currentVP.toFixed(3);
+
+        // 3. 상태 판단 (끓음 여부)
+        const isBoiling = currentVP >= extP;
+        const stateText = isBoiling ? "끓는 중 (기포 발생!)" : "액체 (증발 중)";
+        const stateDisplay = document.getElementById('state-display');
+        stateDisplay.textContent = stateText;
+        stateDisplay.style.color = isBoiling ? "red" : "black";
+        stateDisplay.style.fontWeight = isBoiling ? "bold" : "normal";
+
+        // 4. 그래프 업데이트
+        updateGraph(subKey, temp, extP, currentVP);
+
+        // 5. 애니메이션 업데이트
+        updateParticles(temp, isBoiling);
+
+        // 6. 노트 업데이트
+        updateNote(subData.name, temp, currentVP, extP, isBoiling);
+    }
+
+    function updateGraph(subKey, currentTemp, extP, currentVP) {
+        // 곡선 데이터 생성 (0~150도)
+        const xData = [];
+        const yData = [];
+        for(let t=0; t<=150; t+=5) {
+            xData.push(t);
+            yData.push(getVaporPressure(subKey, t));
+        }
+
+        // 증기압 곡선 트레이스
+        const curveTrace = {
+            x: xData,
+            y: yData,
+            mode: 'lines',
+            name: substances[subKey].name,
+            line: { color: substances[subKey].color, width: 3 }
+        };
+
+        // 외부 압력 선 (수평선)
+        const pressureLine = {
+            x: [0, 150],
+            y: [extP, extP],
+            mode: 'lines',
+            name: '외부 압력',
+            line: { color: 'black', dash: 'dash', width: 1 }
+        };
+
+        // 현재 상태 점
+        const currentPoint = {
+            x: [currentTemp],
+            y: [currentVP],
+            mode: 'markers',
+            name: '현재 상태',
+            marker: { size: 10, color: 'red' }
+        };
+
+        const layout = {
+            title: `${substances[subKey].name}의 증기압 곡선`,
+            xaxis: { title: '온도 (°C)', range: [0, 150] },
+            yaxis: { title: '압력 (atm)', range: [0, 2.2] },
+            annotations: [{
+                x: 140, y: extP,
+                xref: 'x', yref: 'y',
+                text: `${extP} atm`,
+                showarrow: false,
+                yshift: 10
+            }]
+        };
+
+        Plotly.react('graph-container', [curveTrace, pressureLine, currentPoint], layout);
+    }
+
+    // 간단한 입자 시스템
+    function createParticles() {
+        for(let i=0; i<20; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.left = Math.random() * 180 + 'px';
+            p.style.bottom = Math.random() * 100 + 'px';
+            beaker.appendChild(p);
+            particles.push({ el: p, vx: Math.random()-0.5, vy: Math.random()-0.5 });
+        }
+        
+        // 기포 생성 (숨겨둠)
+        for(let i=0; i<5; i++) {
+            const b = document.createElement('div');
+            b.className = 'bubble';
+            b.style.left = Math.random() * 180 + 'px';
+            beaker.appendChild(b);
+        }
+    }
+
+    function updateParticles(temp, isBoiling) {
+        // 온도에 따른 입자 속도 조절 (시각적 효과)
+        const speedFactor = (temp + 20) / 100; // 0도일때도 약간 움직임
+        
+        // 기포 표시 제어
+        const bubbles = document.querySelectorAll('.bubble');
+        bubbles.forEach(b => {
+            b.style.display = isBoiling ? 'block' : 'none';
+            b.style.animationDuration = (2.5 - speedFactor) + 's'; // 온도가 높으면 빨리 올라감
+        });
+
+        // 색상 변경 (온도감)
+        const liquid = document.getElementById('liquid');
+        if(temp > 80) liquid.style.background = 'rgba(231, 76, 60, 0.3)';
+        else liquid.style.background = 'rgba(74, 144, 226, 0.3)';
+    }
+
+    function updateNote(name, temp, vp, extP, isBoiling) {
+        const note = document.getElementById('experiment-note');
+        let msg = `${name}의 현재 온도는 ${temp}°C 이며, 증기압은 약 ${vp.toFixed(2)}기압입니다.<br>`;
+        if (isBoiling) {
+            msg += `<strong>🔥 결과: 증기압이 외부 압력(${extP}기압)보다 커져서 끓고 있습니다!</strong>`;
+        } else {
+            msg += `결과: 증기압이 외부 압력보다 낮아 아직 끓지 않습니다. 온도를 더 높여보세요.`;
+        }
+        note.innerHTML = msg;
+    }
+
+    function checkQuiz(answer) {
+        const feedback = document.getElementById('quiz-feedback');
+        feedback.style.display = 'block';
+        
+        if (answer === 2) {
+            feedback.textContent = "정답입니다! ⭕ 분자 간 인력이 강할수록 서로 떨어지기 싫어하므로 증기압이 낮고, 끓는점은 높아집니다.";
+            feedback.className = "feedback correct";
+        } else {
+            feedback.textContent = "다시 생각해보세요. ❌ 서로 강하게 잡고 있다면 기체가 되기(끓기) 쉬울까요, 어려울까요?";
+            feedback.className = "feedback wrong";
+        }
+    }
+
+    function resetExperiment() {
+        document.getElementById('temp-slider').value = 25;
+        document.getElementById('substance-select').value = "water";
+        document.getElementById('pressure-select').value = "1.0";
+        document.getElementById('quiz-feedback').style.display = 'none';
+        updateSimulation();
+    }
+</script>
+
+</body>
+</html>

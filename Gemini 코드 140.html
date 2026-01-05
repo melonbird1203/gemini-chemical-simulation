@@ -1,0 +1,395 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>1차 반응 속도와 반감기 시뮬레이션</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --accent-color: #3498db;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+        }
+        header {
+            grid-column: 1 / -1;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        header h1 { margin: 0; font-size: 1.5rem; }
+        
+        /* 제어 패널 스타일 */
+        .control-panel {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .input-group {
+            margin-bottom: 20px;
+        }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="range"] { width: 100%; }
+        .value-display { font-size: 0.9rem; color: var(--accent-color); font-weight: bold; }
+        
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.3s;
+        }
+        .btn-start { background-color: var(--accent-color); color: white; }
+        .btn-start:hover { background-color: #2980b9; }
+        .btn-reset { background-color: #e74c3c; color: white; }
+        .btn-pdf { background-color: #27ae60; color: white; margin-top: 20px;}
+
+        /* 결과 화면 스타일 */
+        .display-area {
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .chart-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        .chart-container {
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 10px;
+            height: 250px;
+        }
+        .info-panel {
+            background: #eaf2f8;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--accent-color);
+            margin-bottom: 20px;
+        }
+        
+        /* 퀴즈 섹션 */
+        .quiz-section {
+            grid-column: 1 / -1;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .quiz-item { margin-bottom: 15px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .feedback { font-weight: bold; margin-top: 5px; display: none; }
+        .correct { color: green; }
+        .incorrect { color: red; }
+
+    </style>
+</head>
+<body>
+
+<div class="container" id="capture-area">
+    <header>
+        <div>
+            <h1>⚗️ 1차 반응 속도와 반감기 Lab</h1>
+            <small>고등학교 화학 II > 화학 반응 속도와 촉매</small>
+        </div>
+        <div>
+            <span style="font-size: 0.9em;">상태: <span id="status-text">준비</span></span>
+        </div>
+    </header>
+
+    <aside class="control-panel">
+        <h3>🧪 실험 조건 설정</h3>
+        
+        <div class="input-group">
+            <label>초기 농도 $[A]_0$ (M)</label>
+            <input type="range" id="initConc" min="0.1" max="2.0" step="0.1" value="1.0">
+            <div class="value-display" id="val-initConc">1.0 M</div>
+        </div>
+
+        <div class="input-group">
+            <label>반응 속도 상수 $k$ (/s)</label>
+            <input type="range" id="rateK" min="0.01" max="0.5" step="0.01" value="0.1">
+            <div class="value-display" id="val-rateK">0.1 /s</div>
+        </div>
+
+        <div class="info-panel">
+            <h4>📊 이론적 반감기 예측</h4>
+            <p>$t_{1/2} = \frac{0.693}{k}$</p>
+            <p>예상 반감기: <strong id="calc-halflife">6.93</strong> 초</p>
+        </div>
+
+        <button class="btn-start" onclick="toggleSimulation()">▶ 실험 시작/일시정지</button>
+        <button class="btn-reset" onclick="resetSimulation()">↺ 초기화</button>
+        <button class="btn-pdf" onclick="exportPDF()">📄 결과 리포트 저장 (PDF)</button>
+    </aside>
+
+    <main class="display-area">
+        <div class="info-panel" id="ai-feedback">
+            <strong>🤖 AI Lab Partner:</strong><br>
+            초기 농도와 속도 상수를 설정하고 실험을 시작해보세요.<br>
+            그래프가 그려지면 반감기의 규칙성을 찾아보세요.
+        </div>
+
+        <div class="chart-grid">
+            <div class="chart-container">
+                <canvas id="chartConc"></canvas>
+            </div>
+            <div class="chart-container">
+                <canvas id="chartLn"></canvas>
+            </div>
+        </div>
+        
+        <div class="chart-container" style="height: 200px;">
+            <canvas id="chartRate"></canvas>
+        </div>
+    </main>
+
+    <section class="quiz-section">
+        <h3>📝 개념 확인 퀴즈</h3>
+        
+        <div class="quiz-item">
+            <p><strong>Q1.</strong> 위 실험에서 $\ln[A]$와 시간 $t$의 그래프 모양은 어떠한가요?</p>
+            <select id="q1-select">
+                <option value="">선택하세요</option>
+                <option value="curve">곡선 (지수 감소)</option>
+                <option value="linear">직선 (기울기 음수)</option>
+                <option value="parabola">포물선</option>
+            </select>
+            <button onclick="checkAnswer('q1', 'linear')">확인</button>
+            <div id="q1-feedback" class="feedback"></div>
+        </div>
+
+        <div class="quiz-item">
+            <p><strong>Q2.</strong> 1차 반응에서 초기 농도 $[A]_0$를 2배로 늘리면 반감기($t_{1/2}$)는 어떻게 되나요?</p>
+            <select id="q2-select">
+                <option value="">선택하세요</option>
+                <option value="double">2배로 늘어난다</option>
+                <option value="half">절반으로 줄어든다</option>
+                <option value="constant">변하지 않는다</option>
+            </select>
+            <button onclick="checkAnswer('q2', 'constant')">확인</button>
+            <div id="q2-feedback" class="feedback"></div>
+        </div>
+    </section>
+</div>
+
+<script>
+    // 변수 초기화
+    let initialConc = 1.0;
+    let k = 0.1;
+    let time = 0;
+    let isRunning = false;
+    let timerInterval;
+    const maxTime = 100; // 최대 100초까지 시뮬레이션
+
+    // DOM 요소 참조
+    const sliderConc = document.getElementById('initConc');
+    const sliderK = document.getElementById('rateK');
+    const displayConc = document.getElementById('val-initConc');
+    const displayK = document.getElementById('val-rateK');
+    const displayHalfLife = document.getElementById('calc-halflife');
+    const feedbackBox = document.getElementById('ai-feedback');
+
+    // Chart.js 인스턴스
+    let chartConc, chartLn, chartRate;
+
+    // 초기화 함수
+    function init() {
+        initCharts();
+        updateValues();
+        
+        sliderConc.addEventListener('input', updateValues);
+        sliderK.addEventListener('input', updateValues);
+    }
+
+    function updateValues() {
+        initialConc = parseFloat(sliderConc.value);
+        k = parseFloat(sliderK.value);
+        
+        displayConc.innerText = initialConc.toFixed(1) + " M";
+        displayK.innerText = k.toFixed(2) + " /s";
+        
+        // 반감기 계산 (0.693 / k)
+        const tHalf = 0.6931 / k;
+        displayHalfLife.innerText = tHalf.toFixed(2);
+
+        if (!isRunning && time === 0) {
+            feedbackBox.innerHTML = `<strong>🤖 AI Lab Partner:</strong><br>설정된 k값(${k})에 따르면 반감기는 약 <strong>${tHalf.toFixed(2)}초</strong>입니다. 실험으로 확인해볼까요?`;
+        }
+    }
+
+    // 차트 초기화 설정
+    function initCharts() {
+        const commonOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            elements: { point: { radius: 0 } } // 점 숨기기 (성능 최적화)
+        };
+
+        // 1. [A] vs t
+        const ctx1 = document.getElementById('chartConc').getContext('2d');
+        chartConc = new Chart(ctx1, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: '[A] (M)', data: [], borderColor: '#3498db', borderWidth: 2, fill: false }] },
+            options: { ...commonOptions, plugins: { title: { display: true, text: '농도 [A] vs 시간 (t)' } }, scales: { x: { title: { display: true, text: '시간 (s)' } }, y: { title: { display: true, text: '농도 (M)' }, min: 0 } } }
+        });
+
+        // 2. ln[A] vs t
+        const ctx2 = document.getElementById('chartLn').getContext('2d');
+        chartLn = new Chart(ctx2, {
+            type: 'line',
+            data: { labels: [], datasets: [{ label: 'ln[A]', data: [], borderColor: '#e74c3c', borderWidth: 2, fill: false }] },
+            options: { ...commonOptions, plugins: { title: { display: true, text: '자연로그 ln[A] vs 시간 (t)' } }, scales: { x: { title: { display: true, text: '시간 (s)' } }, y: { title: { display: true, text: 'ln[A]' } } } }
+        });
+
+        // 3. v vs [A]
+        const ctx3 = document.getElementById('chartRate').getContext('2d');
+        chartRate = new Chart(ctx3, {
+            type: 'scatter', // 속도 vs 농도는 산점도 형태가 적합
+            data: { datasets: [{ label: '반응 속도 (M/s)', data: [], backgroundColor: '#27ae60' }] },
+            options: { ...commonOptions, plugins: { title: { display: true, text: '반응 속도 (v) vs 농도 [A]' } }, scales: { x: { title: { display: true, text: '농도 [A] (M)' }, min: 0 }, y: { title: { display: true, text: '속도 (M/s)' }, min: 0 } } }
+        });
+    }
+
+    // 시뮬레이션 로직
+    function toggleSimulation() {
+        if (isRunning) {
+            clearInterval(timerInterval);
+            isRunning = false;
+            document.getElementById('status-text').innerText = "일시정지";
+        } else {
+            isRunning = true;
+            document.getElementById('status-text').innerText = "실험 중...";
+            
+            // 입력 비활성화
+            sliderConc.disabled = true;
+            sliderK.disabled = true;
+
+            timerInterval = setInterval(() => {
+                time += 0.5; // 0.5초 단위 증가
+                
+                // 1차 반응식 계산: [A] = [A]0 * e^(-kt)
+                const currentConc = initialConc * Math.exp(-k * time);
+                const lnConc = Math.log(currentConc);
+                const rate = k * currentConc; // v = k[A]
+
+                // 데이터 업데이트
+                chartConc.data.labels.push(time);
+                chartConc.data.datasets[0].data.push(currentConc);
+
+                chartLn.data.labels.push(time);
+                chartLn.data.datasets[0].data.push(lnConc);
+
+                // 속도 vs 농도 (x: 농도, y: 속도)
+                chartRate.data.datasets[0].data.push({ x: currentConc, y: rate });
+
+                // 차트 갱신
+                chartConc.update();
+                chartLn.update();
+                chartRate.update();
+
+                // 피드백 업데이트 (반감기 도달 시)
+                const ratio = currentConc / initialConc;
+                if (ratio <= 0.5 && ratio > 0.48) {
+                    feedbackBox.innerHTML = `<strong>🔍 관찰 포인트:</strong><br>현재 농도가 초기 농도의 약 50%입니다.<br>경과 시간(${time}s)이 이론적 반감기와 비슷한가요?`;
+                }
+
+                if (time >= maxTime || currentConc < 0.01) {
+                    toggleSimulation(); // 종료
+                    document.getElementById('status-text').innerText = "실험 완료";
+                    feedbackBox.innerHTML += `<br><br><strong>✅ 실험 완료:</strong> ln[A] 그래프가 직선인가요? 그렇다면 이 반응은 1차 반응입니다.`;
+                }
+
+            }, 100); // 100ms 마다 업데이트 (빠른 시뮬레이션)
+        }
+    }
+
+    function resetSimulation() {
+        clearInterval(timerInterval);
+        isRunning = false;
+        time = 0;
+        document.getElementById('status-text').innerText = "준비";
+        sliderConc.disabled = false;
+        sliderK.disabled = false;
+        
+        // 차트 데이터 초기화
+        chartConc.data.labels = [];
+        chartConc.data.datasets[0].data = [];
+        chartLn.data.labels = [];
+        chartLn.data.datasets[0].data = [];
+        chartRate.data.datasets[0].data = [];
+        
+        chartConc.update();
+        chartLn.update();
+        chartRate.update();
+        
+        updateValues();
+    }
+
+    // 퀴즈 확인 로직
+    function checkAnswer(questionId, correctAnswer) {
+        const select = document.getElementById(questionId + '-select');
+        const feedback = document.getElementById(questionId + '-feedback');
+        
+        if (select.value === correctAnswer) {
+            feedback.innerText = "정답입니다! 정확하게 이해하셨네요.";
+            feedback.className = "feedback correct";
+        } else {
+            feedback.innerText = "다시 생각해보세요. 그래프나 공식을 다시 확인해볼까요?";
+            feedback.className = "feedback incorrect";
+        }
+        feedback.style.display = 'block';
+    }
+
+    // PDF 내보내기 (jsPDF 사용)
+    function exportPDF() {
+        const { jsPDF } = window.jspdf;
+        const doc = new jsPDF();
+        
+        html2canvas(document.querySelector("#capture-area")).then(canvas => {
+            const imgData = canvas.toDataURL('image/png');
+            const imgProps = doc.getImageProperties(imgData);
+            const pdfWidth = doc.internal.pageSize.getWidth();
+            const pdfHeight = (imgProps.height * pdfWidth) / imgProps.width;
+            
+            doc.text("실험 결과 리포트: 1차 반응 속도", 10, 10);
+            doc.addImage(imgData, 'PNG', 0, 20, pdfWidth, pdfHeight);
+            doc.save("chemistry_lab_report.pdf");
+        });
+    }
+
+    // 초기 실행
+    init();
+</script>
+
+</body>
+</html>

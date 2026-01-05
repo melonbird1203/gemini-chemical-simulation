@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>이온 결합 화합물 가상 실험실</title>
+    <style>
+        :root { --primary: #4a90e2; --bg: #f5f7fa; --panel: #ffffff; --text: #333; }
+        body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); margin: 0; display: flex; flex-direction: column; align-items: center; }
+        h1 { margin: 10px 0; font-size: 1.5rem; color: var(--primary); }
+        
+        /* Layout */
+        .container { display: flex; gap: 20px; padding: 20px; max-width: 1200px; width: 100%; flex-wrap: wrap; justify-content: center; }
+        .canvas-wrapper { position: relative; border-radius: 12px; overflow: hidden; box-shadow: 0 4px 15px rgba(0,0,0,0.1); background: #222; }
+        canvas { display: block; }
+        
+        /* UI Controls */
+        .controls { background: var(--panel); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); width: 300px; display: flex; flex-direction: column; gap: 15px; }
+        .control-group { border-bottom: 1px solid #eee; padding-bottom: 15px; }
+        .control-group:last-child { border-bottom: none; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; }
+        select, button { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid #ddd; font-size: 1rem; cursor: pointer; transition: 0.2s; }
+        button { background: var(--primary); color: white; border: none; font-weight: bold; }
+        button:hover { background: #357abd; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        button.action-btn { margin-top: 5px; background: #e74c3c; }
+        
+        /* Indicators */
+        .status-panel { margin-top: 10px; padding: 10px; background: #eef; border-radius: 6px; font-size: 0.9rem; }
+        .led-indicator { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+        .bulb { width: 20px; height: 20px; border-radius: 50%; background: #444; border: 2px solid #666; transition: 0.3s; }
+        .bulb.on { background: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; border-color: #fbc02d; }
+        
+        /* Info Box */
+        .info-box { width: 100%; max-width: 800px; background: white; padding: 20px; border-radius: 8px; margin-bottom: 30px; line-height: 1.6; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .quiz { background: #fff3e0; padding: 15px; border-radius: 8px; margin-top: 10px; border-left: 5px solid #ff9800; }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>🔬 이온 결합 화합물의 성질 탐구</h1>
+
+    <div class="container">
+        <div class="canvas-wrapper">
+            <canvas id="simCanvas" width="600" height="400"></canvas>
+            <div style="position: absolute; top: 10px; left: 10px; color: white; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 4px; pointer-events: none;">
+                확대 배율: x10,000,000
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="compoundSelect">🧪 물질 선택</label>
+                <select id="compoundSelect">
+                    <option value="NaCl">염화 나트륨 (NaCl)</option>
+                    <option value="MgO">산화 마그네슘 (MgO)</option>
+                </select>
+                <div id="compoundInfo" class="status-panel">
+                    Na⁺ (1가), Cl⁻ (1가)<br>녹는점: 801℃
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label for="stateSelect">🔥 상태 변경 (온도/용매)</label>
+                <select id="stateSelect">
+                    <option value="solid">고체 (결정 상태)</option>
+                    <option value="liquid">액체 (용융 상태)</option>
+                    <option value="aqueous">수용액 (물에 용해)</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label>⚡ 전기 전도성 실험</label>
+                <div class="led-indicator">
+                    <div id="bulb" class="bulb"></div>
+                    <span id="bulbText">전구 꺼짐 (전류 흐르지 않음)</span>
+                </div>
+                <button id="checkConductivityBtn" style="margin-top:10px;">스위치 켜기</button>
+            </div>
+
+            <div class="control-group">
+                <label>🔨 쪼개짐 실험 (고체 전용)</label>
+                <button id="hammerBtn" class="action-btn">망치로 힘 가하기</button>
+                <div id="hammerMsg" style="font-size: 0.8rem; color: #666; margin-top: 5px;"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="info-box">
+        <h3>📚 실험 노트 및 핵심 개념</h3>
+        <p id="conceptText">실험을 시작하려면 물질과 상태를 선택하세요.</p>
+        
+        <div class="quiz">
+            <strong>🤔 생각해보기:</strong>
+            <span id="quizQuestion">고체 상태의 소금은 왜 전기가 통하지 않을까요?</span>
+            <button onclick="toggleAnswer()" style="margin-top: 10px; background: #ff9800; width: auto; padding: 5px 15px; font-size: 0.9rem;">정답 확인</button>
+            <p id="quizAnswer" class="hidden" style="margin-top:10px; font-weight:bold;">정답: 이온들이 강한 정전기적 인력으로 결합되어 있어 자유롭게 움직일 수 없기 때문입니다.</p>
+        </div>
+    </div>
+
+    <script>
+        // Simulation Constants & State
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let waterMolecules = [];
+        let currentState = 'solid'; // solid, liquid, aqueous
+        let currentCompound = 'NaCl';
+        let isConducting = false;
+        let animationId;
+        let hammerEffect = 0; // 0: none, 1: shifting, 2: repelling
+
+        // Compound Properties
+        const compounds = {
+            'NaCl': { cationColor: '#ff6b6b', anionColor: '#4ecdc4', cationLabel: 'Na⁺', anionLabel: 'Cl⁻', cationSize: 12, anionSize: 18, mp: '801℃', charge: 1 },
+            'MgO': { cationColor: '#a29bfe', anionColor: '#ffeaa7', cationLabel: 'Mg²⁺', anionLabel: 'O²⁻', cationSize: 10, anionSize: 16, mp: '2852℃', charge: 2 }
+        };
+
+        // Particle Class
+        class Particle {
+            constructor(x, y, type, compoundData) {
+                this.x = x;
+                this.y = y;
+                this.type = type; // 'cation' or 'anion'
+                this.cData = compoundData;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.targetX = x; // For solid structure
+                this.targetY = y;
+            }
+
+            draw() {
+                ctx.beginPath();
+                let radius = this.type === 'cation' ? this.cData.cationSize : this.cData.anionSize;
+                ctx.arc(this.x, this.y, radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.type === 'cation' ? this.cData.cationColor : this.cData.anionColor;
+                ctx.fill();
+                ctx.strokeStyle = 'white';
+                ctx.lineWidth = 1;
+                ctx.stroke();
+                
+                // Text Label
+                ctx.fillStyle = 'white';
+                ctx.font = '10px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                let label = this.type === 'cation' ? "+" : "-";
+                // Only show label if not too crowded
+                if(currentState !== 'solid' || hammerEffect === 0) ctx.fillText(label, this.x, this.y);
+            }
+
+            update() {
+                if (currentState === 'solid') {
+                    if (hammerEffect === 0) {
+                        // Vibrate in place
+                        this.x = this.targetX + (Math.random() - 0.5) * 2;
+                        this.y = this.targetY + (Math.random() - 0.5) * 2;
+                    } else if (hammerEffect === 1) {
+                        // Shift top rows (assuming y < 200 is top)
+                        if (this.targetY < 200) {
+                            this.targetX += 2; // Shift right
+                        }
+                    } else if (hammerEffect === 2) {
+                        // Repel logic: if close to same type, fly away
+                        this.x += this.vx * 5;
+                        this.y += this.vy * 5;
+                        this.vy += 0.2; // Gravity effect when broken
+                    }
+                } else {
+                    // Liquid or Aqueous: Move freely
+                    let speed = currentState === 'liquid' ? 2 : 3;
+                    this.x += this.vx * (speed * 0.5);
+                    this.y += this.vy * (speed * 0.5);
+
+                    // Bounce off walls
+                    if (this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                    if (this.y < 0 || this.y > canvas.height) this.vy *= -1;
+                }
+            }
+        }
+
+        // Initialize Particles
+        function initParticles() {
+            particles = [];
+            hammerEffect = 0;
+            const data = compounds[currentCompound];
+            const spacing = 45;
+            const offsetX = 100;
+            const offsetY = 80;
+
+            if (currentState === 'solid') {
+                for (let row = 0; row < 6; row++) {
+                    for (let col = 0; col < 10; col++) {
+                        // Checkerboard pattern
+                        let isCation = (row + col) % 2 === 0;
+                        let type = isCation ? 'cation' : 'anion';
+                        let x = offsetX + col * spacing;
+                        let y = offsetY + row * spacing;
+                        particles.push(new Particle(x, y, type, data));
+                    }
+                }
+            } else {
+                // Random scatter for liquid/aqueous
+                let count = currentState === 'aqueous' ? 40 : 60;
+                for (let i = 0; i < count; i++) {
+                    let type = i % 2 === 0 ? 'cation' : 'anion';
+                    let x = Math.random() * canvas.width;
+                    let y = Math.random() * canvas.height;
+                    particles.push(new Particle(x, y, type, data));
+                }
+            }
+            
+            updateDescription();
+        }
+
+        // Animation Loop
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Background (Water if aqueous)
+            if (currentState === 'aqueous') {
+                ctx.fillStyle = '#e3f2fd';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                // Simple water molecules visual
+                ctx.fillStyle = 'rgba(164, 219, 255, 0.5)';
+                for(let i=0; i<20; i++) {
+                    ctx.beginPath();
+                    ctx.arc((Date.now()/50 + i*50)%canvas.width, (i*30 + Math.sin(Date.now()/500)*20)%canvas.height, 5, 0, Math.PI*2);
+                    ctx.fill();
+                }
+            } else if (currentState === 'liquid') {
+                ctx.fillStyle = '#fff0e0'; // Hot glow
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+            }
+
+            particles.forEach(p => {
+                p.update();
+                p.draw();
+            });
+            
+            // Handle Hammer Animation Sequence
+            if (hammerEffect === 1) {
+                // Stop shifting after some time
+                if (particles[0].targetX > 140) { // Arbitrary shift amount
+                    hammerEffect = 2; // Trigger repel
+                }
+            }
+
+            // Draw Circuit Overlay if switch is on
+            if (isConducting) {
+                drawCircuit(true);
+            } else {
+                drawCircuit(false);
+            }
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function drawCircuit(isActive) {
+            // Very simple HUD for circuit
+            ctx.save();
+            ctx.strokeStyle = isActive ? '#ffeb3b' : '#555';
+            ctx.lineWidth = 5;
+            // Electrodes
+            ctx.beginPath();
+            ctx.moveTo(50, 0); ctx.lineTo(50, 150); // Left
+            ctx.moveTo(canvas.width - 50, 0); ctx.lineTo(canvas.width - 50, 150); // Right
+            ctx.stroke();
+            
+            // Electron flow visualization (dots)
+            if (isActive) {
+                ctx.fillStyle = '#ffeb3b';
+                let offset = (Date.now() / 10) % 20;
+                for(let y=10; y<150; y+=20) {
+                    ctx.fillRect(48, y + offset, 4, 4);
+                    ctx.fillRect(canvas.width - 52, y - offset, 4, 4);
+                }
+            }
+            ctx.restore();
+        }
+
+        // UI Interactions
+        document.getElementById('compoundSelect').addEventListener('change', (e) => {
+            currentCompound = e.target.value;
+            const data = compounds[currentCompound];
+            document.getElementById('compoundInfo').innerHTML = 
+                `${data.cationLabel} (${data.charge}가), ${data.anionLabel} (${data.charge}가)<br>녹는점: ${data.mp}`;
+            isConducting = false;
+            updateBulbUI();
+            initParticles();
+        });
+
+        document.getElementById('stateSelect').addEventListener('change', (e) => {
+            currentState = e.target.value;
+            document.getElementById('hammerBtn').disabled = (currentState !== 'solid');
+            document.getElementById('hammerMsg').textContent = "";
+            isConducting = false;
+            updateBulbUI();
+            initParticles();
+        });
+
+        document.getElementById('checkConductivityBtn').addEventListener('mousedown', () => {
+            // Logic: Conducts if Liquid or Aqueous
+            if (currentState === 'liquid' || currentState === 'aqueous') {
+                isConducting = true;
+            } else {
+                isConducting = false;
+            }
+            updateBulbUI();
+        });
+        
+        document.getElementById('checkConductivityBtn').addEventListener('mouseup', () => {
+            isConducting = false;
+            updateBulbUI();
+        });
+
+        document.getElementById('hammerBtn').addEventListener('click', () => {
+            if (currentState !== 'solid') return;
+            hammerEffect = 1; // Start shift
+            document.getElementById('hammerMsg').textContent = "쾅! 외부 힘에 의해 이온 층이 밀렸습니다.";
+            setTimeout(() => {
+                document.getElementById('hammerMsg').textContent += " 같은 전하끼리 만나 반발합니다!";
+            }, 500);
+            
+            // Reset after a while
+            setTimeout(() => {
+                hammerEffect = 0;
+                initParticles();
+                document.getElementById('hammerMsg').textContent = "구조가 재정렬되었습니다.";
+            }, 4000);
+        });
+
+        function updateBulbUI() {
+            const bulb = document.getElementById('bulb');
+            const text = document.getElementById('bulbText');
+            if (isConducting) {
+                bulb.classList.add('on');
+                text.textContent = "전구 켜짐 (이온 이동 가능)";
+                text.style.color = "#d32f2f";
+                text.style.fontWeight = "bold";
+            } else {
+                bulb.classList.remove('on');
+                text.textContent = currentState === 'solid' ? "전구 꺼짐 (이온 이동 불가)" : "전구 꺼짐";
+                text.style.color = "#333";
+                text.style.fontWeight = "normal";
+            }
+        }
+
+        function updateDescription() {
+            const desc = document.getElementById('conceptText');
+            const qQ = document.getElementById('quizQuestion');
+            const qA = document.getElementById('quizAnswer');
+            
+            // Reset Quiz
+            qA.classList.add('hidden');
+
+            if (currentState === 'solid') {
+                desc.innerHTML = `<strong>[고체 상태]</strong> 양이온과 음이온이 강한 정전기적 인력($F = k \\frac{q_1q_2}{r^2}$)으로 규칙적인 배열을 이루고 있습니다. <br>이온들이 자리에 고정되어 있어 전기가 통하지 않습니다.`;
+                qQ.textContent = "망치로 이 결정을 내리치면 왜 부서질까요?";
+                qA.innerHTML = "<strong>정답:</strong> 외부 힘에 의해 이온 층이 밀리면, 같은 전하(+,+ / -,-)끼리 만나게 되어 <strong>반발력</strong>이 작용하기 때문입니다.";
+            } else if (currentState === 'liquid') {
+                desc.innerHTML = `<strong>[액체 상태]</strong> 높은 열(에너지)을 가해 결합이 일부 끊어졌습니다. <br>이온들이 자유롭게 움직일 수 있어 전기가 통합니다. (NaCl의 경우 약 800℃ 이상)`;
+                qQ.textContent = "고체보다 액체 상태에서 입자 간 거리는 어떻게 변했을까요?";
+                qA.innerHTML = "<strong>정답:</strong> 입자들의 운동 에너지가 커지면서 거리가 약간 멀어지고 불규칙해졌습니다.";
+            } else if (currentState === 'aqueous') {
+                desc.innerHTML = `<strong>[수용액 상태]</strong> 물 분자가 이온을 둘러싸는 <strong>수화(Hydration)</strong> 현상으로 인해 결합이 끊어졌습니다. <br>이온이 물 속에서 자유롭게 이동하므로 전기가 매우 잘 통합니다.`;
+                qQ.textContent = "증류수(순수한 물)는 전기가 통할까요?";
+                qA.innerHTML = "<strong>정답:</strong> 순수한 물은 이온이 거의 없어서 전기가 통하지 않습니다. 소금을 녹여야 이온이 생겨 전기가 통합니다.";
+            }
+        }
+        
+        function toggleAnswer() {
+            document.getElementById('quizAnswer').classList.toggle('hidden');
+        }
+
+        // Start
+        initParticles();
+        animate();
+    </script>
+</body>
+</html>

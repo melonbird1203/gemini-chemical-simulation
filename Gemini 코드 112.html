@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 화학 반응과 열의 출입</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border-left: 4px solid #cbd5e1;
+            border-right: 4px solid #cbd5e1;
+            border-bottom: 4px solid #cbd5e1;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%; /* Dynamic */
+            transition: all 1s ease-in-out;
+            opacity: 0.8;
+        }
+        .thermometer-wrapper {
+            position: absolute;
+            left: 50%;
+            bottom: 10px;
+            transform: translateX(-50%);
+            width: 20px;
+            height: 220px;
+            background: #e2e8f0;
+            border-radius: 10px;
+            border: 2px solid #94a3b8;
+            z-index: 10;
+        }
+        .mercury {
+            position: absolute;
+            bottom: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 10px;
+            background: #ef4444;
+            border-radius: 5px;
+            transition: height 0.5s linear;
+            height: 20%; /* Base temp */
+        }
+        .energy-arrow {
+            position: absolute;
+            font-size: 2rem;
+            opacity: 0;
+            transition: all 0.5s;
+        }
+        /* Custom Animations */
+        @keyframes bubble {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-50px); opacity: 0; }
+        }
+        .particle {
+            position: absolute;
+            background: rgba(255,255,255,0.6);
+            border-radius: 50%;
+            animation: bubble 2s infinite;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold"><i class="fas fa-flask mr-2"></i>화학 반응과 에너지 변화</h1>
+            <div class="text-sm bg-indigo-500 px-3 py-1 rounded">
+                <i class="fas fa-exclamation-triangle mr-1"></i> 실험실 안전: 보안경 착용 필수
+            </div>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-4 grid grid-cols-1 lg:grid-cols-3 gap-6">
+        
+        <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-1 border-t-4 border-indigo-500">
+            <h2 class="text-xl font-bold mb-4 border-b pb-2">1. 실험 설계 (변수 조작)</h2>
+            
+            <div class="mb-4">
+                <label class="block font-semibold mb-2">반응물 선택</label>
+                <select id="reactionType" class="w-full p-2 border rounded bg-slate-50 focus:outline-none focus:ring-2 focus:ring-indigo-400">
+                    <option value="exo">염산(HCl) + 수산화나트륨(NaOH)</option>
+                    <option value="endo">수산화바륨 + 염화암모늄</option>
+                </select>
+                <p id="reactionDesc" class="text-xs text-gray-500 mt-1">대표적인 중화 반응입니다.</p>
+            </div>
+
+            <div class="mb-4">
+                <label class="block font-semibold mb-2">반응물 부피 (mL)</label>
+                <input type="range" id="volumeSlider" min="20" max="100" value="50" class="w-full cursor-pointer">
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>20mL</span>
+                    <span id="volumeValue" class="font-bold text-indigo-600">50mL</span>
+                    <span>100mL</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block font-semibold mb-2">초기 온도 (°C)</label>
+                <input type="range" id="tempSlider" min="10" max="40" value="20" class="w-full cursor-pointer">
+                <div class="flex justify-between text-sm text-gray-600">
+                    <span>10°C</span>
+                    <span id="tempValue" class="font-bold text-indigo-600">20°C</span>
+                    <span>40°C</span>
+                </div>
+            </div>
+
+            <button onclick="startExperiment()" id="startBtn" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded transition shadow-lg mb-2">
+                <i class="fas fa-play mr-2"></i>반응 시작
+            </button>
+            <button onclick="resetExperiment()" class="w-full bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 rounded transition">
+                <i class="fas fa-redo mr-2"></i>초기화
+            </button>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-1 flex flex-col items-center justify-center border-t-4 border-emerald-500 relative">
+            <h2 class="text-xl font-bold mb-4 absolute top-4 left-6">2. 관찰 (계 System)</h2>
+            
+            <div class="mt-8 relative w-full h-full flex justify-center items-center">
+                <div class="absolute top-0 right-0 text-gray-400 text-sm font-bold border border-dashed border-gray-300 p-2 rounded">
+                    주위 (Surroundings)
+                </div>
+
+                <div id="arrowsOut" class="energy-arrow text-red-500 hidden" style="top: 30%; right: 20%;">
+                    <i class="fas fa-long-arrow-alt-right"></i> 열 방출
+                </div>
+                <div id="arrowsIn" class="energy-arrow text-blue-500 hidden" style="top: 30%; left: 20%;">
+                    열 흡수 <i class="fas fa-long-arrow-alt-right"></i>
+                </div>
+
+                <div class="beaker relative">
+                    <div id="liquid" class="liquid bg-blue-100"></div>
+                    <div id="particles" class="absolute top-0 left-0 w-full h-full pointer-events-none"></div>
+                </div>
+
+                <div class="thermometer-wrapper shadow-xl">
+                    <div id="mercury" class="mercury"></div>
+                    </div>
+            </div>
+            
+            <div class="mt-4 w-full bg-slate-100 p-3 rounded text-center">
+                <p class="text-sm text-gray-600">현재 온도</p>
+                <p id="currentTempDisplay" class="text-3xl font-mono font-bold text-slate-800">20.0°C</p>
+            </div>
+        </div>
+
+        <div class="bg-white p-6 rounded-lg shadow-md lg:col-span-1 border-t-4 border-amber-500 flex flex-col">
+            <h2 class="text-xl font-bold mb-2">3. 데이터 분석 & 결론</h2>
+            
+            <div class="flex-grow relative h-48 w-full mb-4">
+                <canvas id="tempChart"></canvas>
+            </div>
+
+            <div id="resultSection" class="bg-slate-50 p-4 rounded border hidden">
+                <h3 class="font-bold text-lg mb-2"><i class="fas fa-question-circle text-indigo-500"></i> 결과 해석</h3>
+                <p id="resultQuestion" class="mb-3 text-sm">반응 후 온도가 <span id="tempChangeText" class="font-bold"></span>했습니다. 에너지는 어디로 이동했을까요?</p>
+                <div class="flex gap-2 mb-2">
+                    <button onclick="checkAnswer('exo')" class="flex-1 bg-white border border-gray-300 p-2 rounded text-sm hover:bg-red-50 hover:border-red-300">발열 반응</button>
+                    <button onclick="checkAnswer('endo')" class="flex-1 bg-white border border-gray-300 p-2 rounded text-sm hover:bg-blue-50 hover:border-blue-300">흡열 반응</button>
+                </div>
+                <p id="feedback" class="text-sm font-bold mt-2"></p>
+            </div>
+        </div>
+    </div>
+
+    <div id="infoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-6 rounded-lg max-w-lg">
+            <h3 class="text-2xl font-bold mb-2">학습 개념 정리</h3>
+            <p class="mb-4 text-gray-700">
+                <span class="font-bold text-indigo-600">계(System):</span> 화학 반응이 일어나는 물질 자체 (비커 안의 용액)<br>
+                <span class="font-bold text-gray-600">주위(Surroundings):</span> 계를 제외한 나머지 부분 (비커, 온도계, 공기 등)
+            </p>
+            <p class="text-sm text-gray-500">반응열 $Q = Cm\Delta t$ 원리에 의해 온도 변화가 발생했습니다.</p>
+            <button onclick="document.getElementById('infoModal').classList.add('hidden')" class="mt-4 bg-indigo-600 text-white px-4 py-2 rounded">닫기</button>
+        </div>
+    </div>
+
+    <script>
+        // Variables
+        let chart;
+        let animationInterval;
+        let currentTime = 0;
+        let currentTemp = 20;
+        let targetTemp = 20;
+        let isReacting = false;
+
+        // Elements
+        const liquid = document.getElementById('liquid');
+        const mercury = document.getElementById('mercury');
+        const tempDisplay = document.getElementById('currentTempDisplay');
+        const arrowsOut = document.getElementById('arrowsOut');
+        const arrowsIn = document.getElementById('arrowsIn');
+        const particlesDiv = document.getElementById('particles');
+        const resultSection = document.getElementById('resultSection');
+
+        // Initialize Chart
+        function initChart() {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '온도 (°C)',
+                        data: [],
+                        borderColor: '#6366f1',
+                        tension: 0.4,
+                        fill: false
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '시간 (초)' } },
+                        y: { title: { display: true, text: '온도 (°C)' }, min: 0, max: 60 }
+                    },
+                    animation: false
+                }
+            });
+        }
+
+        // Input Listeners
+        document.getElementById('volumeSlider').addEventListener('input', (e) => {
+            document.getElementById('volumeValue').textContent = e.target.value + 'mL';
+            updateLiquidHeight(e.target.value);
+        });
+        
+        document.getElementById('tempSlider').addEventListener('input', (e) => {
+            document.getElementById('tempValue').textContent = e.target.value + '°C';
+            if(!isReacting) {
+                currentTemp = parseFloat(e.target.value);
+                updateThermometer(currentTemp);
+            }
+        });
+
+        document.getElementById('reactionType').addEventListener('change', (e) => {
+            const desc = e.target.value === 'exo' 
+                ? "산과 염기가 만나 물과 염을 생성하며 열을 발생시킵니다." 
+                : "두 고체가 반응하며 주변의 열을 급격히 흡수합니다.";
+            document.getElementById('reactionDesc').textContent = desc;
+        });
+
+        // Visual Updates
+        function updateLiquidHeight(vol) {
+            // Map 20-100mL to 20-80% height
+            const height = 20 + ((vol - 20) / 80) * 60;
+            liquid.style.height = height + '%';
+        }
+
+        function updateThermometer(temp) {
+            // Map 0-60C to 0-100% height inside thermometer
+            const height = (temp / 80) * 100; // slightly adjusted scale
+            mercury.style.height = Math.max(5, height) + '%';
+            tempDisplay.textContent = temp.toFixed(1) + '°C';
+            
+            // Color change based on temp
+            if(temp > 30) mercury.style.backgroundColor = '#ef4444'; // Hot
+            else if(temp < 15) mercury.style.backgroundColor = '#3b82f6'; // Cold
+            else mercury.style.backgroundColor = '#f59e0b'; // Warm
+        }
+
+        function createParticles() {
+            particlesDiv.innerHTML = '';
+            for(let i=0; i<10; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.left = Math.random() * 80 + 10 + '%';
+                p.style.top = Math.random() * 80 + 10 + '%';
+                p.style.width = Math.random() * 5 + 3 + 'px';
+                p.style.height = p.style.width;
+                p.style.animationDelay = Math.random() * 2 + 's';
+                particlesDiv.appendChild(p);
+            }
+        }
+
+        // Simulation Logic
+        function startExperiment() {
+            if(isReacting) return;
+            isReacting = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('startBtn').classList.add('opacity-50');
+
+            const type = document.getElementById('reactionType').value;
+            const initTemp = parseFloat(document.getElementById('tempSlider').value);
+            const volume = parseInt(document.getElementById('volumeSlider').value);
+            
+            // Simplified Physics Logic:
+            // Delta T depends on reaction type.
+            // Exothermic: +20 ~ +30 degrees depending on "concentration" (randomized slightly)
+            // Endothermic: -10 ~ -15 degrees
+            let deltaT = 0;
+            if(type === 'exo') {
+                deltaT = 25 * (1 + Math.random()*0.2); // Rise
+                liquid.style.backgroundColor = '#fecaca'; // Reddish tint
+                arrowsOut.classList.remove('hidden');
+                arrowsOut.style.opacity = 1;
+            } else {
+                deltaT = -15 * (1 + Math.random()*0.1); // Drop
+                liquid.style.backgroundColor = '#bfdbfe'; // Bluish tint
+                arrowsIn.classList.remove('hidden');
+                arrowsIn.style.opacity = 1;
+            }
+
+            // Adjust deltaT slightly by volume (less volume = faster/sharper change simulation visually)
+            // In reality, if mols are proportional, T is same. Let's assume constant moles, changing volume of solvent.
+            // Larger volume = smaller delta T (Q = cmDT -> DT = Q/cm)
+            deltaT = deltaT * (50 / volume); 
+
+            targetTemp = initTemp + deltaT;
+            currentTime = 0;
+            createParticles();
+
+            // Run Animation Loop
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            
+            animationInterval = setInterval(() => {
+                currentTime += 0.5;
+                
+                // Ease function for temperature approach
+                const diff = targetTemp - currentTemp;
+                currentTemp += diff * 0.1;
+
+                updateThermometer(currentTemp);
+
+                // Update Graph
+                chart.data.labels.push(currentTime.toFixed(1));
+                chart.data.datasets[0].data.push(currentTemp);
+                chart.update();
+
+                // Stop condition
+                if(Math.abs(targetTemp - currentTemp) < 0.1 || currentTime > 10) {
+                    clearInterval(animationInterval);
+                    finishExperiment(type);
+                }
+            }, 500);
+        }
+
+        function finishExperiment(type) {
+            isReacting = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').classList.remove('opacity-50');
+            
+            // Show Analysis Section
+            resultSection.classList.remove('hidden');
+            const changeText = targetTemp > document.getElementById('tempSlider').value ? "상승" : "하강";
+            document.getElementById('tempChangeText').innerText = changeText;
+            document.getElementById('tempChangeText').className = targetTemp > document.getElementById('tempSlider').value ? "text-red-600 font-bold" : "text-blue-600 font-bold";
+            
+            // Clear Arrows
+            arrowsOut.style.opacity = 0;
+            arrowsIn.style.opacity = 0;
+        }
+
+        function checkAnswer(userChoice) {
+            const actualType = document.getElementById('reactionType').value;
+            const feedbackEl = document.getElementById('feedback');
+            
+            if(userChoice === actualType) {
+                feedbackEl.className = "text-green-600 font-bold mt-2 p-2 bg-green-100 rounded";
+                if(actualType === 'exo') {
+                    feedbackEl.innerHTML = "<i class='fas fa-check-circle'></i> 정답입니다! 계에서 에너지가 방출되어 주위(온도계) 온도가 올라갔습니다.";
+                } else {
+                    feedbackEl.innerHTML = "<i class='fas fa-check-circle'></i> 정답입니다! 계가 에너지를 흡수하여 주위 온도가 내려갔습니다.";
+                }
+            } else {
+                feedbackEl.className = "text-red-600 font-bold mt-2 p-2 bg-red-100 rounded";
+                feedbackEl.innerHTML = "<i class='fas fa-times-circle'></i> 다시 생각해보세요. 온도의 변화 방향을 그래프에서 확인해보세요.";
+            }
+        }
+
+        function resetExperiment() {
+            clearInterval(animationInterval);
+            isReacting = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').classList.remove('opacity-50');
+            
+            liquid.style.height = '0%';
+            setTimeout(() => updateLiquidHeight(document.getElementById('volumeSlider').value), 100);
+            
+            liquid.style.backgroundColor = '#e0f2fe'; // Reset color
+            arrowsOut.classList.add('hidden');
+            arrowsIn.classList.add('hidden');
+            particlesDiv.innerHTML = '';
+            resultSection.classList.add('hidden');
+            document.getElementById('feedback').innerHTML = '';
+
+            // Reset Chart
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            chart.update();
+
+            // Reset Temp
+            const initTemp = parseFloat(document.getElementById('tempSlider').value);
+            currentTemp = initTemp;
+            updateThermometer(initTemp);
+        }
+
+        // Init
+        initChart();
+        updateLiquidHeight(50);
+        updateThermometer(20);
+
+    </script>
+</body>
+</html>

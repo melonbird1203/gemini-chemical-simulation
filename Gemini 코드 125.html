@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 화학 평형 상수(Kc)의 발견</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.7/MathJax.js?config=TeX-MML-AM_CHTML"></script>
+    <style>
+        :root {
+            --primary-color: #4F46E5;
+            --secondary-color: #818CF8;
+            --bg-color: #F3F4F6;
+            --text-color: #1F2937;
+            --danger-color: #EF4444;
+            --success-color: #10B981;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .lab-layout {
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .lab-layout { grid-template-columns: 1fr; }
+        }
+
+        /* Control Panel */
+        .controls {
+            background: #F9FAFB;
+            padding: 20px;
+            border-radius: 8px;
+            border: 1px solid #E5E7EB;
+        }
+
+        .control-group { margin-bottom: 20px; }
+        .control-group label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
+        .control-group input[type="range"] { width: 100%; }
+        .value-display { font-family: monospace; color: var(--primary-color); float: right; }
+
+        .btn {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-primary:hover { background: #4338CA; }
+        .btn-reset { background: white; border: 1px solid #D1D5DB; color: #374151; }
+        .btn-print { background: #059669; color: white; margin-top: 20px; }
+
+        /* Visualization Area */
+        .visualization {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .beaker-container {
+            position: relative;
+            height: 250px;
+            border: 2px solid #D1D5DB;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.9);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 1s ease;
+        }
+
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            transition: all 0.5s ease;
+        }
+        /* NO2: Reddish Brown, N2O4: Colorless/Grey */
+        .p-no2 { width: 12px; height: 12px; background: #A52A2A; box-shadow: 0 0 4px rgba(165, 42, 42, 0.6); }
+        .p-n2o4 { width: 16px; height: 16px; background: #9CA3AF; border: 1px solid #6B7280; opacity: 0.6; }
+
+        .graph-area {
+            height: 200px;
+            border: 1px solid #E5E7EB;
+            border-radius: 8px;
+            background: white;
+            position: relative;
+        }
+
+        /* Result Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 0.9rem;
+        }
+        th, td { border: 1px solid #E5E7EB; padding: 8px; text-align: center; }
+        th { background: #F3F4F6; }
+        .highlight { background: #EFF6FF; font-weight: bold; color: var(--primary-color); }
+
+        /* Educational Section */
+        .edu-section {
+            padding: 20px;
+            background: #FFFBEB;
+            border-top: 1px solid #FCD34D;
+        }
+        .quiz-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+            border: 1px solid #E5E7EB;
+        }
+        .hidden { display: none; }
+
+        /* Tooltip & Labels */
+        .label-overlay {
+            position: absolute;
+            top: 10px; left: 10px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>⚗️ 화학 평형 시뮬레이션</h1>
+        <p>반응: $$ 2NO_2(g) \rightleftharpoons N_2O_4(g) $$ (적갈색 ⇌ 무색)</p>
+    </header>
+
+    <div class="lab-layout">
+        <aside class="controls">
+            <h3>🔬 실험 조건 설정</h3>
+            <p style="font-size:0.8rem; color:#666;">※ 초기 농도를 설정하고 '반응 시작'을 눌러보세요.</p>
+            
+            <div class="control-group">
+                <label>초기 [NO₂] (적갈색) <span id="val-no2" class="value-display">1.00 M</span></label>
+                <input type="range" id="input-no2" min="0" max="2" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <label>초기 [N₂O₄] (무색) <span id="val-n2o4" class="value-display">0.00 M</span></label>
+                <input type="range" id="input-n2o4" min="0" max="2" step="0.1" value="0.0">
+            </div>
+
+            <div class="control-group">
+                <label>온도 (상수 K 결정요인)</label>
+                <select id="temp-select" disabled style="width:100%; padding:5px;">
+                    <option>25°C (K=4.0 가정)</option>
+                </select>
+                <small style="color:#666; display:block; margin-top:4px;">* 계산 편의를 위해 K=4.0으로 가정</small>
+            </div>
+
+            <button class="btn btn-primary" onclick="startExperiment()">▶ 반응 시작</button>
+            <button class="btn btn-reset" onclick="resetExperiment()">↺ 초기화</button>
+            
+            <hr>
+            <div id="result-panel" class="hidden">
+                <h4>📊 실험 결과 분석</h4>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>구분</th>
+                            <th>초기 (M)</th>
+                            <th>평형 (M)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>NO₂</td>
+                            <td id="res-init-no2">-</td>
+                            <td id="res-eq-no2">-</td>
+                        </tr>
+                        <tr>
+                            <td>N₂O₄</td>
+                            <td id="res-init-n2o4">-</td>
+                            <td id="res-eq-n2o4">-</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <div style="margin-top:15px; text-align:center;">
+                    <p style="margin:5px 0; font-size:0.9rem;">계산된 평형 상수 ($$K_c$$)</p>
+                    <div style="font-size:1.2rem; font-weight:bold; color:var(--primary-color);">
+                        $$ \frac{[N_2O_4]}{[NO_2]^2} = $$ <span id="calc-k">?</span>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <main class="visualization">
+            <div>
+                <h4>1. 입자 및 색상 관찰</h4>
+                <div class="beaker-container" id="beaker">
+                    <div class="label-overlay">밀폐 용기 (V=1L)</div>
+                    </div>
+                <p style="font-size:0.8rem; text-align:center; color:#555;">
+                    <span style="color:#A52A2A">● NO₂</span> 입자가 많을수록 적갈색이 진해집니다.
+                </p>
+            </div>
+
+            <div>
+                <h4>2. 농도 변화 그래프</h4>
+                <div class="graph-area" id="graph-container">
+                    <svg id="graph" width="100%" height="100%" viewBox="0 0 600 200" preserveAspectRatio="none">
+                        <line x1="50" y1="20" x2="50" y2="170" stroke="#ddd" stroke-width="2"/>
+                        <line x1="50" y1="170" x2="580" y2="170" stroke="#ddd" stroke-width="2"/>
+                        <text x="10" y="100" font-size="12" fill="#666">농도(M)</text>
+                        <text x="300" y="190" font-size="12" fill="#666">시간 →</text>
+                    </svg>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <section class="edu-section">
+        <h3>🧠 개념 정리 및 확인</h3>
+        <p>
+            실험 결과, 초기 농도가 달라도 평형 상태에서 
+            <strong>생성물 농도와 반응물 농도의 제곱의 비($$ K = \frac{[N_2O_4]}{[NO_2]^2} $$)</strong>는 
+            일정하다는 것을 확인할 수 있습니다. 이를 <strong>화학 평형의 법칙</strong>이라고 합니다.
+        </p>
+        
+        <div class="quiz-box">
+            <strong>Q. 스스로 생각해보기</strong>
+            <p>만약 $$[NO_2]$$를 2배로 높여서 반응을 시작하면, 평형 상태의 $$[N_2O_4]$$는 단순히 2배가 될까요? 아니면 그보다 더 많이 증가할까요? 실험을 통해 확인하고 이유를 반응 계수와 연관 지어 설명해보세요.</p>
+            <details>
+                <summary style="cursor:pointer; color:var(--primary-color);">정답 및 해설 보기</summary>
+                <p style="margin-top:10px; font-size:0.9rem; color:#4B5563;">
+                    단순히 2배가 되지 않습니다. 평형 상수 식 $$ K = \frac{[N_2O_4]}{[NO_2]^2} $$에 따라 $$[NO_2]$$가 증가하면 $$K$$값을 일정하게 유지하기 위해 $$[N_2O_4]$$는 $$[NO_2]$$ 증가분의 제곱에 비례하는 경향으로 훨씬 더 많이 증가해야 합니다. (제곱 비례 관계)
+                </p>
+            </details>
+        </div>
+
+        <button class="btn btn-print" onclick="window.print()">📄 실험 결과 보고서 출력 (PDF 저장)</button>
+    </section>
+</div>
+
+<script>
+    // --- Simulation Constants & State ---
+    const K_sim = 4.0; // Simulated Equilibrium Constant for educational clarity
+    let currentNO2 = 1.0;
+    let currentN2O4 = 0.0;
+    let isRunning = false;
+    let animationId = null;
+
+    // --- DOM Elements ---
+    const inputNO2 = document.getElementById('input-no2');
+    const inputN2O4 = document.getElementById('input-n2o4');
+    const valNO2 = document.getElementById('val-no2');
+    const valN2O4 = document.getElementById('val-n2o4');
+    const beaker = document.getElementById('beaker');
+    const resultPanel = document.getElementById('result-panel');
+
+    // --- Event Listeners ---
+    inputNO2.addEventListener('input', (e) => {
+        valNO2.textContent = parseFloat(e.target.value).toFixed(2) + " M";
+        if(!isRunning) updateVisualsPreview();
+    });
+    inputN2O4.addEventListener('input', (e) => {
+        valN2O4.textContent = parseFloat(e.target.value).toFixed(2) + " M";
+        if(!isRunning) updateVisualsPreview();
+    });
+
+    // --- Core Logic: Equilibrium Calculation ---
+    function calculateEquilibrium(initNO2, initN2O4) {
+        // Equation: K = (initN2O4 + x) / (initNO2 - 2x)^2
+        // Rearranging to Ax^2 + Bx + C = 0
+        // (initNO2 - 2x)^2 * K = initN2O4 + x
+        // (initNO2^2 - 4*initNO2*x + 4x^2) * K - x - initN2O4 = 0
+        // 4Kx^2 - (4K*initNO2 + 1)x + (K*initNO2^2 - initN2O4) = 0
+        
+        const A = 4 * K_sim;
+        const B = -(4 * K_sim * initNO2 + 1);
+        const C = (K_sim * Math.pow(initNO2, 2)) - initN2O4;
+
+        // Quadratic formula: x = (-B ± sqrt(B^2 - 4AC)) / 2A
+        const discriminant = Math.sqrt(Math.pow(B, 2) - 4 * A * C);
+        const x1 = (-B + discriminant) / (2 * A);
+        const x2 = (-B - discriminant) / (2 * A);
+
+        // Determine valid x (Must not result in negative concentrations)
+        let x = x2; // Usually the subtraction root is the physical one in this setup
+        
+        // Validation check
+        if (initNO2 - 2*x1 >= 0 && initN2O4 + x1 >= 0) x = x1;
+        else x = x2;
+
+        const eqNO2 = initNO2 - 2 * x;
+        const eqN2O4 = initN2O4 + x;
+
+        return { eqNO2, eqN2O4 };
+    }
+
+    // --- Visualization Functions ---
+    function updateVisualsPreview() {
+        const no2 = parseFloat(inputNO2.value);
+        const n2o4 = parseFloat(inputN2O4.value);
+        renderParticles(no2, n2o4);
+        updateBeakerColor(no2);
+    }
+
+    function updateBeakerColor(concNO2) {
+        // NO2 is reddish-brown. Max intensity around 2.0M
+        const intensity = Math.min(concNO2 / 2.5, 1);
+        beaker.style.backgroundColor = `rgba(165, 42, 42, ${intensity * 0.5})`; // Base overlay
+    }
+
+    function renderParticles(concNO2, concN2O4) {
+        beaker.innerHTML = '<div class="label-overlay">밀폐 용기 (V=1L)</div>';
+        
+        // Scale: 1M = 20 particles for visualization
+        const countNO2 = Math.floor(concNO2 * 20);
+        const countN2O4 = Math.floor(concN2O4 * 20);
+
+        const fragment = document.createDocumentFragment();
+
+        for(let i=0; i<countNO2; i++) {
+            const p = createParticle('p-no2');
+            fragment.appendChild(p);
+        }
+        for(let i=0; i<countN2O4; i++) {
+            const p = createParticle('p-n2o4');
+            fragment.appendChild(p);
+        }
+        beaker.appendChild(fragment);
+    }
+
+    function createParticle(className) {
+        const p = document.createElement('div');
+        p.className = `particle ${className}`;
+        // Random position within beaker (250px height, ~650px width depending on layout)
+        p.style.left = Math.random() * 90 + '%';
+        p.style.top = Math.random() * 90 + '%';
+        
+        // Simple float animation simulation via CSS/JS later could be added
+        // For now, static random distribution conveys density well enough for MVP
+        return p;
+    }
+
+    // --- Experiment Execution ---
+    function startExperiment() {
+        if(isRunning) return;
+        isRunning = true;
+
+        const initNO2 = parseFloat(inputNO2.value);
+        const initN2O4 = parseFloat(inputN2O4.value);
+
+        // 1. Calculate Target Equilibrium
+        const { eqNO2, eqN2O4 } = calculateEquilibrium(initNO2, initN2O4);
+
+        // 2. Animate Transition (Simulate reaction time)
+        let progress = 0;
+        const duration = 2000; // 2 seconds animation
+        const steps = 60;
+        const stepTime = duration / steps;
+        
+        // Graph Data setup
+        const graphData = {
+            no2: [initNO2],
+            n2o4: [initN2O4]
+        };
+
+        const interval = setInterval(() => {
+            progress += 1 / steps;
+            
+            // Linear interpolation for simple visualization
+            // In reality, kinetics are exponential, but linear is okay for this level
+            const currentNO2Vis = initNO2 + (eqNO2 - initNO2) * progress;
+            const currentN2O4Vis = initN2O4 + (eqN2O4 - initN2O4) * progress;
+
+            renderParticles(currentNO2Vis, currentN2O4Vis);
+            updateBeakerColor(currentNO2Vis);
+            
+            graphData.no2.push(currentNO2Vis);
+            graphData.n2o4.push(currentN2O4Vis);
+            drawGraph(graphData);
+
+            if(progress >= 1) {
+                clearInterval(interval);
+                finishExperiment(initNO2, initN2O4, eqNO2, eqN2O4);
+            }
+        }, stepTime);
+    }
+
+    function finishExperiment(initNO2, initN2O4, eqNO2, eqN2O4) {
+        isRunning = false;
+        
+        // Display Results
+        document.getElementById('res-init-no2').textContent = initNO2.toFixed(2);
+        document.getElementById('res-init-n2o4').textContent = initN2O4.toFixed(2);
+        document.getElementById('res-eq-no2').textContent = eqNO2.toFixed(2);
+        document.getElementById('res-eq-n2o4').textContent = eqN2O4.toFixed(2);
+
+        // Calculate K
+        const kVal = eqN2O4 / Math.pow(eqNO2, 2);
+        document.getElementById('calc-k').textContent = kVal.toFixed(2);
+
+        resultPanel.classList.remove('hidden');
+    }
+
+    function drawGraph(data) {
+        const svg = document.getElementById('graph');
+        // Clear previous paths but keep axes
+        const oldPaths = svg.querySelectorAll('path, circle');
+        oldPaths.forEach(p => p.remove());
+
+        const width = 530; // internal width based on viewBox
+        const height = 150; // internal height
+        const startX = 50;
+        const startY = 170;
+        const maxConc = 2.5; // Y-axis max
+
+        const makePath = (arr, color) => {
+            let d = `M ${startX} ${startY - (arr[0]/maxConc)*height}`;
+            const stepX = width / (arr.length - 1);
+            
+            arr.forEach((val, i) => {
+                const x = startX + stepX * i;
+                const y = startY - (val / maxConc) * height;
+                d += ` L ${x} ${y}`;
+            });
+            
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", d);
+            path.setAttribute("stroke", color);
+            path.setAttribute("stroke-width", "3");
+            path.setAttribute("fill", "none");
+            svg.appendChild(path);
+        };
+
+        makePath(data.no2, "#A52A2A"); // Red for NO2
+        makePath(data.n2o4, "#6B7280"); // Grey for N2O4
+    }
+
+    function resetExperiment() {
+        isRunning = false;
+        resultPanel.classList.add('hidden');
+        inputNO2.value = 1.0;
+        inputN2O4.value = 0.0;
+        valNO2.textContent = "1.00 M";
+        valN2O4.textContent = "0.00 M";
+        
+        // Reset Visuals
+        updateVisualsPreview();
+        
+        // Reset Graph
+        const svg = document.getElementById('graph');
+        const oldPaths = svg.querySelectorAll('path');
+        oldPaths.forEach(p => p.remove());
+    }
+
+    // Initial render
+    updateVisualsPreview();
+</script>
+
+</body>
+</html>

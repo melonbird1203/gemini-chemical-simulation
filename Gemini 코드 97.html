@@ -1,0 +1,466 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물의 전기분해</title>
+    <style>
+        :root {
+            --primary: #3b82f6;
+            --secondary: #10b981;
+            --accent: #f59e0b;
+            --bg: #f3f4f6;
+            --glass: rgba(255, 255, 255, 0.9);
+        }
+        body {
+            font-family: 'Suit', sans-serif;
+            background-color: var(--bg);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: #333;
+        }
+        h1 { margin-bottom: 10px; color: #1f2937; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        /* Left Panel: Controls */
+        .panel {
+            background: var(--glass);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            margin-top: 5px;
+            font-size: 1rem;
+        }
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+        button:hover { background-color: #2563eb; }
+        button.reset { background-color: #ef4444; margin-top: 10px; }
+
+        /* Center: Experiment Visualization */
+        .experiment-area {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            background: #fff;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            overflow: hidden;
+            border: 2px solid #e5e7eb;
+        }
+        .beaker {
+            width: 300px;
+            height: 250px;
+            border-left: 3px solid #cbd5e1;
+            border-right: 3px solid #cbd5e1;
+            border-bottom: 3px solid #cbd5e1;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background: linear-gradient(to bottom, rgba(200,230,255,0.4), rgba(200,230,255,0.8));
+            overflow: hidden;
+        }
+        /* Electrodes */
+        .electrode {
+            width: 20px;
+            height: 180px;
+            position: absolute;
+            bottom: 20px;
+            background: #94a3b8; /* Default Platinum color */
+            border-radius: 4px;
+        }
+        .electrode.anode { left: 80px; } /* (+) */
+        .electrode.cathode { right: 80px; } /* (-) */
+        
+        /* Test Tubes */
+        .test-tube {
+            width: 40px;
+            height: 200px;
+            position: absolute;
+            bottom: 50px;
+            border: 2px solid #94a3b8;
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+            background: rgba(255,255,255,0.2);
+            z-index: 2;
+        }
+        .tube-anode { left: 70px; }
+        .tube-cathode { right: 70px; }
+
+        /* Gas Collection Area */
+        .gas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            background: rgba(255,255,255,0.9);
+            transition: height 0.1s linear;
+            height: 0px;
+        }
+
+        /* BTB Color Areas */
+        .btb-glow {
+            position: absolute;
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            filter: blur(20px);
+            opacity: 0;
+            transition: opacity 1s;
+        }
+        .glow-anode { left: 40px; bottom: 40px; background: yellow; }
+        .glow-cathode { right: 40px; bottom: 40px; background: blue; }
+
+        /* Bubbles */
+        .bubble {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: rise linear infinite;
+        }
+        @keyframes rise {
+            from { bottom: 20px; opacity: 1; }
+            to { bottom: 200px; opacity: 0; }
+        }
+
+        /* Right Panel: Data & Feedback */
+        .data-panel {
+            flex: 1;
+            min-width: 300px;
+            background: var(--glass);
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        .stat-box {
+            background: white;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #e5e7eb;
+        }
+        .stat-label { font-size: 0.85rem; color: #6b7280; }
+        .stat-value { font-size: 1.2rem; font-weight: bold; color: var(--primary); }
+        .log-box {
+            flex-grow: 1;
+            background: #1f2937;
+            color: #10b981;
+            font-family: monospace;
+            padding: 10px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            height: 150px;
+            overflow-y: auto;
+        }
+
+        /* Labels */
+        .label-tag {
+            position: absolute;
+            font-size: 12px;
+            font-weight: bold;
+            background: rgba(255,255,255,0.8);
+            padding: 2px 5px;
+            border-radius: 4px;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 물의 전기분해</h1>
+    <p>물을 전기분해하여 수소와 산소를 얻고, 산화-환원 반응을 이해해 봅시다.</p>
+
+    <div class="container">
+        <div class="panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            <div class="control-group">
+                <label>전압 조절 (V): <span id="voltVal">0</span>V</label>
+                <input type="range" id="voltage" min="0" max="20" value="0" step="1">
+            </div>
+            <div class="control-group">
+                <label>전해질 농도 (Na₂SO₄)</label>
+                <select id="concentration">
+                    <option value="1">묽음 (반응 느림)</option>
+                    <option value="2" selected>표준</option>
+                    <option value="3">진함 (반응 빠름)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>(+)극 전극 재질</label>
+                <select id="anodeMaterial">
+                    <option value="Pt">백금 (Pt) - 이상적</option>
+                    <option value="Fe">철 (Fe) - 산화 발생</option>
+                </select>
+                <small style="color:#666; font-size:0.8em">*(-)극은 백금 고정</small>
+            </div>
+            <button id="toggleBtn">실험 시작 / 정지</button>
+            <button class="reset" id="resetBtn">초기화</button>
+        </div>
+
+        <div class="experiment-area">
+            <div class="beaker">
+                <div class="btb-glow glow-anode" id="glowAnode"></div>
+                <div class="btb-glow glow-cathode" id="glowCathode"></div>
+                
+                <div class="electrode anode" id="visAnode"></div>
+                <div class="test-tube tube-anode">
+                    <div class="gas" id="gasAnode"></div>
+                </div>
+                <div class="label-tag" style="bottom: 10px; left: 80px;">(+)극</div>
+
+                <div class="electrode cathode"></div>
+                <div class="test-tube tube-cathode">
+                    <div class="gas" id="gasCathode"></div>
+                </div>
+                <div class="label-tag" style="bottom: 10px; right: 80px;">(-)극</div>
+            </div>
+        </div>
+
+        <div class="data-panel">
+            <h3>📊 실시간 데이터</h3>
+            <div class="stat-box">
+                <div class="stat-label">발생 기체 부피비 (수소 : 산소)</div>
+                <div class="stat-value" id="ratioVal">0 : 0</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">(-)극 수소 발생량</div>
+                <div class="stat-value"><span id="volH2">0.0</span> mL</div>
+            </div>
+            <div class="stat-box">
+                <div class="stat-label">(+)극 산소 발생량</div>
+                <div class="stat-value"><span id="volO2">0.0</span> mL</div>
+            </div>
+            <div class="log-box" id="consoleLog">
+                > 시스템 준비 완료...<br>
+                > 실험 조건을 설정하고 전압을 올려주세요.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // State Variables
+        let isRunning = false;
+        let voltage = 0;
+        let h2Volume = 0;
+        let o2Volume = 0;
+        let timer = null;
+        const maxVolume = 50; // Max mL for simulation visualization
+
+        // DOM Elements
+        const elVoltage = document.getElementById('voltage');
+        const elVoltVal = document.getElementById('voltVal');
+        const elConc = document.getElementById('concentration');
+        const elAnodeMat = document.getElementById('anodeMaterial');
+        const btnToggle = document.getElementById('toggleBtn');
+        const btnReset = document.getElementById('resetBtn');
+        const logBox = document.getElementById('consoleLog');
+        
+        // Visual Elements
+        const gasH2 = document.getElementById('gasCathode'); // (-)극
+        const gasO2 = document.getElementById('gasAnode');   // (+)극
+        const glowA = document.getElementById('glowAnode');
+        const glowC = document.getElementById('glowCathode');
+        const visAnode = document.getElementById('visAnode');
+
+        // Event Listeners
+        elVoltage.addEventListener('input', (e) => {
+            voltage = parseInt(e.target.value);
+            elVoltVal.textContent = voltage;
+            updateLog(`전압 변경: ${voltage}V`);
+            updateVisualIntensity();
+        });
+
+        elAnodeMat.addEventListener('change', (e) => {
+            if(e.target.value === 'Fe') {
+                visAnode.style.backgroundColor = '#5c4033'; // Iron color
+                updateLog("⚠️ 주의: (+)극을 철(Fe)로 변경했습니다. 실험 결과에 영향을 줄 수 있습니다.");
+            } else {
+                visAnode.style.backgroundColor = '#94a3b8'; // Platinum color
+                updateLog("정보: (+)극을 백금(Pt)으로 변경했습니다.");
+            }
+        });
+
+        btnToggle.addEventListener('click', toggleSim);
+        btnReset.addEventListener('click', resetSim);
+
+        // Core Logic
+        function toggleSim() {
+            if (isRunning) {
+                stopSim();
+            } else {
+                if (voltage === 0) {
+                    alert("전압을 0V 이상으로 설정해주세요!");
+                    return;
+                }
+                startSim();
+            }
+        }
+
+        function startSim() {
+            isRunning = true;
+            btnToggle.textContent = "실험 정지";
+            updateLog(">>> 전기분해 시작. 기포 발생 중...");
+            
+            // BTB Color Reaction
+            glowA.style.opacity = 1; // Yellow (Acid)
+            glowC.style.opacity = 1; // Blue (Base)
+
+            timer = setInterval(loop, 100);
+            createBubbles();
+        }
+
+        function stopSim() {
+            isRunning = false;
+            btnToggle.textContent = "실험 재개";
+            updateLog("|| 실험 일시 정지");
+            clearInterval(timer);
+            // Stop bubbles handled by visual intensity check
+        }
+
+        function resetSim() {
+            stopSim();
+            h2Volume = 0;
+            o2Volume = 0;
+            updateDisplay();
+            gasH2.style.height = '0px';
+            gasO2.style.height = '0px';
+            glowA.style.opacity = 0;
+            glowC.style.opacity = 0;
+            btnToggle.textContent = "실험 시작";
+            elVoltage.value = 0;
+            voltage = 0;
+            elVoltVal.textContent = 0;
+            updateLog("--- 실험 초기화 완료 ---");
+        }
+
+        function loop() {
+            if (!isRunning) return;
+
+            const conc = parseFloat(elConc.value);
+            const material = elAnodeMat.value;
+            
+            // Rate calculation based on Voltage & Concentration
+            // Basic rate
+            let productionRate = (voltage * conc) * 0.05;
+
+            // H2 Production (Cathode -)
+            h2Volume += productionRate * 2; // Theoretically 2
+
+            // O2 Production (Anode +)
+            let o2Rate = productionRate * 1; // Theoretically 1
+            
+            // Simulation of Experimental Error (Iron Electrode)
+            if (material === 'Fe') {
+                // Fe reacts with O2 (Rusting), so less gas is collected
+                // 2Fe + 3/2O2 -> Fe2O3 (roughly consumes O2)
+                o2Rate = o2Rate * 0.3; // Significant drop
+                if(Math.random() < 0.1) updateLog("관찰: 철 전극이 산화되어 산소 기포가 적게 보입니다.");
+            }
+
+            o2Volume += o2Rate;
+
+            updateDisplay();
+            
+            // Safety Stop
+            if (h2Volume > 100 || o2Volume > 100) {
+                stopSim();
+                updateLog("⚠️ 실험 종료: 포집관이 가득 찼습니다.");
+            }
+        }
+
+        function updateDisplay() {
+            // Update Text
+            document.getElementById('volH2').textContent = h2Volume.toFixed(1);
+            document.getElementById('volO2').textContent = o2Volume.toFixed(1);
+            
+            let ratio = (o2Volume > 0) ? (h2Volume / o2Volume).toFixed(1) : "0";
+            document.getElementById('ratioVal').textContent = `${ratio} : 1`;
+
+            // Update Visuals (Height of gas area)
+            // Map 0-100mL to 0-200px height
+            gasH2.style.height = Math.min(h2Volume * 2, 200) + 'px';
+            gasO2.style.height = Math.min(o2Volume * 2, 200) + 'px';
+        }
+
+        function updateLog(msg) {
+            logBox.innerHTML += `> ${msg}<br>`;
+            logBox.scrollTop = logBox.scrollHeight;
+        }
+
+        function updateVisualIntensity() {
+            // Can be used to speed up CSS animations based on voltage
+        }
+
+        // Bubble Animation System
+        function createBubbles() {
+            if(!isRunning) return;
+            
+            const beaker = document.querySelector('.beaker');
+            const intensity = voltage * parseInt(elConc.value);
+            
+            // Create bubbles for Cathode (-) -> More bubbles
+            if (intensity > 0) {
+                addBubble(beaker, 'right', 20); // H2
+                addBubble(beaker, 'right', 40); 
+                if(intensity > 10) addBubble(beaker, 'right', 30);
+                
+                // Create bubbles for Anode (+)
+                const anodeMat = elAnodeMat.value;
+                if(anodeMat === 'Pt' || Math.random() > 0.7) { // Fe produces less bubbles
+                    addBubble(beaker, 'left', 20); // O2
+                }
+            }
+
+            if(isRunning) setTimeout(createBubbles, 5000 / (intensity + 1));
+        }
+
+        function addBubble(parent, side, offset) {
+            const b = document.createElement('div');
+            b.className = 'bubble';
+            const size = Math.random() * 5 + 3;
+            b.style.width = size + 'px';
+            b.style.height = size + 'px';
+            
+            // Position near electrodes
+            if (side === 'left') b.style.left = (85 + Math.random()*10 - 5) + 'px'; 
+            else b.style.right = (85 + Math.random()*10 - 5) + 'px';
+            
+            b.style.bottom = '30px';
+            b.style.animationDuration = (2 + Math.random()) + 's';
+            
+            parent.appendChild(b);
+
+            // Remove after animation
+            setTimeout(() => { b.remove(); }, 3000);
+        }
+    </script>
+</body>
+</html>

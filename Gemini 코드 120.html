@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>가상 실험: 결정 구조와 단위격자</title>
+    <style>
+        body { margin: 0; overflow: hidden; font-family: 'Malgun Gothic', sans-serif; background-color: #1a1a2e; color: #fff; }
+        #container { width: 100vw; height: 100vh; display: block; }
+        
+        /* UI 패널 스타일 */
+        #ui-layer {
+            position: absolute; top: 20px; left: 20px; width: 320px;
+            background: rgba(255, 255, 255, 0.95); color: #333;
+            padding: 20px; border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            max-height: 90vh; overflow-y: auto;
+        }
+        h2 { margin: 0 0 10px 0; font-size: 1.2rem; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 5px;}
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem;}
+        
+        button {
+            width: 100%; padding: 8px; margin-bottom: 5px;
+            border: none; border-radius: 5px; cursor: pointer;
+            background-color: #3498db; color: white; font-weight: bold;
+            transition: 0.2s;
+        }
+        button:hover { background-color: #2980b9; }
+        button.active { background-color: #1abc9c; }
+        
+        .toggle-switch {
+            display: flex; align-items: center; justify-content: space-between;
+            background: #ecf0f1; padding: 10px; border-radius: 5px; cursor: pointer; margin-bottom: 5px;
+        }
+        
+        #info-panel {
+            margin-top: 15px; padding: 10px; background: #f1f8ff;
+            border-left: 4px solid #3498db; border-radius: 4px; font-size: 0.9rem;
+        }
+        
+        /* 퀴즈 영역 */
+        #quiz-section { margin-top: 20px; border-top: 1px solid #ddd; padding-top: 10px; }
+        .quiz-option { 
+            display: block; width: 100%; text-align: left; background: #fff; color: #333; border: 1px solid #ccc; margin-bottom: 5px;
+        }
+        .quiz-feedback { font-size: 0.85rem; margin-top: 5px; font-weight: bold; }
+        .correct { color: #27ae60; }
+        .wrong { color: #c0392b; }
+
+        .legend { display: flex; gap: 10px; font-size: 0.8rem; margin-top: 5px;}
+        .dot { width: 10px; height: 10px; display: inline-block; border-radius: 50%; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+</head>
+<body>
+
+    <div id="container"></div>
+
+    <div id="ui-layer">
+        <h2>🔬 결정 구조 실험실</h2>
+        
+        <div class="control-group">
+            <label>1. 구조 선택</label>
+            <button onclick="setStructure('SC')" id="btn-sc">단순 입방 (SC)</button>
+            <button onclick="setStructure('BCC')" id="btn-bcc">체심 입방 (BCC)</button>
+            <button onclick="setStructure('FCC')" id="btn-fcc" class="active">면심 입방 (FCC)</button>
+        </div>
+
+        <div class="control-group">
+            <label>2. 관찰 모드</label>
+            <div class="toggle-switch" onclick="toggleCut()">
+                <span>✂️ 단위격자 자르기 (Cut)</span>
+                <span id="cut-status">OFF</span>
+            </div>
+            <div class="toggle-switch" onclick="toggleWireframe()">
+                <span>🧊 격자 틀 보기</span>
+                <span id="wire-status">ON</span>
+            </div>
+        </div>
+
+        <div id="info-panel">
+            <strong>📊 입자 수 계산 공식</strong><br>
+            <span id="calc-formula">구조를 선택하세요.</span>
+        </div>
+
+        <div id="quiz-section">
+            <label>📝 확인 퀴즈</label>
+            <p id="quiz-question" style="font-size: 0.9rem; margin-bottom: 5px;">이 구조의 단위격자 내 입자 수는?</p>
+            <button class="quiz-option" onclick="checkAnswer(1)">1개</button>
+            <button class="quiz-option" onclick="checkAnswer(2)">2개</button>
+            <button class="quiz-option" onclick="checkAnswer(4)">4개</button>
+            <div id="quiz-feedback" class="quiz-feedback"></div>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. Three.js 기본 설정 ---
+        let scene, camera, renderer, controls;
+        let atomsGroup = new THREE.Group();
+        let latticeBox;
+        let currentStructure = 'FCC';
+        let isCutMode = false;
+        let isWireframe = true;
+
+        // 클리핑 평면 (단위격자 자르기용)
+        const planes = [
+            new THREE.Plane(new THREE.Vector3(1, 0, 0), -0.5), // x max
+            new THREE.Plane(new THREE.Vector3(-1, 0, 0), -0.5), // x min
+            new THREE.Plane(new THREE.Vector3(0, 1, 0), -0.5), // y max
+            new THREE.Plane(new THREE.Vector3(0, -1, 0), -0.5), // y min
+            new THREE.Plane(new THREE.Vector3(0, 0, 1), -0.5), // z max
+            new THREE.Plane(new THREE.Vector3(0, 0, -1), -0.5)  // z min
+        ];
+
+        function init() {
+            // 씬 생성
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x1a1a2e);
+
+            // 카메라 설정
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            camera.position.set(2.5, 2.5, 4);
+
+            // 렌더러 설정
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.localClippingEnabled = false; // 초기엔 자르기 비활성화
+            document.getElementById('container').appendChild(renderer.domElement);
+
+            // 조명
+            const ambientLight = new THREE.AmbientLight(0x404040, 1.5);
+            scene.add(ambientLight);
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1);
+            dirLight.position.set(5, 10, 7);
+            scene.add(dirLight);
+
+            // 컨트롤
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+
+            // 단위격자 박스 (Wireframe)
+            const boxGeo = new THREE.BoxGeometry(1, 1, 1);
+            const boxMat = new THREE.LineBasicMaterial({ color: 0xffff00, linewidth: 2 });
+            const boxEdges = new THREE.EdgesGeometry(boxGeo);
+            latticeBox = new THREE.LineSegments(boxEdges, boxMat);
+            scene.add(latticeBox);
+
+            scene.add(atomsGroup);
+
+            // 초기 구조 생성
+            setStructure('FCC');
+
+            window.addEventListener('resize', onWindowResize);
+            animate();
+        }
+
+        // --- 2. 구조 생성 로직 ---
+        function createAtom(x, y, z, color, isCorner) {
+            const geometry = new THREE.SphereGeometry(0.25, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ 
+                color: color,
+                shininess: 100,
+                clippingPlanes: planes, // 자르기 평면 할당
+                clipShadows: true,
+                side: THREE.DoubleSide
+            });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(x - 0.5, y - 0.5, z - 0.5); // 중심좌표 보정 (-0.5 ~ 0.5 범위로)
+            
+            // 데이터 속성 추가 (교육용)
+            sphere.userData = { isCorner: isCorner };
+            
+            atomsGroup.add(sphere);
+        }
+
+        function setStructure(type) {
+            currentStructure = type;
+            atomsGroup.clear(); // 기존 입자 제거
+            
+            // 버튼 스타일 업데이트
+            document.querySelectorAll('button[id^="btn-"]').forEach(b => b.classList.remove('active'));
+            document.getElementById(`btn-${type.toLowerCase()}`).classList.add('active');
+
+            // 퀴즈 초기화
+            document.getElementById('quiz-feedback').innerHTML = "";
+
+            // 구조별 좌표 생성
+            if (type === 'SC') { // 단순 입방
+                const color = 0x3498db; // 파랑
+                for(let x=0; x<=1; x++) for(let y=0; y<=1; y++) for(let z=0; z<=1; z++) {
+                    createAtom(x, y, z, color, true);
+                }
+                updateInfo("꼭짓점(8개) × 1/8 = 1개", "단순 입방 구조 (SC)");
+            } 
+            else if (type === 'BCC') { // 체심 입방
+                const cornerColor = 0x3498db;
+                const centerColor = 0xe74c3c; // 빨강 (체심)
+                
+                // 꼭짓점
+                for(let x=0; x<=1; x++) for(let y=0; y<=1; y++) for(let z=0; z<=1; z++) {
+                    createAtom(x, y, z, cornerColor, true);
+                }
+                // 체심
+                createAtom(0.5, 0.5, 0.5, centerColor, false);
+                updateInfo("(꼭짓점 8 × 1/8) + (체심 1 × 1) = 2개", "체심 입방 구조 (BCC)");
+            } 
+            else if (type === 'FCC') { // 면심 입방
+                const cornerColor = 0x3498db;
+                const faceColor = 0xf1c40f; // 노랑 (면심)
+
+                // 꼭짓점
+                for(let x=0; x<=1; x++) for(let y=0; y<=1; y++) for(let z=0; z<=1; z++) {
+                    createAtom(x, y, z, cornerColor, true);
+                }
+                // 면심 (각 면의 중심)
+                const faces = [
+                    [0.5, 0.5, 0], [0.5, 0.5, 1], // z축 수직 면
+                    [0.5, 0, 0.5], [0.5, 1, 0.5], // y축 수직 면
+                    [0, 0.5, 0.5], [1, 0.5, 0.5]  // x축 수직 면
+                ];
+                faces.forEach(pos => createAtom(pos[0], pos[1], pos[2], faceColor, false));
+                updateInfo("(꼭짓점 8 × 1/8) + (면심 6 × 1/2) = 4개", "면심 입방 구조 (FCC)");
+            }
+        }
+
+        // --- 3. 인터랙션 및 UI 로직 ---
+        function toggleCut() {
+            isCutMode = !isCutMode;
+            renderer.localClippingEnabled = isCutMode;
+            document.getElementById('cut-status').innerText = isCutMode ? "ON" : "OFF";
+            document.getElementById('cut-status').style.color = isCutMode ? "#e74c3c" : "#333";
+        }
+
+        function toggleWireframe() {
+            isWireframe = !isWireframe;
+            latticeBox.visible = isWireframe;
+            document.getElementById('wire-status').innerText = isWireframe ? "ON" : "OFF";
+        }
+
+        function updateInfo(formula, title) {
+            document.getElementById('calc-formula').innerHTML = formula;
+            // 애니메이션 효과
+            const info = document.getElementById('info-panel');
+            info.style.backgroundColor = "#fff";
+            setTimeout(() => info.style.backgroundColor = "#f1f8ff", 200);
+        }
+
+        function checkAnswer(answer) {
+            const feedback = document.getElementById('quiz-feedback');
+            let correctAnswer = 0;
+            if(currentStructure === 'SC') correctAnswer = 1;
+            if(currentStructure === 'BCC') correctAnswer = 2;
+            if(currentStructure === 'FCC') correctAnswer = 4;
+
+            if (answer === correctAnswer) {
+                feedback.innerHTML = `<span class="correct">정답입니다!👏</span><br>단위격자 내 입자 수는 ${correctAnswer}개 입니다.`;
+            } else {
+                feedback.innerHTML = `<span class="wrong">다시 생각해보세요.🤔</span><br>'단위격자 자르기'를 켜고 격자 안쪽 조각들을 모아보세요.`;
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        init();
+    </script>
+</body>
+</html>

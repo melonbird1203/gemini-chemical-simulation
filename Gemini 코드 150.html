@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 화학 실험실: 은도금과 전기 분해</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50c878;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+            --danger-color: #e74c3c;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        .subtitle { font-size: 0.9rem; color: #666; margin-top: 5px; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 왼쪽 컨트롤 패널 */
+        .controls {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 10px;
+        }
+        
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; font-size: 0.9rem; }
+        input[type="range"] { width: 100%; }
+        
+        .value-display { float: right; color: var(--primary-color); font-weight: bold; }
+
+        button {
+            width: 100%;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            transition: 0.2s;
+        }
+        .btn-start { background-color: var(--primary-color); color: white; }
+        .btn-reset { background-color: #95a5a6; color: white; }
+        .btn-start:hover { background-color: #357abd; }
+
+        /* 중앙 실험 화면 */
+        .simulation-area {
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: #fff;
+            border: 1px solid #eee;
+            border-radius: 10px;
+            height: 500px;
+            overflow: hidden;
+        }
+
+        /* 비커와 전극 시각화 */
+        #beaker {
+            width: 200px;
+            height: 250px;
+            border-bottom: 3px solid #ccc;
+            border-left: 3px solid #ccc;
+            border-right: 3px solid #ccc;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background: linear-gradient(to bottom, rgba(200, 240, 255, 0.3), rgba(0, 150, 255, 0.1));
+            margin-top: 50px;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            background: rgba(0, 255, 255, 0.1);
+            border-radius: 0 0 15px 15px;
+        }
+
+        /* 전극 */
+        .electrode {
+            position: absolute;
+            top: -40px;
+            width: 20px;
+            height: 150px;
+            transition: background-color 0.5s;
+        }
+        
+        #anode { 
+            left: 40px; 
+            background: silver; /* 은판 */
+            border: 1px solid #999;
+        }
+        
+        #cathode { 
+            right: 40px; 
+            width: 40px; /* 펜던트 모양을 위해 넓게 */
+            height: 120px;
+            background: #b87333; /* 구리색 */
+            border-radius: 50% 50% 10px 10px; /* 숟가락/펜던트 모양 */
+            border: 1px solid #8d5524;
+        }
+
+        /* 전선 및 배터리 */
+        .wire {
+            position: absolute;
+            top: 20px;
+            height: 2px;
+            background: #333;
+            z-index: 10;
+        }
+        .wire-left { left: 50%; width: 140px; transform: translateX(-110px); }
+        .wire-right { left: 50%; width: 140px; transform: translateX(-30px); }
+        
+        .battery {
+            position: absolute;
+            top: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 30px;
+            background: #eee;
+            border: 2px solid #333;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+        }
+
+        /* 입자 애니메이션 (전자, 이온) */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            font-size: 10px;
+            font-weight: bold;
+            pointer-events: none;
+            opacity: 0;
+        }
+        .electron { color: yellow; background: red; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center; font-size: 8px;}
+        .ion { color: white; background: blue; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center; font-size: 9px; }
+
+        /* 오른쪽 결과 및 퀴즈 */
+        .info-panel {
+            padding: 15px;
+            background: #f0f8ff;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .data-box {
+            background: white;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .reaction-eq {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            background: #eef;
+            padding: 5px;
+            border-radius: 3px;
+            margin: 5px 0;
+            font-size: 0.9rem;
+        }
+
+        .graph-container {
+            height: 150px;
+            background: white;
+            border: 1px solid #ddd;
+            position: relative;
+            display: flex;
+            align-items: flex-end;
+            padding: 5px;
+        }
+        .graph-bar {
+            width: 100%;
+            background: silver;
+            transition: height 0.5s;
+            max-height: 100%;
+        }
+
+        .quiz-box {
+            background: #fff3cd;
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #ffeeba;
+        }
+        .quiz-options button {
+            margin: 2px;
+            font-size: 0.8rem;
+            padding: 5px;
+            width: auto;
+        }
+
+        /* 툴팁 및 안내 */
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+            pointer-events: none;
+        }
+
+        @keyframes moveElectronLeft {
+            0% { transform: translate(0, 0); opacity: 1; }
+            100% { transform: translate(100px, -50px); opacity: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>🧪 은도금 실험실 (Electroplating)</h1>
+        <div class="subtitle">고등학교 화학 II - 전기 화학: 전기 분해의 원리</div>
+    </header>
+
+    <div class="container">
+        <div class="controls">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label>전류 세기 (A) <span id="val-current" class="value-display">1.0 A</span></label>
+                <input type="range" id="input-current" min="0.5" max="5.0" step="0.5" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <label>반응 시간 (가상 분) <span id="val-time" class="value-display">0 분</span></label>
+                <div style="font-size:0.8rem; color:#666;">* 시뮬레이션 속도: 1초 = 10분</div>
+            </div>
+
+            <div class="control-group">
+                <label>전해질 농도 (M)</label>
+                <select id="input-conc" style="width:100%; padding:5px;">
+                    <option value="0.1">0.1 M KAg(CN)₂ (묽음)</option>
+                    <option value="0.5" selected>0.5 M KAg(CN)₂ (표준)</option>
+                    <option value="1.0">1.0 M KAg(CN)₂ (진함)</option>
+                </select>
+            </div>
+
+            <button class="btn-start" id="btn-toggle">실험 시작 (Start)</button>
+            <button class="btn-reset" id="btn-reset">초기화 (Reset)</button>
+
+            <div style="margin-top: 20px; font-size: 0.85rem; background:#eee; padding:10px; border-radius:5px;">
+                <strong>⚠️ 안전 노트:</strong><br>
+                실제 실험에서는 시안화물(CN)이 맹독성이므로, 학교에서는 안전한 질산은($AgNO_3$) 수용액을 주로 사용합니다. 이 시뮬레이션은 산업 공정 원리를 보여줍니다.
+            </div>
+        </div>
+
+        <div class="simulation-area" id="sim-area">
+            <div class="battery">+ 전원 장치 -</div>
+            <div class="wire wire-left"></div>
+            <div class="wire wire-right"></div>
+            
+            <div id="beaker">
+                <div class="liquid"></div>
+                
+                <div id="anode" class="electrode">
+                    <div class="tooltip" style="top:-30px; left:-10px;">Ag (은판)</div>
+                </div>
+                
+                <div id="cathode" class="electrode">
+                    <div class="tooltip" style="top:-30px; left:-10px;">Cu (펜던트)</div>
+                </div>
+
+                <div id="particles-layer"></div>
+            </div>
+            
+            <div id="electron-path" style="position:absolute; top:20px; width:100%; height:20px;"></div>
+        </div>
+
+        <div class="info-panel">
+            <div class="data-box">
+                <h4>📊 실험 결과 (Data)</h4>
+                <div>석출된 은의 질량: <span id="result-mass" style="color:var(--primary-color); font-weight:bold;">0.00</span> g</div>
+                <div>흐른 전자 몰수: <span id="result-mol">0.00</span> mol</div>
+                <hr>
+                <div class="reaction-eq">
+                    <strong>(+)극 산화:</strong><br> $Ag(s) \rightarrow Ag^+(aq) + e^-$
+                </div>
+                <div class="reaction-eq">
+                    <strong>(-)극 환원:</strong><br> $Ag^+(aq) + e^- \rightarrow Ag(s)$
+                </div>
+            </div>
+
+            <div class="data-box">
+                <h4>📈 도금량 그래프</h4>
+                <div class="graph-container">
+                    <div id="graph-bar" class="graph-bar" style="height: 0%;"></div>
+                    <div style="position:absolute; bottom:5px; right:5px; font-size:0.8rem;">Mass</div>
+                </div>
+            </div>
+
+            <div class="quiz-box">
+                <h4>🧠 개념 확인 퀴즈</h4>
+                <div id="quiz-question">전기 분해 시 전자는 어디에서 어디로 이동할까요?</div>
+                <div class="quiz-options" id="quiz-options" style="margin-top:5px;">
+                    <button onclick="checkAnswer(1)">은판 → 펜던트</button>
+                    <button onclick="checkAnswer(2)">펜던트 → 은판</button>
+                </div>
+                <div id="quiz-feedback" style="font-size:0.9rem; margin-top:5px; font-weight:bold;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 상수 및 변수
+        const FARADAY = 96485; // C/mol
+        const MOLAR_MASS_AG = 107.87; // g/mol
+        let isRunning = false;
+        let timer = 0; // 시뮬레이션 시간 (단위: 10분 tick)
+        let totalCharge = 0; // 쿨롱
+        let massDeposited = 0;
+        let animationFrame;
+        
+        // DOM 요소
+        const inputCurrent = document.getElementById('input-current');
+        const valCurrent = document.getElementById('val-current');
+        const valTime = document.getElementById('val-time');
+        const btnToggle = document.getElementById('btn-toggle');
+        const btnReset = document.getElementById('btn-reset');
+        const cathode = document.getElementById('cathode');
+        const anode = document.getElementById('anode');
+        const resultMass = document.getElementById('result-mass');
+        const resultMol = document.getElementById('result-mol');
+        const graphBar = document.getElementById('graph-bar');
+        const particlesLayer = document.getElementById('particles-layer');
+
+        // 이벤트 리스너
+        inputCurrent.addEventListener('input', (e) => {
+            valCurrent.textContent = e.target.value + " A";
+        });
+
+        btnToggle.addEventListener('click', toggleSimulation);
+        btnReset.addEventListener('click', resetSimulation);
+
+        function toggleSimulation() {
+            if (isRunning) {
+                stopSimulation();
+            } else {
+                startSimulation();
+            }
+        }
+
+        function startSimulation() {
+            isRunning = true;
+            btnToggle.textContent = "일시 정지 (Pause)";
+            btnToggle.style.backgroundColor = "#e67e22";
+            runLoop();
+        }
+
+        function stopSimulation() {
+            isRunning = false;
+            btnToggle.textContent = "실험 계속 (Resume)";
+            btnToggle.style.backgroundColor = "#4a90e2";
+            cancelAnimationFrame(animationFrame);
+        }
+
+        function resetSimulation() {
+            stopSimulation();
+            timer = 0;
+            totalCharge = 0;
+            massDeposited = 0;
+            updateUI();
+            
+            // 시각적 초기화
+            cathode.style.backgroundColor = "#b87333"; // 구리색 복구
+            anode.style.opacity = 1;
+            btnToggle.textContent = "실험 시작 (Start)";
+            graphBar.style.height = "0%";
+            particlesLayer.innerHTML = '';
+            document.getElementById('quiz-feedback').textContent = '';
+        }
+
+        function runLoop() {
+            if (!isRunning) return;
+
+            // 논리 업데이트 (1프레임당 가상의 시간 경과)
+            // 편의상 1 프레임 = 실제 10분 정도의 반응이라고 가정 (빠른 시뮬레이션)
+            const current = parseFloat(inputCurrent.value);
+            const timeStep = 60 * 10; // 10분 (600초)
+            
+            timer += 10; // 분 단위 표시용
+            const chargeStep = current * timeStep; // Q = I * t
+            totalCharge += chargeStep;
+
+            // 패러데이 법칙 계산: w = (M * Q) / (n * F)
+            // 은(Ag)은 1가 이온이므로 n=1
+            massDeposited = (MOLAR_MASS_AG * totalCharge) / (1 * FARADAY);
+            const molElectron = totalCharge / FARADAY;
+
+            updateUI(molElectron);
+            animateParticles();
+
+            // 종료 조건 (너무 오래하면 멈춤)
+            if (timer > 600) { // 가상 600분
+                stopSimulation();
+                alert("실험 종료! 도금이 충분히 두꺼워졌습니다.");
+            } else {
+                // 속도 조절 (너무 빠르지 않게)
+                setTimeout(() => {
+                    animationFrame = requestAnimationFrame(runLoop);
+                }, 100); // 0.1초마다 업데이트
+            }
+        }
+
+        function updateUI(molElectron = 0) {
+            valTime.textContent = timer + " 분";
+            resultMass.textContent = massDeposited.toFixed(2);
+            resultMol.textContent = molElectron.toFixed(3);
+
+            // 그래프 업데이트 (최대 10g 기준으로 높이 설정)
+            let graphHeight = (massDeposited / 10) * 100; 
+            if (graphHeight > 100) graphHeight = 100;
+            graphBar.style.height = graphHeight + "%";
+
+            // 시각적 변화: 펜던트 색상 변화 (구리색 -> 은색)
+            // 구리색(RGB: 184, 115, 51) -> 은색(RGB: 192, 192, 192)
+            // 도금량에 따라 보간
+            const ratio = Math.min(massDeposited / 2.0, 1); // 2g이면 완전히 은색
+            const r = Math.round(184 + (192 - 184) * ratio);
+            const g = Math.round(115 + (192 - 115) * ratio);
+            const b = Math.round(51 + (192 - 51) * ratio);
+            cathode.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+
+            // 양극(은판) 부식 효과
+            anode.style.opacity = Math.max(0.2, 1 - (ratio * 0.5));
+        }
+
+        function animateParticles() {
+            // 이온 생성 (Ag+) : Anode -> Cathode
+            const ion = document.createElement('div');
+            ion.className = 'particle ion';
+            ion.textContent = 'Ag⁺';
+            ion.style.left = '60px'; // Anode 위치 근처
+            ion.style.top = Math.random() * 100 + 50 + 'px';
+            particlesLayer.appendChild(ion);
+
+            // 전자 생성 (e-) : 회로를 따라 이동하는 효과는 CSS로 하되, 
+            // 여기서는 용액 내 반응을 보여주기 위해 펜던트 근처에서 사라지는 것 표현
+            
+            // 이온 이동 애니메이션
+            const anim = ion.animate([
+                { transform: 'translate(0, 0)', opacity: 1 },
+                { transform: `translate(100px, ${Math.random()*20 - 10}px)`, opacity: 0 }
+            ], {
+                duration: 1500,
+                easing: 'ease-in'
+            });
+
+            anim.onfinish = () => ion.remove();
+        }
+
+        // 퀴즈 로직
+        function checkAnswer(ans) {
+            const feedback = document.getElementById('quiz-feedback');
+            if (ans === 1) {
+                feedback.innerHTML = "<span style='color:blue'>정답입니다!</span><br>전자는 (-)극인 펜던트로 흘러들어가 Ag⁺ 이온을 환원시킵니다.";
+            } else {
+                feedback.innerHTML = "<span style='color:red'>다시 생각해보세요.</span><br>전원은 전자를 밀어냅니다. 전자가 쌓이는 곳이 (-)극이 됩니다.";
+            }
+        }
+    </script>
+</body>
+</html>

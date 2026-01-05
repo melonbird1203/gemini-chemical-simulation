@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 화학 결합과 물질의 성질</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50E3C2;
+            --accent-color: #F5A623;
+            --text-color: #333;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Malgun Gothic', 'Apple SD Gothic Neo', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            margin: 20px auto;
+            gap: 20px;
+            padding: 0 10px;
+        }
+        /* Controls Section */
+        .controls {
+            flex: 1;
+            min-width: 250px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .control-group {
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 1rem;
+            margin-bottom: 5px;
+            cursor: pointer;
+        }
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            transition: background 0.3s;
+        }
+        button:hover {
+            background-color: #357ABD;
+        }
+        button.active {
+            background-color: var(--accent-color);
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        /* Visualization Section */
+        .visualizer {
+            flex: 2;
+            min-width: 300px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+        canvas {
+            border: 1px solid #eee;
+            border-radius: 5px;
+            background: #fff;
+        }
+        .status-lamp {
+            position: absolute;
+            top: 30px;
+            right: 30px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background-color: #444;
+            border: 2px solid #222;
+            box-shadow: inset 0 0 5px rgba(0,0,0,0.5);
+            transition: all 0.3s;
+        }
+        .status-lamp.on {
+            background-color: #FFEB3B;
+            box-shadow: 0 0 20px #FFEB3B, inset 0 0 5px rgba(255,255,255,0.8);
+            border-color: #FBC02D;
+        }
+
+        /* Info & Feedback Section */
+        .info-panel {
+            flex: 1;
+            min-width: 250px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+        .info-box {
+            background: #eef2f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 10px;
+            font-size: 0.9rem;
+        }
+        .feedback {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 5px;
+            margin-top: 10px;
+            border-left: 5px solid #ffeeba;
+        }
+        .microscope-view {
+            margin-top: 10px;
+            border: 2px solid var(--primary-color);
+            border-radius: 50%;
+            width: 150px;
+            height: 150px;
+            overflow: hidden;
+            background: #fff;
+            position: relative;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        .microscope-label {
+            text-align: center;
+            font-size: 0.8rem;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        /* Assessment */
+        .assessment {
+            width: 100%;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+        .quiz-option {
+            padding: 10px;
+            background: #f9f9f9;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .quiz-option:hover {
+            background: #e0e0e0;
+        }
+        .quiz-option.correct {
+            background: #d4edda;
+            color: #155724;
+        }
+        .quiz-option.wrong {
+            background: #f8d7da;
+            color: #721c24;
+        }
+
+        h2, h3 { color: var(--primary-color); margin-top: 0; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 화학 가상 실험실: 물질의 결합과 성질</h1>
+    <p>물질을 선택하고, 물에 녹여보고, 전기를 흘려보며 결합의 비밀을 밝혀보세요!</p>
+</header>
+
+<div class="container">
+    <div class="controls">
+        <h3>🎛️ 실험 조작 패널</h3>
+        
+        <div class="control-group">
+            <label for="substanceSelect">1. 물질 선택 (시료)</label>
+            <select id="substanceSelect">
+                <option value="nacl">염화나트륨 (소금)</option>
+                <option value="sugar">설탕 (사탕수수)</option>
+                <option value="diamond">다이아몬드</option>
+                <option value="copper">구리 조각</option>
+            </select>
+            <div id="substanceInfo" class="info-box">
+                선택된 물질: <strong>염화나트륨</strong><br>
+                화학식: NaCl<br>
+                상태: 고체 결정
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>2. 용매(물) 추가</label>
+            <button id="btnWater" onclick="toggleWater()">💧 비커에 물 붓기</button>
+        </div>
+
+        <div class="control-group">
+            <label>3. 전기 전도성 실험</label>
+            <button id="btnPower" onclick="togglePower()">⚡ 전원 스위치 ON/OFF</button>
+        </div>
+
+        <button onclick="resetLab()" style="background-color: #777; margin-top: 20px;">🔄 실험 초기화</button>
+    </div>
+
+    <div class="visualizer">
+        <h3>🔬 실험 관찰 창</h3>
+        <div class="status-lamp" id="lamp" title="전구"></div>
+        <canvas id="labCanvas" width="400" height="300"></canvas>
+        <div class="microscope-label">▼ 입자 모형 확대 (Microscope) ▼</div>
+        <canvas id="microCanvas" width="200" height="200" style="border-radius: 50%; border: 4px solid #333; box-shadow: 0 4px 8px rgba(0,0,0,0.2);"></canvas>
+    </div>
+
+    <div class="info-panel">
+        <h3>📝 분석 및 피드백</h3>
+        <div id="observationLog" class="info-box">
+            <strong>현재 상태:</strong><br>
+            - 물질이 비커에 담겨 있습니다.<br>
+            - 물이 없는 상태입니다.<br>
+            - 전원이 꺼져 있습니다.
+        </div>
+        
+        <div id="conceptFeedback" class="feedback">
+            물질을 선택하고 실험을 시작해보세요. 입자들의 움직임을 잘 관찰해야 합니다!
+        </div>
+
+        <div class="info-box" style="margin-top: 20px;">
+            <h4>🧪 핵심 개념 노트</h4>
+            <ul style="padding-left: 20px; font-size: 0.85rem;">
+                <li><strong>이온 결합:</strong> 양이온과 음이온의 정전기적 인력 (물에 잘 녹음)</li>
+                <li><strong>공유 결합:</strong> 전자쌍 공유 (대부분 물에 안 녹거나 녹아도 전기가 안 통함)</li>
+                <li><strong>금속 결합:</strong> 자유 전자의 바다 (고체에서도 전기 통함)</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<div class="container">
+    <div class="assessment">
+        <h3>🎓 이해도 확인 퀴즈</h3>
+        <p id="quizQuestion">Q. 위 실험에서 고체 상태일 때는 전기가 통하지 않지만, 물에 녹였을 때 전기가 통하는 물질은 무엇인가요?</p>
+        <div id="quizOptions">
+            </div>
+        <div id="quizResult" style="margin-top: 10px; font-weight: bold;"></div>
+    </div>
+</div>
+
+<script>
+    // --- Data & State ---
+    const substances = {
+        nacl: {
+            name: "염화나트륨",
+            formula: "NaCl",
+            type: "이온 결정",
+            desc: "나트륨 이온(Na+)과 염화 이온(Cl-)이 강하게 결합되어 있습니다.",
+            color: "#eeeeee",
+            soluble: true,
+            conductSolid: false,
+            conductAq: true,
+            mp: "801°C",
+            particleType: "ionic"
+        },
+        sugar: {
+            name: "설탕",
+            formula: "C12H22O11",
+            type: "분자 결정",
+            desc: "설탕 분자들이 약한 인력으로 모여 있습니다. 전하를 띠지 않습니다.",
+            color: "#ffffff",
+            soluble: true,
+            conductSolid: false,
+            conductAq: false,
+            mp: "186°C",
+            particleType: "molecular"
+        },
+        diamond: {
+            name: "다이아몬드",
+            formula: "C",
+            type: "공유 결정",
+            desc: "탄소 원자들이 그물처럼 강하게 결합되어 있습니다. 매우 단단합니다.",
+            color: "#ccf2ff",
+            soluble: false,
+            conductSolid: false,
+            conductAq: false,
+            mp: ">3500°C",
+            particleType: "network"
+        },
+        copper: {
+            name: "구리",
+            formula: "Cu",
+            type: "금속 결정",
+            desc: "구리 원자 사이를 자유 전자가 자유롭게 돌아다니고 있습니다.",
+            color: "#b87333",
+            soluble: false,
+            conductSolid: true,
+            conductAq: false, // Insoluble
+            mp: "1085°C",
+            particleType: "metallic"
+        }
+    };
+
+    let state = {
+        substance: 'nacl',
+        hasWater: false,
+        powerOn: false
+    };
+
+    // --- DOM Elements ---
+    const canvas = document.getElementById('labCanvas');
+    const ctx = canvas.getContext('2d');
+    const microCanvas = document.getElementById('microCanvas');
+    const mCtx = microCanvas.getContext('2d');
+    const lamp = document.getElementById('lamp');
+    const feedbackBox = document.getElementById('conceptFeedback');
+    const logBox = document.getElementById('observationLog');
+    const subSelect = document.getElementById('substanceSelect');
+    const subInfo = document.getElementById('substanceInfo');
+    const btnWater = document.getElementById('btnWater');
+    const btnPower = document.getElementById('btnPower');
+
+    // --- Simulation Logic ---
+
+    function init() {
+        subSelect.addEventListener('change', (e) => {
+            state.substance = e.target.value;
+            resetLab(false); // Keep substance, reset others
+            updateUI();
+        });
+        
+        generateQuiz();
+        animate();
+        updateUI();
+    }
+
+    function toggleWater() {
+        state.hasWater = !state.hasWater;
+        btnWater.innerText = state.hasWater ? "🔥 물 증발시키기 (초기화)" : "💧 비커에 물 붓기";
+        btnWater.className = state.hasWater ? "active" : "";
+        updateUI();
+    }
+
+    function togglePower() {
+        state.powerOn = !state.powerOn;
+        btnPower.innerText = state.powerOn ? "⚡ 전원 끄기" : "⚡ 전원 스위치 ON";
+        btnPower.className = state.powerOn ? "active" : "";
+        updateUI();
+    }
+
+    function resetLab(fullReset = true) {
+        state.hasWater = false;
+        state.powerOn = false;
+        if(fullReset) {
+            state.substance = 'nacl';
+            subSelect.value = 'nacl';
+        }
+        btnWater.innerText = "💧 비커에 물 붓기";
+        btnWater.className = "";
+        btnPower.innerText = "⚡ 전원 스위치 ON";
+        btnPower.className = "";
+        updateUI();
+    }
+
+    function updateUI() {
+        const sub = substances[state.substance];
+        
+        // Update Info Box
+        subInfo.innerHTML = `
+            선택된 물질: <strong>${sub.name}</strong><br>
+            화학식: ${sub.formula}<br>
+            결합 유형: ${sub.type}
+        `;
+
+        // Determine Conductivity
+        let isConducting = false;
+        let explanation = "";
+
+        if (state.powerOn) {
+            if (!state.hasWater) {
+                // Solid State
+                if (sub.conductSolid) {
+                    isConducting = true;
+                    explanation = `${sub.name}은(는) <strong>${sub.type}</strong>이므로 고체 상태에서도 <strong>자유 전자</strong>가 이동하여 전기가 통합니다.`;
+                } else {
+                    explanation = `${sub.name}은(는) 고체 상태에서 입자들이 강하게 결합되어 있어 전하가 이동할 수 없습니다.`;
+                }
+            } else {
+                // Aqueous State
+                if (sub.soluble) {
+                    if (sub.conductAq) {
+                        isConducting = true;
+                        explanation = `${sub.name}이(가) 물에 녹아 <strong>이온화</strong>되었습니다. 이온들이 자유롭게 이동하며 전기를 흐르게 합니다.`;
+                    } else {
+                        explanation = `${sub.name}은(는) 물에 녹았지만, 전하를 띤 이온이 아닌 <strong>분자 상태</strong>로 존재하므로 전기가 통하지 않습니다.`;
+                    }
+                } else {
+                    if (sub.conductSolid && sub.particleType === 'metallic') {
+                        // Copper in water doesn't dissolve. Still conducts through the metal, but usually we test solution conductivity.
+                        // For educational clarity: The solution itself doesn't conduct, the metal does.
+                        // Let's assume electrodes are in the water. If metal touches both, it shorts. 
+                        // To simplify: Show it doesn't dissolve.
+                        explanation = `${sub.name}은(는) 물에 녹지 않습니다. 이온이 생성되지 않아 수용액은 전기를 통하지 않습니다.`;
+                    } else {
+                        explanation = `${sub.name}은(는) 물에 녹지 않아 전하의 이동이 없습니다.`;
+                    }
+                }
+            }
+        } else {
+            explanation = "전원 스위치를 켜서 전기 전도성을 확인해보세요.";
+        }
+
+        // Lamp State
+        if (isConducting && state.powerOn) {
+            lamp.classList.add('on');
+        } else {
+            lamp.classList.remove('on');
+        }
+
+        // Feedback Update
+        feedbackBox.innerHTML = explanation;
+        
+        // Log Update
+        let log = `<strong>현재 상태:</strong><br>- 물질: ${sub.name} (${state.hasWater ? '수용액/물 포함' : '고체'})<br>- 전원: ${state.powerOn ? 'ON' : 'OFF'}`;
+        logBox.innerHTML = log;
+    }
+
+    // --- Animation & Rendering ---
+    
+    let particles = [];
+    // Initialize particles based on substance
+    function initParticles() {
+        particles = [];
+        const sub = substances[state.substance];
+        const count = 30; // Number of particles
+        
+        for(let i=0; i<count; i++) {
+            particles.push({
+                x: 150 + (i % 6) * 20,
+                y: 200 - Math.floor(i / 6) * 20,
+                vx: 0,
+                vy: 0,
+                charge: (sub.particleType === 'ionic') ? (i % 2 === 0 ? 1 : -1) : 0, // +1 or -1
+                type: sub.particleType
+            });
+        }
+    }
+    initParticles(); // First run
+
+    // Watch for substance change to reset particles
+    let currentSubstance = state.substance;
+
+    function draw() {
+        // Clear Canvases
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        mCtx.clearRect(0, 0, microCanvas.width, microCanvas.height);
+
+        // Reset particles if substance changed
+        if (currentSubstance !== state.substance) {
+            initParticles();
+            currentSubstance = state.substance;
+        }
+
+        const sub = substances[state.substance];
+
+        // 1. Draw Lab Equipment (Beaker)
+        ctx.strokeStyle = "#aaa";
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(100, 50);
+        ctx.lineTo(100, 250);
+        ctx.lineTo(300, 250);
+        ctx.lineTo(300, 50);
+        ctx.stroke();
+
+        // Electrodes
+        ctx.fillStyle = "#555";
+        ctx.fillRect(130, 20, 10, 200); // Left
+        ctx.fillRect(260, 20, 10, 200); // Right
+        
+        // Wires
+        ctx.beginPath();
+        ctx.moveTo(135, 20); ctx.lineTo(135, 0); ctx.lineTo(350, 0);
+        ctx.moveTo(265, 20); ctx.lineTo(265, 0); ctx.lineTo(350, 0); // To lamp logic abstractly
+        ctx.stroke();
+
+        // Water
+        if (state.hasWater) {
+            ctx.fillStyle = "rgba(100, 200, 255, 0.4)";
+            ctx.fillRect(100, 100, 200, 150);
+        }
+
+        // 2. Particle Logic & Drawing (Main View + Microscope)
+        
+        // Background for microscope
+        mCtx.fillStyle = "#f0f8ff";
+        mCtx.fillRect(0,0, 200, 200);
+
+        const subObj = substances[state.substance];
+        const isDissolved = state.hasWater && subObj.soluble;
+
+        particles.forEach((p, i) => {
+            // Movement Logic
+            if (isDissolved) {
+                // Random movement (Brownian motion)
+                p.x += (Math.random() - 0.5) * 2;
+                p.y += (Math.random() - 0.5) * 2;
+                
+                // Bounds
+                if(p.x < 110) p.x = 110; if(p.x > 290) p.x = 290;
+                if(p.y < 110) p.y = 110; if(p.y > 240) p.y = 240;
+
+                // Electrical attraction
+                if (state.powerOn && subObj.conductAq) {
+                    if (p.charge > 0) p.x += 0.5; // Move to cathode (simplified)
+                    if (p.charge < 0) p.x -= 0.5; // Move to anode
+                }
+            } else {
+                // Solid state logic
+                // Reset to lattice positions roughly if solid
+                if (state.hasWater && !subObj.soluble) {
+                    // Sunk at bottom
+                    p.y = Math.min(p.y + 1, 240);
+                } else {
+                    // Original stack
+                }
+            }
+
+            // Draw on Main Canvas (Simplified dots)
+            ctx.fillStyle = getParticleColor(p, subObj);
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 5, 0, Math.PI*2);
+            ctx.fill();
+        });
+
+        // 3. Microscope View (Detailed Model)
+        drawMicroscopeView(subObj, isDissolved, state.powerOn);
+    }
+
+    function getParticleColor(p, sub) {
+        if (sub.particleType === 'ionic') {
+            return p.charge > 0 ? '#ff6b6b' : '#4ecdc4'; // Red(+), Teal(-)
+        } else if (sub.particleType === 'copper') {
+            return '#b87333';
+        } else if (sub.particleType === 'diamond') {
+            return '#ccc';
+        }
+        return '#ddd';
+    }
+
+    function drawMicroscopeView(sub, isDissolved, powerOn) {
+        const cx = 100;
+        const cy = 100;
+        mCtx.textAlign = "center";
+
+        if (sub.particleType === 'ionic') {
+            // Draw alternating + -
+            if (!isDissolved) {
+                // Lattice
+                for(let r=0; r<3; r++) {
+                    for(let c=0; c<3; c++) {
+                        let color = (r+c)%2===0 ? '#ff6b6b' : '#4ecdc4';
+                        let label = (r+c)%2===0 ? '+' : '-';
+                        drawAtom(mCtx, 60 + c*40, 60 + r*40, color, label);
+                    }
+                }
+                mCtx.fillStyle = "#333";
+                mCtx.fillText("단단한 결정 구조", cx, 180);
+            } else {
+                // Floating free
+                drawAtom(mCtx, 50, 50, '#ff6b6b', '+'); // Na
+                drawAtom(mCtx, 150, 150, '#4ecdc4', '-'); // Cl
+                drawAtom(mCtx, 140, 60, '#ff6b6b', '+');
+                drawAtom(mCtx, 60, 140, '#4ecdc4', '-');
+                
+                // Water molecules
+                mCtx.fillStyle = "rgba(0,0,255,0.1)";
+                mCtx.beginPath(); mCtx.arc(100,100, 80, 0, Math.PI*2); mCtx.fill();
+                
+                if (powerOn) {
+                     mCtx.fillStyle = "red";
+                     mCtx.fillText("이온의 이동!", cx, 180);
+                     // Arrows
+                     mCtx.strokeStyle = "red";
+                     mCtx.beginPath(); mCtx.moveTo(60, 50); mCtx.lineTo(80, 50); mCtx.stroke();
+                } else {
+                    mCtx.fillStyle = "#333";
+                    mCtx.fillText("수화된 이온", cx, 180);
+                }
+            }
+        } else if (sub.particleType === 'metallic') {
+            // Metal cores + electron sea
+            for(let r=0; r<3; r++) {
+                for(let c=0; c<3; c++) {
+                    drawAtom(mCtx, 60 + c*40, 60 + r*40, '#b87333', '+');
+                }
+            }
+            // Electrons
+            mCtx.fillStyle = "yellow";
+            const time = Date.now() * 0.005;
+            for(let i=0; i<10; i++) {
+                let ex = (Math.sin(time + i) * 80) + 100;
+                let ey = (Math.cos(time*0.5 + i) * 60) + 100;
+                mCtx.beginPath(); mCtx.arc(ex, ey, 3, 0, Math.PI*2); mCtx.fill();
+            }
+            mCtx.fillStyle = "#333";
+            mCtx.fillText(powerOn ? "전자 이동 중 (전류)" : "자유 전자 바다", cx, 180);
+
+        } else if (sub.particleType === 'molecular') {
+            // Molecules intact
+             if (!isDissolved) {
+                drawAtom(mCtx, 80, 80, '#ddd', 'S');
+                drawAtom(mCtx, 120, 80, '#ddd', 'S');
+                drawAtom(mCtx, 100, 120, '#ddd', 'S');
+                mCtx.fillStyle = "#333";
+                mCtx.fillText("분자 결정", cx, 180);
+             } else {
+                drawAtom(mCtx, 50, 60, '#ddd', 'S');
+                drawAtom(mCtx, 150, 130, '#ddd', 'S');
+                drawAtom(mCtx, 100, 100, '#ddd', 'S');
+                mCtx.fillStyle = "#333";
+                mCtx.fillText("녹았으나 전하 없음", cx, 180);
+             }
+        } else if (sub.particleType === 'network') {
+            // Grid
+            mCtx.strokeStyle = "#555";
+            mCtx.beginPath();
+            mCtx.moveTo(60,60); mCtx.lineTo(140,140);
+            mCtx.moveTo(140,60); mCtx.lineTo(60,140);
+            mCtx.stroke();
+            drawAtom(mCtx, 60, 60, '#ccf2ff', 'C');
+            drawAtom(mCtx, 140, 60, '#ccf2ff', 'C');
+            drawAtom(mCtx, 60, 140, '#ccf2ff', 'C');
+            drawAtom(mCtx, 140, 140, '#ccf2ff', 'C');
+            mCtx.fillStyle = "#333";
+            mCtx.fillText("강한 공유 결합", cx, 180);
+        }
+    }
+
+    function drawAtom(ctx, x, y, color, text) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 15, 0, Math.PI*2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.fillStyle = "#000";
+        ctx.font = "12px Arial";
+        ctx.fillText(text, x, y+4);
+    }
+
+    function animate() {
+        draw();
+        requestAnimationFrame(animate);
+    }
+
+    // --- Quiz Logic ---
+    function generateQuiz() {
+        const quizContainer = document.getElementById('quizOptions');
+        const questions = [
+            { text: "염화나트륨(NaCl)", correct: true },
+            { text: "설탕(C12H22O11)", correct: false },
+            { text: "다이아몬드(C)", correct: false },
+            { text: "구리(Cu)", correct: false }
+        ];
+
+        let html = "";
+        questions.forEach((q, idx) => {
+            html += `<div class="quiz-option" onclick="checkAnswer(this, ${q.correct})">${idx+1}. ${q.text}</div>`;
+        });
+        quizContainer.innerHTML = html;
+    }
+
+    function checkAnswer(el, isCorrect) {
+        const resultBox = document.getElementById('quizResult');
+        if (isCorrect) {
+            el.className += " correct";
+            resultBox.style.color = "green";
+            resultBox.innerHTML = "정답입니다! 이온 결합 물질은 고체에서는 이온이 고정되어 전기가 통하지 않지만, 액체나 수용액 상태에서는 이온이 자유롭게 움직여 전기가 통합니다.";
+        } else {
+            el.className += " wrong";
+            resultBox.style.color = "red";
+            resultBox.innerHTML = "다시 생각해보세요. 해당 물질의 결합 종류와 용해성을 고려해보세요.";
+        }
+    }
+
+    // Start
+    init();
+
+</script>
+
+</body>
+</html>

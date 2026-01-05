@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 농도에 따른 화학 평형 이동</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --beaker-border: #aaa;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+        }
+        
+        /* 실험 영역 */
+        .lab-area {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .beaker-container {
+            position: relative;
+            width: 200px;
+            height: 250px;
+            border: 4px solid var(--beaker-border);
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            margin: 20px 0;
+            background: #fff;
+            overflow: hidden;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            background-color: #FFD700; /* 초기 노란색 */
+            transition: background-color 1s ease;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 입자 애니메이션 */
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: float 3s infinite ease-in-out;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        /* 컨트롤 패널 */
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        .btn-acid { background-color: #ff6b6b; color: white; }
+        .btn-base { background-color: #4ecdc4; color: white; }
+        .btn-reset { background-color: #95a5a6; color: white; }
+
+        /* 정보 패널 */
+        .info-panel {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .status-box {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 15px;
+            border-left: 5px solid var(--primary-color);
+        }
+        .reaction-eq {
+            font-family: 'Times New Roman', serif;
+            font-size: 1.1em;
+            text-align: center;
+            background: #eef;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+        .highlight { font-weight: bold; color: #d35400; }
+        
+        .arrow-display {
+            font-size: 2em;
+            text-align: center;
+            margin: 10px 0;
+            height: 40px;
+        }
+
+        /* 그래프 바 */
+        .bar-container {
+            display: flex;
+            align-items: center;
+            margin: 5px 0;
+        }
+        .bar-label { width: 80px; font-size: 0.9em; }
+        .bar-bg { flex: 1; height: 10px; background: #eee; border-radius: 5px; overflow: hidden; }
+        .bar-fill { height: 100%; transition: width 0.5s; }
+
+        /* 퀴즈 영역 */
+        .quiz-section {
+            width: 100%;
+            max-width: 1000px;
+            margin-top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .hidden { display: none; }
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 화학 평형 가상 실험실</h1>
+    <p>농도 변화에 따라 화학 평형이 어느 쪽으로 이동하는지 관찰해 봅시다.</p>
+
+    <div class="container">
+        <div class="lab-area">
+            <div class="reaction-eq">
+                2CrO₄²⁻(노란색) + 2H⁺ ⇌ Cr₂O₇²⁻(주황색) + H₂O
+            </div>
+
+            <div class="beaker-container">
+                <div class="liquid" id="liquid">
+                    </div>
+            </div>
+
+            <div class="controls">
+                <button class="btn-acid" onclick="addAcid()">황산(H₂SO₄) 첨가<br>(H⁺ 증가)</button>
+                <button class="btn-base" onclick="addBase()">수산화나트륨(NaOH) 첨가<br>(H⁺ 감소)</button>
+            </div>
+            <button class="btn-reset" onclick="resetLab()">실험 초기화</button>
+        </div>
+
+        <div class="info-panel">
+            <h3>📊 실험 데이터 분석</h3>
+            
+            <div class="status-box">
+                <div>현재 상태: <span id="status-text" class="highlight">평형 상태 (초기)</span></div>
+                <div>pH 변화: <span id="ph-text">중성 ~ 약염기성</span></div>
+            </div>
+
+            <div class="arrow-display" id="reaction-arrow">⇌</div>
+            <div id="feedback-msg" style="text-align:center; font-size:0.9em; color:#666; margin-bottom:15px;">
+                버튼을 눌러 농도를 변화시켜 보세요.
+            </div>
+
+            <h4>이온 농도 비율 (모형)</h4>
+            <div class="bar-container">
+                <span class="bar-label">CrO₄²⁻ (노랑)</span>
+                <div class="bar-bg"><div class="bar-fill" id="bar-yellow" style="width: 90%; background: #FFD700;"></div></div>
+            </div>
+            <div class="bar-container">
+                <span class="bar-label">Cr₂O₇²⁻ (주황)</span>
+                <div class="bar-bg"><div class="bar-fill" id="bar-orange" style="width: 10%; background: #FF8C00;"></div></div>
+            </div>
+            <div class="bar-container">
+                <span class="bar-label">H⁺ (산)</span>
+                <div class="bar-bg"><div class="bar-fill" id="bar-h" style="width: 10%; background: #ff6b6b;"></div></div>
+            </div>
+
+            <div style="margin-top: 20px; font-size: 0.9em; background:#fff3cd; padding:10px; border-radius:5px;">
+                <strong>💡 르 샤틀리에의 원리:</strong><br>
+                평형 상태의 계에 변화(농도 등)를 주면, 그 변화를 상쇄하려는 방향으로 반응이 진행됩니다.
+            </div>
+        </div>
+    </div>
+
+    <div class="quiz-section">
+        <h3>📝 이해도 확인 퀴즈</h3>
+        <p>Q. 현재 평형 상태인 수용액에 <strong>산(H⁺)</strong>을 더 많이 넣으면 반응지수 Q와 평형상수 K의 관계는 어떻게 되며, 평형은 어디로 이동할까요?</p>
+        <button onclick="checkAnswer('A')">A. Q < K, 정반응(오른쪽)으로 이동</button>
+        <button onclick="checkAnswer('B')">B. Q > K, 역반응(왼쪽)으로 이동</button>
+        <div id="quiz-result" style="margin-top:10px; font-weight:bold;"></div>
+    </div>
+
+    <script>
+        // 상태 변수 (0: 완전 노란색, 100: 완전 주황색)
+        let equilibriumState = 10; 
+        let h_concentration = 10; // H+ 농도
+
+        const liquid = document.getElementById('liquid');
+        const statusText = document.getElementById('status-text');
+        const phText = document.getElementById('ph-text');
+        const reactionArrow = document.getElementById('reaction-arrow');
+        const feedbackMsg = document.getElementById('feedback-msg');
+        
+        // 바 그래프 요소
+        const barYellow = document.getElementById('bar-yellow');
+        const barOrange = document.getElementById('bar-orange');
+        const barH = document.getElementById('bar-h');
+
+        function updateDisplay() {
+            // 색상 업데이트 (노랑 -> 주황 그라데이션 시뮬레이션)
+            // Yellow: rgb(255, 215, 0), Orange: rgb(255, 140, 0)
+            const ratio = equilibriumState / 100;
+            const r = 255;
+            const g = Math.round(215 - (75 * ratio));
+            const b = 0;
+            
+            liquid.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+
+            // 텍스트 및 바 업데이트
+            barYellow.style.width = `${100 - equilibriumState}%`;
+            barOrange.style.width = `${equilibriumState}%`;
+            barH.style.width = `${h_concentration}%`;
+
+            renderParticles();
+        }
+
+        function renderParticles() {
+            liquid.innerHTML = '';
+            // 노란색 입자 (CrO4)
+            const yellowCount = Math.floor((100 - equilibriumState) / 10);
+            for(let i=0; i<yellowCount; i++) createParticle('#FFFFE0', 'CrO₄²⁻');
+            
+            // 주황색 입자 (Cr2O7)
+            const orangeCount = Math.floor(equilibriumState / 10);
+            for(let i=0; i<orangeCount; i++) createParticle('#FF4500', 'Cr₂O₇²⁻');
+
+            // H+ 입자 (작은 빨간 점)
+            const hCount = Math.floor(h_concentration / 5);
+            for(let i=0; i<hCount; i++) createParticle('#ff0000', 'H⁺', 5);
+        }
+
+        function createParticle(color, label, size=15) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.backgroundColor = color;
+            p.style.width = size + 'px';
+            p.style.height = size + 'px';
+            p.style.left = Math.random() * 80 + 10 + '%';
+            p.style.top = Math.random() * 80 + 10 + '%';
+            p.style.animationDuration = (Math.random() * 2 + 2) + 's';
+            
+            // 간단한 툴팁
+            p.title = label;
+            liquid.appendChild(p);
+        }
+
+        function addAcid() {
+            if(equilibriumState >= 90) {
+                feedbackMsg.innerText = "더 이상 반응할 CrO₄²⁻가 거의 없습니다.";
+                return;
+            }
+            
+            // 변화 로직
+            h_concentration = Math.min(100, h_concentration + 20);
+            equilibriumState = Math.min(100, equilibriumState + 25);
+            
+            // UI 피드백
+            statusText.innerText = "정반응 진행 중 (→)";
+            phText.innerText = "pH 감소 (산성 증가)";
+            reactionArrow.innerHTML = "⟶ (정반응)";
+            feedbackMsg.innerText = "H⁺가 추가되어 평형이 오른쪽(주황색)으로 이동합니다.";
+            
+            updateDisplay();
+        }
+
+        function addBase() {
+            if(equilibriumState <= 10) {
+                feedbackMsg.innerText = "이미 대부분이 CrO₄²⁻ 상태입니다.";
+                return;
+            }
+
+            // 변화 로직: OH-가 H+를 중화시킴 -> H+ 감소 -> 역반응
+            h_concentration = Math.max(0, h_concentration - 20);
+            equilibriumState = Math.max(0, equilibriumState - 25);
+
+            // UI 피드백
+            statusText.innerText = "역반응 진행 중 (←)";
+            phText.innerText = "pH 증가 (염기성/중성화)";
+            reactionArrow.innerHTML = "⟵ (역반응)";
+            feedbackMsg.innerText = "OH⁻가 H⁺를 제거하여 평형이 왼쪽(노란색)으로 이동합니다.";
+
+            updateDisplay();
+        }
+
+        function resetLab() {
+            equilibriumState = 10;
+            h_concentration = 10;
+            statusText.innerText = "평형 상태 (초기)";
+            phText.innerText = "중성 ~ 약염기성";
+            reactionArrow.innerHTML = "⇌";
+            feedbackMsg.innerText = "실험이 초기화되었습니다.";
+            document.getElementById('quiz-result').innerText = "";
+            updateDisplay();
+        }
+
+        function checkAnswer(answer) {
+            const resultDiv = document.getElementById('quiz-result');
+            if (answer === 'A') {
+                resultDiv.style.color = 'green';
+                resultDiv.innerHTML = "✅ 정답입니다! H⁺ 농도가 증가하면 반응물 농도가 증가한 효과(Q < K)가 되어, 평형 상수를 맞추기 위해 정반응이 진행됩니다.";
+            } else {
+                resultDiv.style.color = 'red';
+                resultDiv.innerHTML = "❌ 다시 생각해보세요. H⁺는 반응물 쪽에 있습니다. 반응물이 많아지면 이를 줄이기 위해 어느 쪽으로 반응이 갈까요?";
+            }
+        }
+
+        // 초기화 실행
+        updateDisplay();
+    </script>
+</body>
+</html>

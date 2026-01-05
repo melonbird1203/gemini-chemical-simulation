@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>다니엘 전지 가상 실험실</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5a623;
+            --bg-color: #f0f4f8;
+            --text-color: #333;
+        }
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { margin-bottom: 10px; color: #2c3e50; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+            max-width: 1000px;
+            width: 100%;
+        }
+        
+        /* 실험 영역 */
+        .lab-bench {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+            width: 600px;
+            height: 400px;
+            display: flex;
+            justify-content: space-around;
+            align-items: flex-end;
+        }
+
+        /* 비커 및 용액 */
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border: 3px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: rgba(255,255,255,0.5);
+            overflow: hidden;
+        }
+        .solution {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            transition: opacity 0.5s;
+        }
+        .zn-sol { background-color: rgba(200, 200, 200, 0.2); } /* 투명/회색 */
+        .cu-sol { background-color: rgba(0, 0, 255, 0.3); } /* 푸른색 */
+
+        /* 전극 */
+        .electrode {
+            width: 40px;
+            height: 160px;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px;
+            transition: all 0.5s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 1px 1px 2px black;
+        }
+        .zn-plate { background: linear-gradient(90deg, #999, #bbb); border: 1px solid #666; }
+        .cu-plate { background: linear-gradient(90deg, #b87333, #d4986a); border: 1px solid #8b4513; }
+
+        /* 염다리 */
+        .salt-bridge {
+            position: absolute;
+            top: 150px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 180px;
+            height: 60px;
+            border: 10px solid rgba(255, 255, 255, 0.6);
+            border-bottom: none;
+            border-radius: 20px 20px 0 0;
+            background: rgba(255, 255, 200, 0.5); /* KCl */
+            z-index: 5;
+            display: none; /* 초기엔 숨김 */
+        }
+        .salt-bridge.active { display: block; }
+
+        /* 도선 및 전압계 */
+        .wire-path {
+            position: absolute;
+            top: 50px;
+            left: 125px; /* Zn center approx */
+            width: 350px; /* Distance to Cu */
+            height: 2px;
+            background: #333;
+            z-index: 10;
+        }
+        .voltmeter {
+            position: absolute;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #222;
+            color: #0f0;
+            padding: 10px 20px;
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 1.5rem;
+            border: 2px solid #555;
+            width: 100px;
+            text-align: center;
+            z-index: 20;
+        }
+
+        /* 전자 애니메이션 */
+        .electron {
+            width: 10px;
+            height: 10px;
+            background-color: #ffeb3b;
+            border-radius: 50%;
+            position: absolute;
+            top: -4px;
+            box-shadow: 0 0 5px yellow;
+            display: none;
+        }
+        @keyframes flowRight {
+            0% { left: 0; }
+            100% { left: 100%; }
+        }
+        .flowing {
+            display: block;
+            animation: flowRight 2s linear infinite;
+        }
+
+        /* 텍스트 라벨 */
+        .label {
+            position: absolute;
+            bottom: -30px;
+            width: 100%;
+            text-align: center;
+            font-weight: bold;
+        }
+        
+        /* 제어 패널 */
+        .controls {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            width: 300px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .control-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        input[type="range"] { width: 100%; }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            margin-bottom: 10px;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: var(--secondary-color); }
+        
+        .feedback-box {
+            margin-top: 10px;
+            padding: 10px;
+            background: #eef;
+            border-left: 4px solid var(--primary-color);
+            font-size: 0.9rem;
+            min-height: 60px;
+        }
+
+        /* 반응식 표시 */
+        .reactions {
+            position: absolute;
+            top: 80px;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 50px;
+            box-sizing: border-box;
+            font-size: 0.8rem;
+            color: #555;
+            font-style: italic;
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>🔋 다니엘 전지 가상 실험</h1>
+
+    <div class="container">
+        <div class="lab-bench">
+            <div class="voltmeter" id="voltmeter">0.00 V</div>
+            
+            <div class="wire-path">
+                <div class="electron" id="electron1" style="animation-delay: 0s;"></div>
+                <div class="electron" id="electron2" style="animation-delay: 0.6s;"></div>
+                <div class="electron" id="electron3" style="animation-delay: 1.2s;"></div>
+            </div>
+
+            <div class="reactions">
+                <div id="anode-rxn">(-)극: 산화</div>
+                <div id="cathode-rxn">(+)극: 환원</div>
+            </div>
+
+            <div class="salt-bridge" id="saltBridge"></div>
+
+            <div class="beaker">
+                <div class="solution zn-sol" id="znSolution"></div>
+                <div class="electrode zn-plate" id="znPlate">Zn</div>
+                <div class="label">아연 반쪽 전지<br>(ZnSO₄)</div>
+            </div>
+
+            <div class="beaker">
+                <div class="solution cu-sol" id="cuSolution"></div>
+                <div class="electrode cu-plate" id="cuPlate">Cu</div>
+                <div class="label">구리 반쪽 전지<br>(CuSO₄)</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label>🛠️ 실험 설정</label>
+                <button id="toggleSaltBridge">염다리 설치/제거</button>
+            </div>
+
+            <div class="control-group">
+                <label>🧪 농도 조절 (M)</label>
+                <label for="znConc">Zn²⁺ 농도: <span id="znVal">1.0</span> M</label>
+                <input type="range" id="znConc" min="0.1" max="2.0" step="0.1" value="1.0">
+                
+                <label for="cuConc" style="margin-top:10px;">Cu²⁺ 농도: <span id="cuVal">1.0</span> M</label>
+                <input type="range" id="cuConc" min="0.1" max="2.0" step="0.1" value="1.0">
+            </div>
+
+            <div class="control-group">
+                <button id="startBtn">실험 시작 (스위치 ON)</button>
+                <button class="reset" id="resetBtn">초기화</button>
+            </div>
+
+            <div class="feedback-box" id="feedback">
+                실험 준비 완료. 염다리를 설치하고 농도를 설정한 뒤 시작하세요.
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 변수 설정
+        const STANDARD_VOLTAGE = 1.10; // 25도씨 표준 상태
+        let isRunning = false;
+        let hasSaltBridge = false;
+        let znC = 1.0;
+        let cuC = 1.0;
+        let timer = null;
+
+        // DOM 요소
+        const voltmeter = document.getElementById('voltmeter');
+        const saltBridge = document.getElementById('saltBridge');
+        const electrons = document.querySelectorAll('.electron');
+        const znPlate = document.getElementById('znPlate');
+        const cuPlate = document.getElementById('cuPlate');
+        const feedback = document.getElementById('feedback');
+        const cuSolution = document.getElementById('cuSolution');
+        const anodeRxn = document.getElementById('anode-rxn');
+        const cathodeRxn = document.getElementById('cathode-rxn');
+
+        // 초기 상태
+        function init() {
+            updateVoltageDisplay();
+        }
+
+        // 전압 계산 (네른스트 식의 단순화된 시뮬레이션 적용)
+        // E = E0 - (0.0592/n) * log(Q)
+        // Q = [Zn2+] / [Cu2+]
+        function calculateVoltage() {
+            if (!hasSaltBridge) return 0;
+            
+            // 농도가 0에 가까우면 로그 오류 방지
+            let z = Math.max(znC, 0.001);
+            let c = Math.max(cuC, 0.001);
+            
+            // 상용로그 사용, n=2
+            let voltage = STANDARD_VOLTAGE - (0.0592 / 2) * Math.log10(z / c);
+            return Math.max(0, voltage); // 음수 전압 방지 (역반응 고려 X)
+        }
+
+        function updateVoltageDisplay() {
+            const v = isRunning ? calculateVoltage() : 0;
+            voltmeter.innerText = v.toFixed(3) + " V";
+            voltmeter.style.color = v > 0 ? "#0f0" : "#555";
+        }
+
+        // 이벤트 리스너
+        document.getElementById('toggleSaltBridge').addEventListener('click', () => {
+            hasSaltBridge = !hasSaltBridge;
+            saltBridge.classList.toggle('active');
+            updateVoltageDisplay();
+            feedback.innerHTML = hasSaltBridge 
+                ? "염다리가 연결되었습니다. 이온이 이동할 통로가 생겼습니다." 
+                : "염다리가 제거되었습니다. 회로가 끊어졌습니다.";
+            
+            if (!hasSaltBridge && isRunning) stopExperiment();
+        });
+
+        document.getElementById('znConc').addEventListener('input', (e) => {
+            znC = parseFloat(e.target.value);
+            document.getElementById('znVal').innerText = znC;
+            if(isRunning) updateVoltageDisplay();
+        });
+
+        document.getElementById('cuConc').addEventListener('input', (e) => {
+            cuC = parseFloat(e.target.value);
+            document.getElementById('cuVal').innerText = cuC;
+            // 구리 농도가 높으면 용액 색이 진해짐
+            cuSolution.style.backgroundColor = `rgba(0, 0, 255, ${0.1 + (cuC * 0.2)})`;
+            if(isRunning) updateVoltageDisplay();
+        });
+
+        document.getElementById('startBtn').addEventListener('click', () => {
+            if (!hasSaltBridge) {
+                feedback.innerHTML = "⚠️ 주의: 염다리가 연결되지 않아 전류가 흐를 수 없습니다!";
+                return;
+            }
+            if (!isRunning) startExperiment();
+            else stopExperiment();
+        });
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            stopExperiment();
+            znPlate.style.transform = "translateX(-50%) scale(1)";
+            cuPlate.style.transform = "translateX(-50%) scale(1)";
+            znC = 1.0; cuC = 1.0;
+            document.getElementById('znConc').value = 1.0;
+            document.getElementById('cuConc').value = 1.0;
+            document.getElementById('znVal').innerText = "1.0";
+            document.getElementById('cuVal').innerText = "1.0";
+            hasSaltBridge = false;
+            saltBridge.classList.remove('active');
+            feedback.innerHTML = "실험이 초기화되었습니다.";
+            anodeRxn.innerText = "(-)극: 산화";
+            cathodeRxn.innerText = "(+)극: 환원";
+            updateVoltageDisplay();
+        });
+
+        function startExperiment() {
+            isRunning = true;
+            document.getElementById('startBtn').innerText = "실험 중지 (스위치 OFF)";
+            
+            // 전자 흐름 애니메이션 시작
+            electrons.forEach(el => el.classList.add('flowing'));
+            updateVoltageDisplay();
+
+            // 반응식 업데이트
+            anodeRxn.innerHTML = "<b>(-)극 (산화):</b><br>Zn → Zn²⁺ + 2e⁻";
+            cathodeRxn.innerHTML = "<b>(+)극 (환원):</b><br>Cu²⁺ + 2e⁻ → Cu";
+
+            feedback.innerHTML = `
+                ⚡ 전류가 흐르고 있습니다!<br>
+                - 전자는 <b>아연(Zn)</b>에서 <b>구리(Cu)</b>로 이동합니다.<br>
+                - 전압: <b>${calculateVoltage().toFixed(3)}V</b>
+            `;
+
+            // 전극 변화 시뮬레이션 루프
+            let scaleFactor = 0;
+            timer = setInterval(() => {
+                scaleFactor += 0.005;
+                // 아연판: 산화되어 녹음 (작아짐)
+                znPlate.style.transform = `translateX(-50%) scaleX(${1 - scaleFactor * 0.5}) scaleY(${1 - scaleFactor * 0.1})`;
+                // 구리판: 환원되어 석출됨 (커짐)
+                cuPlate.style.transform = `translateX(-50%) scaleX(${1 + scaleFactor * 0.5}) scaleY(${1 + scaleFactor * 0.1})`;
+                
+                if (scaleFactor > 0.5) { // 일정 시간 후 자동 중지 (안전 장치)
+                    stopExperiment();
+                    feedback.innerHTML += "<br>(반응이 많이 진행되어 실험을 일시 정지합니다)";
+                }
+            }, 100);
+        }
+
+        function stopExperiment() {
+            isRunning = false;
+            document.getElementById('startBtn').innerText = "실험 시작 (스위치 ON)";
+            electrons.forEach(el => el.classList.remove('flowing'));
+            clearInterval(timer);
+            updateVoltageDisplay();
+        }
+
+        init();
+    </script>
+</body>
+</html>

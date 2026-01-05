@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 압력과 화학 평형 (르 샤틀리에의 원리)</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { font-family: 'Pretendard', sans-serif; background-color: #f0f4f8; margin: 0; padding: 20px; color: #333; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: #2c3e50; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        
+        /* Layout */
+        .lab-layout { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .visualization-area { flex: 1; min-width: 300px; text-align: center; }
+        .control-panel { flex: 1; min-width: 300px; background: #eef2f5; padding: 15px; border-radius: 10px; }
+        
+        /* Syringe Visualization */
+        #syringe-container {
+            position: relative;
+            width: 100px;
+            height: 300px;
+            margin: 0 auto;
+            border: 4px solid #555;
+            border-bottom: 4px solid #555;
+            border-top: none;
+            background-color: rgba(255, 255, 255, 0.5); /* Base color */
+            transition: background-color 0.2s;
+            overflow: hidden;
+            border-radius: 0 0 10px 10px;
+        }
+        #piston {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 20px;
+            background-color: #333;
+            cursor: pointer;
+            transition: top 0.5s ease-out;
+        }
+        #piston-rod {
+            position: absolute;
+            bottom: 100%;
+            left: 50%;
+            width: 10px;
+            height: 200px;
+            background-color: #999;
+            transform: translateX(-50%);
+        }
+        
+        /* Particle Canvas */
+        #particle-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+
+        /* Controls */
+        .slider-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type=range] { width: 100%; }
+        .value-display { text-align: right; color: #3498db; font-weight: bold; }
+        
+        /* Stats & Quiz */
+        .stats-box { margin-top: 15px; padding: 10px; background: white; border-radius: 5px; border: 1px solid #ddd; }
+        .reaction-eq { font-size: 1.2em; text-align: center; margin: 10px 0; font-weight: bold; }
+        .chem-red { color: #d35400; }
+        .chem-blue { color: #2980b9; }
+
+        .quiz-section { margin-top: 30px; border-top: 2px dashed #ccc; padding-top: 20px; }
+        .quiz-question { font-weight: bold; margin-bottom: 10px; }
+        .btn { background: #3498db; color: white; border: none; padding: 8px 15px; border-radius: 5px; cursor: pointer; margin-right: 5px; }
+        .btn:hover { background: #2980b9; }
+        .feedback { margin-top: 10px; padding: 10px; border-radius: 5px; display: none; }
+        .feedback.correct { background: #d4edda; color: #155724; }
+        .feedback.incorrect { background: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 압력 변화와 화학 평형 (르 샤틀리에 원리)</h1>
+    
+    <div class="reaction-eq">
+        <span class="chem-red">2NO₂ (g)</span> <span style="font-size: 0.8em;">(적갈색)</span> 
+        ⇄ 
+        <span class="chem-blue">N₂O₄ (g)</span> <span style="font-size: 0.8em;">(무색)</span>
+        <br>
+        <small style="font-weight: normal; font-size: 0.8em; color: #666;">ΔH < 0 (발열 반응)</small>
+    </div>
+
+    <div class="lab-layout">
+        <div class="visualization-area">
+            <h3>실험 장치 (주사기)</h3>
+            <div id="syringe-container">
+                <canvas id="particle-canvas" width="100" height="300"></canvas>
+                <div id="piston">
+                    <div id="piston-rod"></div>
+                </div>
+            </div>
+            <p style="font-size: 0.9em; color: #555; margin-top: 10px;">
+                주사기 내부의 색 농도와 입자 움직임을 관찰하세요.<br>
+                <span class="chem-red">● NO₂</span> / <span class="chem-blue">● N₂O₄</span>
+            </p>
+        </div>
+
+        <div class="control-panel">
+            <div class="slider-group">
+                <label for="pressureSlider">압력 조절 (주사기 누르기/당기기)</label>
+                <input type="range" id="pressureSlider" min="0.5" max="3.0" step="0.1" value="1.0">
+                <div class="value-display">현재 압력: <span id="pressureVal">1.0</span> atm</div>
+            </div>
+            
+            <div class="stats-box">
+                <div><strong>평형 상태 정보</strong></div>
+                <div>총 분자 수: <span id="totalMolecules">0</span></div>
+                <div class="chem-red">NO₂ 분자 수: <span id="no2Count">0</span></div>
+                <div class="chem-blue">N₂O₄ 분자 수: <span id="n2o4Count">0</span></div>
+                <hr>
+                <div><strong>반응 지수 (Q) vs 평형 상수 (K)</strong></div>
+                <div id="qk-status">평형 상태 (Q = K)</div>
+            </div>
+
+            <div style="margin-top: 20px; height: 150px;">
+                <canvas id="concChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="quiz-section">
+        <h3>📝 개념 확인 퀴즈</h3>
+        <div class="quiz-question">Q. 주사기를 눌러 압력을 높이면(부피 감소), 최종적으로 평형은 어느 쪽으로 이동할까요?</div>
+        <button class="btn" onclick="checkAnswer(1)">정반응 (N₂O₄ 생성)</button>
+        <button class="btn" onclick="checkAnswer(2)">역반응 (NO₂ 생성)</button>
+        <button class="btn" onclick="checkAnswer(3)">이동하지 않음</button>
+        <div id="quizFeedback" class="feedback"></div>
+    </div>
+</div>
+
+<script>
+    // Simulation Variables
+    let no2 = 60; // Initial NO2 particles
+    let n2o4 = 20; // Initial N2O4 particles
+    const kEq = 3.0; // Target Ratio approximate (conceptual)
+    let currentVolume = 1.0; // 1.0 is standard (height 200px)
+    let targetVolume = 1.0;
+    
+    // DOM Elements
+    const slider = document.getElementById('pressureSlider');
+    const pressureDisplay = document.getElementById('pressureVal');
+    const piston = document.getElementById('piston');
+    const syringeContainer = document.getElementById('syringe-container');
+    const canvas = document.getElementById('particle-canvas');
+    const ctx = canvas.getContext('2d');
+    
+    const no2CountDisplay = document.getElementById('no2Count');
+    const n2o4CountDisplay = document.getElementById('n2o4Count');
+    const totalDisplay = document.getElementById('totalMolecules');
+    const qkStatus = document.getElementById('qk-status');
+
+    // Chart Setup
+    const chartCtx = document.getElementById('concChart').getContext('2d');
+    const concChart = new Chart(chartCtx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: '[NO₂]',
+                borderColor: '#d35400',
+                data: [],
+                fill: false,
+                tension: 0.4
+            }, {
+                label: '[N₂O₄]',
+                borderColor: '#2980b9',
+                data: [],
+                fill: false,
+                tension: 0.4
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            animation: false,
+            scales: { x: { display: false }, y: { suggestedMin: 0, suggestedMax: 100 } }
+        }
+    });
+
+    let timeStep = 0;
+
+    // Simulation Loop
+    function updateSimulation() {
+        // 1. Physics: Update Volume based on Slider
+        // Pressure is inversely proportional to Volume (Boyle's Law basic concept)
+        // P = 1 / V -> V = 1 / P
+        const pressure = parseFloat(slider.value);
+        pressureDisplay.textContent = pressure.toFixed(1);
+        
+        targetVolume = 1 / pressure; 
+        
+        // Smooth transition for Piston
+        const currentHeightPx = 300 * currentVolume; // Max height 300
+        const targetHeightPx = 300 * targetVolume;
+        
+        // Simple Lerp for animation
+        currentVolume = currentVolume + (targetVolume - currentVolume) * 0.1;
+        
+        // Update Piston Visual
+        const pistonTop = 300 - (300 * currentVolume);
+        piston.style.top = `${pistonTop}px`;
+
+        // 2. Chemistry: Equilibrium Shift Logic
+        // Le Chatelier: High Pressure -> Shift to fewer moles (Right: 2NO2 -> 1N2O4)
+        // Rate Forward (Rf) proportional to [NO2]^2 (pressure affects conc)
+        // Rate Reverse (Rr) proportional to [N2O4]
+        
+        // Simplified Stochastic Model:
+        // Probability of NO2 -> N2O4 increases significantly with Pressure
+        // Probability of N2O4 -> NO2 increases slightly less with Pressure
+        
+        // Base probabilities at 1 atm
+        let pForward = 0.02 * (pressure * pressure); // Depends heavily on pressure (concentration squared)
+        let pReverse = 0.05 * pressure; 
+        
+        // Random reactions
+        if (Math.random() < pForward && no2 >= 2) {
+            no2 -= 2;
+            n2o4 += 1;
+        }
+        if (Math.random() < pReverse && n2o4 >= 1) {
+            no2 += 2;
+            n2o4 -= 1;
+        }
+
+        // Q vs K Display Logic (Conceptual)
+        // If system is shifting right (net forward), Q < K
+        let netShift = (pForward * no2/2) - (pReverse * n2o4);
+        if (Math.abs(netShift) < 0.1) {
+            qkStatus.innerHTML = "평형 상태 (Q ≈ K)";
+            qkStatus.style.color = "green";
+        } else if (netShift > 0) {
+            qkStatus.innerHTML = "정반응 우세 (Q < K) →";
+            qkStatus.style.color = "blue";
+        } else {
+            qkStatus.innerHTML = "← 역반응 우세 (Q > K)";
+            qkStatus.style.color = "red";
+        }
+
+        // 3. Visuals: Background Color (Concentration based)
+        // Color depends on [NO2] concentration = moles / volume
+        const concentrationNO2 = no2 / currentVolume;
+        // Map concentration to opacity of reddish-brown
+        // Max concentration approx 150/0.3 = 500?
+        let opacity = Math.min(concentrationNO2 / 150, 0.95);
+        syringeContainer.style.backgroundColor = `rgba(211, 84, 0, ${opacity})`;
+
+        // 4. Visuals: Particles
+        drawParticles();
+
+        // 5. Data Updates
+        updateStats();
+        updateChart();
+
+        requestAnimationFrame(updateSimulation);
+    }
+
+    // Particle System
+    let particles = [];
+    function drawParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Re-generate particle positions for current counts (simple visualization trick)
+        // In a complex physics engine, we would track positions. Here we just draw 'n' dots randomly in the volume.
+        const availableHeight = 300 * currentVolume;
+        const startY = 300 - availableHeight;
+
+        // Draw NO2 (Red)
+        ctx.fillStyle = "#d35400";
+        for(let i=0; i<no2; i++) {
+            let x = Math.random() * canvas.width;
+            let y = startY + Math.random() * availableHeight;
+            ctx.beginPath();
+            ctx.arc(x, y, 2, 0, Math.PI*2);
+            ctx.fill();
+        }
+
+        // Draw N2O4 (Blue, larger)
+        ctx.fillStyle = "#2980b9";
+        for(let i=0; i<n2o4; i++) {
+            let x = Math.random() * canvas.width;
+            let y = startY + Math.random() * availableHeight;
+            ctx.beginPath();
+            ctx.arc(x, y, 4, 0, Math.PI*2); // Bigger molecule
+            ctx.fill();
+        }
+    }
+
+    function updateStats() {
+        no2CountDisplay.innerText = no2;
+        n2o4CountDisplay.innerText = n2o4;
+        totalDisplay.innerText = no2 + n2o4;
+    }
+
+    function updateChart() {
+        timeStep++;
+        if (timeStep % 10 === 0) { // Update chart every 10 frames
+            if (concChart.data.labels.length > 50) {
+                concChart.data.labels.shift();
+                concChart.data.datasets[0].data.shift();
+                concChart.data.datasets[1].data.shift();
+            }
+            concChart.data.labels.push('');
+            // Plot Concentration (Moles / Volume)
+            concChart.data.datasets[0].data.push(no2 / currentVolume);
+            concChart.data.datasets[1].data.push(n2o4 / currentVolume);
+            concChart.update();
+        }
+    }
+
+    function checkAnswer(ans) {
+        const feedback = document.getElementById('quizFeedback');
+        feedback.style.display = 'block';
+        if (ans === 1) {
+            feedback.className = 'feedback correct';
+            feedback.innerHTML = "<strong>정답입니다!</strong><br>압력이 증가하면 압력을 낮추기 위해 기체 분자 수가 감소하는 방향(2몰 → 1몰)인 정반응이 일어납니다.";
+        } else if (ans === 2) {
+            feedback.className = 'feedback incorrect';
+            feedback.innerHTML = "<strong>오답입니다.</strong><br>역반응이 일어나면 분자 수가 1몰에서 2몰로 늘어나 압력이 더 높아지게 됩니다.";
+        } else {
+            feedback.className = 'feedback incorrect';
+            feedback.innerHTML = "<strong>오답입니다.</strong><br>압력 변화는 기체 반응의 평형을 이동시킵니다.";
+        }
+    }
+
+    // Start
+    updateSimulation();
+
+</script>
+
+</body>
+</html>

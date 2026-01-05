@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>분자의 극성과 구조 가상 실험실</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body { margin: 0; font-family: 'Pretendard', sans-serif; overflow: hidden; background-color: #f0f4f8; }
+        #container { display: flex; height: 100vh; }
+        
+        /* 왼쪽 컨트롤 패널 */
+        #ui-panel {
+            width: 320px;
+            background: #ffffff;
+            padding: 20px;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+        }
+        
+        /* 오른쪽 3D 캔버스 */
+        #canvas-container {
+            flex-grow: 1;
+            position: relative;
+            background: linear-gradient(135deg, #e0eafc 0%, #cfdef3 100%);
+        }
+
+        h1 { font-size: 1.2rem; color: #2c3e50; margin-bottom: 20px; border-bottom: 2px solid #3498db; padding-bottom: 10px; }
+        h2 { font-size: 1rem; color: #34495e; margin-top: 20px; }
+
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        select, button { width: 100%; padding: 10px; border-radius: 5px; border: 1px solid #bdc3c7; font-size: 1rem; cursor: pointer; }
+        button { background-color: #3498db; color: white; border: none; transition: background 0.3s; }
+        button:hover { background-color: #2980b9; }
+        button.check-btn { background-color: #2ecc71; margin-top: 10px; }
+        button.check-btn:hover { background-color: #27ae60; }
+
+        .toggle-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+        .switch { position: relative; display: inline-block; width: 40px; height: 24px; }
+        .switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 34px; }
+        .slider:before { position: absolute; content: ""; height: 16px; width: 16px; left: 4px; bottom: 4px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #3498db; }
+        input:checked + .slider:before { transform: translateX(16px); }
+
+        #info-box {
+            background: #ecf0f1;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 0.9rem;
+            line-height: 1.5;
+        }
+        .highlight { color: #e74c3c; font-weight: bold; }
+        .polar { color: #e67e22; font-weight: bold; }
+        .non-polar { color: #27ae60; font-weight: bold; }
+
+        #legend {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.9);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.8rem;
+        }
+        .legend-item { display: flex; align-items: center; margin-bottom: 5px; }
+        .color-box { width: 15px; height: 15px; margin-right: 8px; border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<div id="container">
+    <div id="ui-panel">
+        <h1>⚗️ 분자 극성 가상 실험</h1>
+        
+        <div class="control-group">
+            <label for="molecule-select">분자 선택하기:</label>
+            <select id="molecule-select">
+                <option value="CO2">이산화탄소 (CO₂)</option>
+                <option value="H2O">물 (H₂O)</option>
+                <option value="BCl3">삼염화붕소 (BCl₃)</option>
+                <option value="NH3">암모니아 (NH₃)</option>
+                <option value="CH4">메테인 (CH₄)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <div class="toggle-row">
+                <span>결합 쌍극자 (벡터)</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-bond-vectors" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span>알짜 쌍극자 (합력)</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-net-vector">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="toggle-row">
+                <span>분자 모형 회전</span>
+                <label class="switch">
+                    <input type="checkbox" id="toggle-auto-rotate" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+        </div>
+
+        <div id="info-box">
+            <p><strong>실험 가이드:</strong></p>
+            <p>1. 분자를 선택하고 마우스로 드래그하여 구조를 360도 관찰하세요.</p>
+            <p>2. '결합 쌍극자' 화살표 방향(전기음성도가 큰 쪽)을 확인하세요.</p>
+            <p>3. '알짜 쌍극자'를 켜서 벡터의 합이 0인지 확인해보세요.</p>
+        </div>
+
+        <div id="quiz-area" style="margin-top:20px; border-top:1px solid #ddd; padding-top:10px;">
+            <label>퀴즈: 이 분자는 극성일까요?</label>
+            <button class="check-btn" onclick="checkPolarity()">결과 확인하기</button>
+            <div id="result-text" style="margin-top:10px; font-weight:bold;"></div>
+        </div>
+    </div>
+
+    <div id="canvas-container">
+        <div id="legend">
+            <div class="legend-item"><div class="color-box" style="background:grey;"></div>중심 원자</div>
+            <div class="legend-item"><div class="color-box" style="background:white; border:1px solid #ccc;"></div>주변 원자</div>
+            <div class="legend-item"><div class="color-box" style="background:blue;"></div>결합 쌍극자 (μ)</div>
+            <div class="legend-item"><div class="color-box" style="background:red;"></div>알짜 쌍극자 (Σμ)</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. Three.js 기본 설정 ---
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerWidth, 0.1, 1000);
+    camera.position.set(0, 0, 8);
+    
+    const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+    document.getElementById('canvas-container').appendChild(renderer.domElement);
+    
+    // 조명
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    scene.add(ambientLight);
+    const dirLight = new THREE.DirectionalLight(0xffffff, 0.8);
+    dirLight.position.set(5, 5, 5);
+    scene.add(dirLight);
+
+    // 컨트롤 (마우스 회전)
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+
+    // --- 2. 분자 데이터 (Geometry & Physics Mock) ---
+    // 좌표는 시각적 이해를 돕기 위해 이상적인 VSEPR 각도로 설정
+    const molecules = {
+        'CO2': {
+            name: '이산화탄소',
+            formula: 'CO₂',
+            geometry: '직선형 (180°)',
+            isPolar: false,
+            atoms: [
+                { type: 'C', radius: 0.7, color: 0x808080, pos: [0, 0, 0] },
+                { type: 'O', radius: 0.6, color: 0xFF0000, pos: [-1.8, 0, 0] },
+                { type: 'O', radius: 0.6, color: 0xFF0000, pos: [1.8, 0, 0] }
+            ],
+            bonds: [[0, 1], [0, 2]],
+            vectors: [
+                { start: [0, 0, 0], end: [-1.2, 0, 0] }, // C -> O
+                { start: [0, 0, 0], end: [1.2, 0, 0] }   // C -> O
+            ],
+            netVector: null, // 0
+            desc: "중심 원자 탄소(C) 주위에 산소(O) 원자 2개가 직선으로 배치되어 있습니다. 양쪽으로 당기는 힘이 대칭이라 상쇄됩니다."
+        },
+        'H2O': {
+            name: '물',
+            formula: 'H₂O',
+            geometry: '굽은형 (104.5°)',
+            isPolar: true,
+            atoms: [
+                { type: 'O', radius: 0.7, color: 0xFF0000, pos: [0, 0.2, 0] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [-1.2, -0.8, 0] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [1.2, -0.8, 0] }
+            ],
+            bonds: [[0, 1], [0, 2]],
+            vectors: [
+                { start: [-1.2, -0.8, 0], end: [-0.2, 0, 0] }, // H -> O
+                { start: [1.2, -0.8, 0], end: [0.2, 0, 0] }    // H -> O
+            ],
+            netVector: { start: [0, -0.5, 0], end: [0, 1.0, 0] }, // Upward
+            desc: "산소(O) 쪽에 비공유 전자쌍이 있어 구조가 굽어 있습니다. 쌍극자 모멘트가 상쇄되지 않고 위쪽으로 향합니다."
+        },
+        'BCl3': {
+            name: '삼염화붕소',
+            formula: 'BCl₃',
+            geometry: '평면 삼각형 (120°)',
+            isPolar: false,
+            atoms: [
+                { type: 'B', radius: 0.7, color: 0xFA8072, pos: [0, 0, 0] },
+                { type: 'Cl', radius: 0.6, color: 0x00FF00, pos: [0, 1.8, 0] },
+                { type: 'Cl', radius: 0.6, color: 0x00FF00, pos: [1.55, -0.9, 0] },
+                { type: 'Cl', radius: 0.6, color: 0x00FF00, pos: [-1.55, -0.9, 0] }
+            ],
+            bonds: [[0, 1], [0, 2], [0, 3]],
+            vectors: [
+                { start: [0, 0, 0], end: [0, 1.2, 0] },
+                { start: [0, 0, 0], end: [1.0, -0.6, 0] },
+                { start: [0, 0, 0], end: [-1.0, -0.6, 0] }
+            ],
+            netVector: null,
+            desc: "붕소(B)를 중심으로 3개의 염소(Cl)가 120도 각도로 대칭을 이룹니다. 벡터의 합이 0이 되어 무극성입니다."
+        },
+        'NH3': {
+            name: '암모니아',
+            formula: 'NH₃',
+            geometry: '삼각뿔형 (107°)',
+            isPolar: true,
+            atoms: [
+                { type: 'N', radius: 0.7, color: 0x0000FF, pos: [0, 0.5, 0] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [0, -0.5, 1.4] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [-1.2, -0.5, -0.7] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [1.2, -0.5, -0.7] }
+            ],
+            bonds: [[0, 1], [0, 2], [0, 3]],
+            vectors: [
+                { start: [0, -0.5, 1.4], end: [0, 0.3, 0.2] },
+                { start: [-1.2, -0.5, -0.7], end: [-0.2, 0.3, -0.1] },
+                { start: [1.2, -0.5, -0.7], end: [0.2, 0.3, -0.1] }
+            ],
+            netVector: { start: [0, -0.2, 0], end: [0, 1.5, 0] },
+            desc: "질소(N) 위에 비공유 전자쌍이 존재하여 수소들을 아래로 밀어냅니다. 입체적인 비대칭 구조로 극성을 가집니다."
+        },
+        'CH4': {
+            name: '메테인',
+            formula: 'CH₄',
+            geometry: '정사면체 (109.5°)',
+            isPolar: false,
+            atoms: [
+                { type: 'C', radius: 0.7, color: 0x808080, pos: [0, 0, 0] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [1.2, 1.2, 1.2] }, // approx
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [-1.2, -1.2, 1.2] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [-1.2, 1.2, -1.2] },
+                { type: 'H', radius: 0.4, color: 0xFFFFFF, pos: [1.2, -1.2, -1.2] }
+            ],
+            bonds: [[0, 1], [0, 2], [0, 3], [0, 4]],
+            vectors: [
+                { start: [1.2, 1.2, 1.2], end: [0.2, 0.2, 0.2] },
+                { start: [-1.2, -1.2, 1.2], end: [-0.2, -0.2, 0.2] },
+                { start: [-1.2, 1.2, -1.2], end: [-0.2, 0.2, -0.2] },
+                { start: [1.2, -1.2, -1.2], end: [0.2, -0.2, -0.2] }
+            ],
+            netVector: null,
+            desc: "탄소(C)를 중심으로 4개의 수소(H)가 정사면체 꼭짓점에 위치합니다. 완벽한 대칭 구조로 무극성입니다."
+        }
+    };
+
+    let currentMoleculeGroup = new THREE.Group();
+    scene.add(currentMoleculeGroup);
+    let vectorGroup = new THREE.Group();
+    scene.add(vectorGroup);
+    let netVectorGroup = new THREE.Group();
+    scene.add(netVectorGroup);
+
+    // --- 3. 렌더링 함수 ---
+    function loadMolecule(key) {
+        // 초기화
+        currentMoleculeGroup.clear();
+        vectorGroup.clear();
+        netVectorGroup.clear();
+        
+        const data = molecules[key];
+        
+        // 원자 생성
+        data.atoms.forEach(atom => {
+            const geometry = new THREE.SphereGeometry(atom.radius, 32, 32);
+            const material = new THREE.MeshPhongMaterial({ color: atom.color, shininess: 100 });
+            const sphere = new THREE.Mesh(geometry, material);
+            sphere.position.set(...atom.pos);
+            currentMoleculeGroup.add(sphere);
+        });
+
+        // 결합(Bond) 생성 - 실린더
+        data.bonds.forEach(pair => {
+            const p1 = new THREE.Vector3(...data.atoms[pair[0]].pos);
+            const p2 = new THREE.Vector3(...data.atoms[pair[1]].pos);
+            
+            const distance = p1.distanceTo(p2);
+            const cylinderGeo = new THREE.CylinderGeometry(0.15, 0.15, distance, 12);
+            const cylinderMat = new THREE.MeshStandardMaterial({ color: 0xdddddd });
+            const cylinder = new THREE.Mesh(cylinderGeo, cylinderMat);
+            
+            // 위치 및 회전 설정
+            const mid = p1.clone().add(p2).multiplyScalar(0.5);
+            cylinder.position.copy(mid);
+            cylinder.lookAt(p2);
+            cylinder.rotateX(Math.PI / 2);
+            
+            currentMoleculeGroup.add(cylinder);
+        });
+
+        // 결합 쌍극자 벡터 생성 (ArrowHelper)
+        data.vectors.forEach(v => {
+            const start = new THREE.Vector3(...v.start);
+            const end = new THREE.Vector3(...v.end);
+            const dir = end.clone().sub(start).normalize();
+            const length = start.distanceTo(end); // 길이 조정
+            
+            const arrowHelper = new THREE.ArrowHelper(dir, start, 1.5, 0x0000FF, 0.3, 0.2);
+            vectorGroup.add(arrowHelper);
+        });
+
+        // 알짜 쌍극자 벡터 생성
+        if (data.netVector) {
+            const start = new THREE.Vector3(...data.netVector.start);
+            const end = new THREE.Vector3(...data.netVector.end);
+            const dir = end.clone().sub(start).normalize();
+            // 알짜 벡터는 더 굵고 붉은색으로
+            const arrowHelper = new THREE.ArrowHelper(dir, start, 2.5, 0xFF0000, 0.5, 0.4);
+            netVectorGroup.add(arrowHelper);
+        }
+
+        // 텍스트 업데이트
+        updateInfoText(key);
+        resetQuiz();
+    }
+
+    function updateInfoText(key) {
+        const data = molecules[key];
+        const infoHtml = `
+            <h3>${data.name} (${data.formula})</h3>
+            <p><strong>구조:</strong> ${data.geometry}</p>
+            <p><strong>설명:</strong> ${data.desc}</p>
+        `;
+        document.getElementById('info-box').innerHTML = infoHtml;
+    }
+
+    // --- 4. 인터랙션 & 퀴즈 ---
+    function checkPolarity() {
+        const key = document.getElementById('molecule-select').value;
+        const data = molecules[key];
+        const resultDiv = document.getElementById('result-text');
+        
+        if (data.isPolar) {
+            resultDiv.innerHTML = `<span class='polar'>정답입니다! 극성 분자입니다.</span><br>알짜 쌍극자 벡터(빨간색)가 남아있죠? 전하 분포가 비대칭입니다.`;
+            document.getElementById('toggle-net-vector').checked = true;
+            updateVisibility();
+        } else {
+            resultDiv.innerHTML = `<span class='non-polar'>정답입니다! 무극성 분자입니다.</span><br>결합의 쌍극자 모멘트 합이 0이 되어 상쇄되었습니다.`;
+            document.getElementById('toggle-net-vector').checked = true; // 켜도 안보이겠지만 로직상
+            updateVisibility();
+        }
+    }
+
+    function resetQuiz() {
+        document.getElementById('result-text').innerHTML = "";
+        document.getElementById('toggle-net-vector').checked = false;
+        updateVisibility();
+    }
+
+    function updateVisibility() {
+        vectorGroup.visible = document.getElementById('toggle-bond-vectors').checked;
+        netVectorGroup.visible = document.getElementById('toggle-net-vector').checked;
+    }
+
+    // 이벤트 리스너
+    document.getElementById('molecule-select').addEventListener('change', (e) => loadMolecule(e.target.value));
+    document.getElementById('toggle-bond-vectors').addEventListener('change', updateVisibility);
+    document.getElementById('toggle-net-vector').addEventListener('change', updateVisibility);
+
+    // --- 5. 애니메이션 루프 ---
+    function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        
+        // 자동 회전
+        if (document.getElementById('toggle-auto-rotate').checked) {
+            currentMoleculeGroup.rotation.y += 0.005;
+            vectorGroup.rotation.y += 0.005;
+            netVectorGroup.rotation.y += 0.005;
+        } else {
+            // 수동 조작 시 그룹 싱크 맞추기 (단순화를 위해 그룹 회전 대신 카메라 회전 권장하지만 여기선 그룹 회전 사용)
+        }
+
+        // 반응형 리사이즈
+        const container = document.getElementById('canvas-container');
+        const width = container.clientWidth;
+        const height = container.clientHeight;
+        if (renderer.domElement.width !== width || renderer.domElement.height !== height) {
+            renderer.setSize(width, height);
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+        }
+
+        renderer.render(scene, camera);
+    }
+
+    // 초기 실행
+    loadMolecule('CO2');
+    updateVisibility();
+    animate();
+
+</script>
+</body>
+</html>

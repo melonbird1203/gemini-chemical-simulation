@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상실험: 돌턴의 부분 압력 법칙</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        :root { --primary: #4a90e2; --secondary: #e74c3c; --bg: #f5f6fa; --text: #2c3e50; }
+        body { font-family: 'Noto Sans KR', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--text); border-bottom: 2px solid var(--primary); padding-bottom: 15px; }
+        
+        /* Layout */
+        .lab-bench { display: flex; flex-direction: column; gap: 20px; }
+        .visual-area { position: relative; height: 300px; background: #e0e0e0; border-radius: 10px; overflow: hidden; display: flex; align-items: center; justify-content: center; border: 2px solid #bdc3c7; }
+        
+        /* Flasks representation */
+        .flask-container { display: flex; height: 80%; width: 90%; align-items: center; }
+        .flask { height: 100%; background: white; border: 3px solid #7f8c8d; position: relative; overflow: hidden; transition: width 0.5s; }
+        .flask.left { border-radius: 20px 0 0 20px; border-right: none; }
+        .flask.right { border-radius: 0 20px 20px 0; border-left: none; }
+        
+        /* Valve */
+        .valve { width: 10px; height: 110%; background: #34495e; cursor: pointer; z-index: 10; transition: transform 0.3s; display: flex; align-items: center; justify-content: center; }
+        .valve.open { transform: translateY(-110%); opacity: 0.2; }
+        .valve-handle { width: 30px; height: 30px; background: #f1c40f; border-radius: 50%; position: absolute; top: 45%; left: -10px; cursor: pointer; border: 2px solid #f39c12; display: flex; justify-content: center; align-items: center; font-weight: bold; font-size: 12px; }
+
+        /* Particles */
+        .particle { position: absolute; border-radius: 50%; opacity: 0.8; }
+        
+        /* Controls */
+        .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; background: #ecf0f1; padding: 20px; border-radius: 10px; }
+        .control-group h3 { margin-top: 0; color: var(--primary); }
+        .slider-group { margin-bottom: 10px; }
+        .slider-group label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type=range] { width: 100%; }
+        
+        /* Results */
+        .results-panel { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        .data-box { background: #fff; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .formula { background: #fdf2e9; padding: 10px; border-left: 4px solid #d35400; margin-top: 10px; font-family: monospace; }
+        
+        /* Buttons */
+        .btn-group { text-align: center; margin-top: 20px; }
+        button { padding: 12px 24px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; transition: 0.3s; font-weight: bold; }
+        .btn-toggle { background: #27ae60; color: white; }
+        .btn-toggle:hover { background: #2ecc71; }
+        .btn-reset { background: #95a5a6; color: white; margin-left: 10px; }
+
+        .legend { display: flex; gap: 15px; justify-content: center; margin-top: 10px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 혼합 기체의 부분 압력 (Dalton's Law)</h1>
+    
+    <div class="visual-area" id="visualArea">
+        <div class="flask-container">
+            <div class="flask left" id="flaskLeft" style="width: 50%;"></div>
+            <div class="valve" id="valve" onclick="toggleValve()">
+                <div class="valve-handle">CLOSE</div>
+            </div>
+            <div class="flask right" id="flaskRight" style="width: 50%;"></div>
+        </div>
+    </div>
+    <div class="legend">
+        <span><span class="dot" style="background:var(--primary)"></span> 질소 ($N_2$)</span>
+        <span><span class="dot" style="background:var(--secondary)"></span> 산소 ($O_2$)</span>
+    </div>
+
+    <div class="controls">
+        <div class="control-group">
+            <h3>왼쪽 플라스크 ($N_2$)</h3>
+            <div class="slider-group">
+                <label>몰수 ($n_A$): <span id="val_n1">2</span> mol</label>
+                <input type="range" id="n1" min="1" max="10" value="2" oninput="updateSim()">
+            </div>
+            <div class="slider-group">
+                <label>부피 ($V_A$): <span id="val_v1">5</span> L</label>
+                <input type="range" id="v1" min="2" max="10" value="5" oninput="updateSim()">
+            </div>
+            <div>초기 압력 $P_A$: <strong id="res_p1">0.00</strong> atm</div>
+        </div>
+        <div class="control-group">
+            <h3>오른쪽 플라스크 ($O_2$)</h3>
+            <div class="slider-group">
+                <label>몰수 ($n_B$): <span id="val_n2">3</span> mol</label>
+                <input type="range" id="n2" min="1" max="10" value="3" oninput="updateSim()">
+            </div>
+            <div class="slider-group">
+                <label>부피 ($V_B$): <span id="val_v2">5</span> L</label>
+                <input type="range" id="v2" min="2" max="10" value="5" oninput="updateSim()">
+            </div>
+            <div>초기 압력 $P_B$: <strong id="res_p2">0.00</strong> atm</div>
+        </div>
+    </div>
+
+    <div class="btn-group">
+        <button class="btn-toggle" onclick="toggleValve()" id="valveBtn">콕 열기 (Open Valve)</button>
+        <button class="btn-reset" onclick="resetSim()">초기화</button>
+    </div>
+
+    <div class="results-panel">
+        <div class="data-box">
+            <h3>📊 실험 결과 데이터</h3>
+            <p>전체 부피 ($V_{total}$): <strong id="res_vt">10</strong> L</p>
+            <p>전체 압력 ($P_{total}$): <strong id="res_pt" style="color:#d35400; font-size:1.2em;">0.00</strong> atm</p>
+            <hr>
+            <p>질소 부분 압력 ($P_A'$): <span id="res_pa_new">0.00</span> atm</p>
+            <p>산소 부분 압력 ($P_B'$): <span id="res_pb_new">0.00</span> atm</p>
+            <div class="formula">
+                $P_{total} = P_A' + P_B'$ 확인: <br>
+                <span id="calc_check">0 + 0 = 0</span>
+            </div>
+        </div>
+        <div class="data-box">
+            <h3>📈 압력 변화 그래프</h3>
+            <canvas id="pressureChart"></canvas>
+        </div>
+    </div>
+    
+    <div style="margin-top:20px; padding:15px; background:#e8f8f5; border-radius:8px;">
+        <h3>💡 선생님의 피드백</h3>
+        <p id="feedbackText">먼저 기체의 몰수와 부피를 설정하고 예상 압력을 생각해보세요.</p>
+    </div>
+</div>
+
+<script>
+    // Constants (Simplified R for educational visualization clarity, T is constant)
+    const R_sim = 10; // Simulation constant to make numbers readable
+    let isValveOpen = false;
+    let particles = [];
+    let animationId;
+    
+    // Chart
+    let ctx = document.getElementById('pressureChart').getContext('2d');
+    let chart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: ['질소(N₂) 분압', '산소(O₂) 분압', '전체 압력'],
+            datasets: [{
+                label: '압력 (atm)',
+                data: [0, 0, 0],
+                backgroundColor: ['rgba(74, 144, 226, 0.7)', 'rgba(231, 76, 60, 0.7)', 'rgba(46, 204, 113, 0.7)']
+            }]
+        },
+        options: {
+            scales: { y: { beginAtZero: true, title: {display: true, text: '압력 (atm)'} } },
+            animation: { duration: 500 }
+        }
+    });
+
+    function init() {
+        updateSim();
+        animate();
+    }
+
+    function resetSim() {
+        document.getElementById('n1').value = 2;
+        document.getElementById('v1').value = 5;
+        document.getElementById('n2').value = 3;
+        document.getElementById('v2').value = 5;
+        isValveOpen = false;
+        document.getElementById('valve').classList.remove('open');
+        document.getElementById('valveBtn').innerText = "콕 열기 (Open Valve)";
+        document.getElementById('valveBtn').className = "btn-toggle";
+        updateSim();
+    }
+
+    function createParticles(n1, n2, v1, v2) {
+        particles = [];
+        const leftWidth = document.getElementById('flaskLeft').offsetWidth;
+        const rightWidth = document.getElementById('flaskRight').offsetWidth;
+        const height = document.getElementById('flaskLeft').offsetHeight;
+        
+        // N2 Particles (Left)
+        for(let i=0; i<n1*5; i++) {
+            particles.push({
+                x: Math.random() * (leftWidth - 10),
+                y: Math.random() * (height - 10),
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                color: '#4a90e2',
+                type: 'left',
+                radius: 4
+            });
+        }
+        // O2 Particles (Right)
+        for(let i=0; i<n2*5; i++) {
+            particles.push({
+                x: leftWidth + 10 + Math.random() * (rightWidth - 20), // +10 for valve gap
+                y: Math.random() * (height - 10),
+                vx: (Math.random() - 0.5) * 4,
+                vy: (Math.random() - 0.5) * 4,
+                color: '#e74c3c',
+                type: 'right',
+                radius: 5 // Oxygen is bigger slightly
+            });
+        }
+    }
+
+    function updateSim() {
+        // Read Inputs
+        let n1 = parseInt(document.getElementById('n1').value);
+        let v1 = parseInt(document.getElementById('v1').value);
+        let n2 = parseInt(document.getElementById('n2').value);
+        let v2 = parseInt(document.getElementById('v2').value);
+
+        // Update Text
+        document.getElementById('val_n1').innerText = n1;
+        document.getElementById('val_v1').innerText = v1;
+        document.getElementById('val_n2').innerText = n2;
+        document.getElementById('val_v2').innerText = v2;
+
+        // Visual sizing of flasks (flex-grow logic simulation)
+        let totalV = v1 + v2;
+        document.getElementById('flaskLeft').style.width = (v1 / totalV * 90) + "%";
+        document.getElementById('flaskRight').style.width = (v2 / totalV * 90) + "%";
+
+        // Calculate Pressures (P = nRT/V)
+        let p1 = (n1 * R_sim) / v1;
+        let p2 = (n2 * R_sim) / v2;
+
+        // If Valve is Closed
+        if(!isValveOpen) {
+            document.getElementById('res_p1').innerText = p1.toFixed(2);
+            document.getElementById('res_p2').innerText = p2.toFixed(2);
+            document.getElementById('res_vt').innerText = "-";
+            document.getElementById('res_pt').innerText = "-";
+            document.getElementById('res_pa_new').innerText = "-";
+            document.getElementById('res_pb_new').innerText = "-";
+            document.getElementById('calc_check').innerText = "콕을 열어 실험을 시작하세요.";
+            document.getElementById('feedbackText').innerText = `현재 왼쪽 압력은 ${p1.toFixed(1)} atm, 오른쪽 압력은 ${p2.toFixed(1)} atm 입니다. 콕을 열면 전체 압력은 어떻게 될까요?`;
+            
+            chart.data.datasets[0].data = [p1, p2, 0];
+            chart.update();
+            
+            createParticles(n1, n2, v1, v2); // Reset particles to initial state
+        } else {
+            // If Valve is Open
+            let pt = ((n1 + n2) * R_sim) / totalV;
+            let pa_new = (n1 * R_sim) / totalV;
+            let pb_new = (n2 * R_sim) / totalV;
+
+            document.getElementById('res_vt').innerText = totalV;
+            document.getElementById('res_pt').innerText = pt.toFixed(2);
+            document.getElementById('res_pa_new').innerText = pa_new.toFixed(2);
+            document.getElementById('res_pb_new').innerText = pb_new.toFixed(2);
+            document.getElementById('calc_check').innerText = `${pa_new.toFixed(2)} + ${pb_new.toFixed(2)} ≈ ${pt.toFixed(2)}`;
+            
+            // Calculate Mole Fraction
+            let x1 = n1 / (n1+n2);
+            document.getElementById('feedbackText').innerHTML = 
+                `콕이 열렸습니다! <br> <b>질소의 몰 분율($X_{N2}$)</b>은 ${n1}/${n1+n2} = <b>${x1.toFixed(2)}</b> 입니다.<br>` +
+                `따라서 질소의 분압은 전체압력(${pt.toFixed(2)}) × ${x1.toFixed(2)} = <b>${(pt*x1).toFixed(2)} atm</b> 입니다.`;
+
+            chart.data.datasets[0].data = [pa_new, pb_new, pt];
+            chart.update();
+        }
+    }
+
+    function toggleValve() {
+        isValveOpen = !isValveOpen;
+        let valve = document.getElementById('valve');
+        let btn = document.getElementById('valveBtn');
+        
+        if(isValveOpen) {
+            valve.classList.add('open');
+            btn.innerText = "콕 닫기 (Reset)";
+            btn.className = "btn-reset"; // Visual change
+            updateSim();
+        } else {
+            resetSim();
+        }
+    }
+
+    // Animation Loop
+    function animate() {
+        let leftFlask = document.getElementById('flaskLeft');
+        let rightFlask = document.getElementById('flaskRight');
+        
+        // Bounds
+        let bounds = {
+            minX: 0,
+            midLeft: leftFlask.offsetWidth,
+            midRight: leftFlask.offsetWidth + 10, // + valve width
+            maxX: leftFlask.offsetWidth + 10 + rightFlask.offsetWidth,
+            height: leftFlask.offsetHeight
+        };
+
+        let flaskElements = document.querySelectorAll('.flask'); // For DOM appending
+        // Clear previous render is tricky without canvas, so we move DOM nodes? 
+        // Better: Use Simple Canvas for performance in next iteration. 
+        // For this simple DOM version, we will just simulate movement logic for concept.
+        
+        // Actually, let's just make the dots move within the visual-area div
+        // We need to render them as divs inside visual-area
+        
+        const container = document.getElementById('visualArea');
+        // Remove old dots
+        document.querySelectorAll('.particle').forEach(e => e.remove());
+
+        particles.forEach(p => {
+            // Update Position
+            p.x += p.vx;
+            p.y += p.vy;
+
+            // Collision Logic
+            // Wall Collisions
+            if(p.y < 0 || p.y > bounds.height) p.vy *= -1;
+            
+            if(isValveOpen) {
+                // Outer Walls only
+                if(p.x < 0 || p.x > bounds.maxX) p.vx *= -1;
+            } else {
+                // Compartmentalized
+                if(p.type === 'left') {
+                    if(p.x < 0 || p.x > bounds.midLeft) p.vx *= -1;
+                } else {
+                    if(p.x < bounds.midRight || p.x > bounds.maxX) p.vx *= -1;
+                }
+            }
+
+            // Render
+            let dot = document.createElement('div');
+            dot.className = 'particle';
+            dot.style.left = p.x + 'px';
+            dot.style.top = p.y + 'px';
+            dot.style.width = (p.radius*2) + 'px';
+            dot.style.height = (p.radius*2) + 'px';
+            dot.style.backgroundColor = p.color;
+            container.appendChild(dot);
+        });
+
+        requestAnimationFrame(animate);
+    }
+    
+    // Initial Setup
+    createParticles(2, 3, 5, 5);
+    init();
+
+</script>
+</body>
+</html>

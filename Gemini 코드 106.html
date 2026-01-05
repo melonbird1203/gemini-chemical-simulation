@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>염화 코발트 동적 평형 가상 실험</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --accent-pink: #ffb7b2;
+            --accent-blue: #a2c2e0;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, Roboto, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f0f2f5;
+            color: var(--text-color);
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        header {
+            background: linear-gradient(135deg, var(--primary-color), #357abd);
+            color: white;
+            padding: 20px 30px;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        p.subtitle { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        .lab-layout {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        /* 실험 영역 */
+        .experiment-area {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .paper-container {
+            position: relative;
+            height: 200px;
+            background: #eee;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            border: 2px dashed #ccc;
+            overflow: hidden;
+            transition: background 0.5s;
+        }
+
+        #cobaltPaper {
+            width: 120px;
+            height: 120px;
+            background-color: #a2c2e0; /* 초기 파란색 계열 */
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+            transition: background-color 0.1s;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            color: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            border-radius: 4px;
+        }
+
+        .micro-view {
+            background: #222;
+            border-radius: 12px;
+            padding: 10px;
+            position: relative;
+        }
+
+        canvas#particleCanvas {
+            width: 100%;
+            height: 200px;
+            display: block;
+        }
+
+        .view-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* 컨트롤 패널 */
+        .control-panel {
+            background: var(--secondary-color);
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 0.9rem;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .status-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .status-text {
+            font-weight: bold;
+            margin-bottom: 5px;
+            display: block;
+        }
+
+        .desc-text {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* 그래프 및 퀴즈 */
+        .dashboard {
+            padding: 0 20px 20px 20px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .chart-container {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            padding: 10px;
+            height: 200px;
+        }
+
+        .quiz-section {
+            background: #fff8e1;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ffe0b2;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+        .btn:hover { background: #357abd; }
+
+        .hidden { display: none; }
+        
+        /* 반응식 스타일 */
+        .reaction-equation {
+            text-align: center;
+            font-family: serif;
+            margin-bottom: 10px;
+            background: #fff;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        @media (max-width: 768px) {
+            .lab-layout, .dashboard { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 염화 코발트의 동적 평형 실험실</h1>
+        <p class="subtitle">고등학교 화학Ⅰ: 온도와 습도에 따른 가역 반응 관찰</p>
+    </header>
+
+    <div class="lab-layout">
+        <div class="experiment-area">
+            <div class="reaction-equation">
+                <span style="color:blue">CoCl₂</span> (파란색) + 6H₂O 
+                ⇄ 
+                <span style="color: #ff6b6b">CoCl₂·6H₂O</span> (분홍색)
+            </div>
+
+            <div class="paper-container" id="envContainer">
+                <div class="view-label" style="color:#333; top:-25px; left:0;">📸 거시적 관점: 실제 실험</div>
+                <div id="cobaltPaper">염화 코발트<br>종이</div>
+                <div id="steamEffect" style="position:absolute; width:100%; height:100%; pointer-events:none;"></div>
+            </div>
+
+            <div class="micro-view">
+                <div class="view-label">🔍 미시적 관점: 입자 모델</div>
+                <canvas id="particleCanvas"></canvas>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h3>🎛️ 실험 조건 조절</h3>
+            
+            <div class="control-group">
+                <label>🌡️ 온도 (Temperature): <span id="tempVal">25</span>°C</label>
+                <input type="range" id="tempSlider" min="0" max="100" value="25">
+                <small style="color:#666">온도가 높을수록 물 분자가 증발하려 합니다.</small>
+            </div>
+
+            <div class="control-group">
+                <label>💧 습도 (Humidity): <span id="humidVal">40</span>%</label>
+                <input type="range" id="humidSlider" min="0" max="100" value="40">
+                <small style="color:#666">습도가 높을수록 물 분자가 종이에 달라붙습니다.</small>
+            </div>
+
+            <div class="status-box">
+                <span class="status-text" id="equilibriumStatus">상태: 평형 유지 중</span>
+                <span class="desc-text" id="reactionDesc">현재 정반응과 역반응의 속도가 같습니다.</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard">
+        <div class="chart-container">
+            <canvas id="rateChart"></canvas>
+        </div>
+
+        <div class="quiz-section">
+            <h3>📝 개념 확인 퀴즈</h3>
+            <p id="quizQuestion">현재 상태에서 온도를 급격히 올리면 색은 어떻게 변할까요?</p>
+            <div id="quizOptions">
+                <button class="btn" onclick="checkAnswer(0)">파란색 쪽으로 이동</button>
+                <button class="btn" onclick="checkAnswer(1)">분홍색 쪽으로 이동</button>
+                <button class="btn" onclick="checkAnswer(2)">변화 없음</button>
+            </div>
+            <p id="quizFeedback" style="margin-top:10px; font-weight:bold; color:var(--primary-color);"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. 상태 변수 및 설정 ---
+    const state = {
+        temp: 25,       // 0 ~ 100 C
+        humidity: 40,   // 0 ~ 100 %
+        hydration: 0.4, // 0(Blue) ~ 1(Pink) : 실제 물 결합 정도
+        targetHydration: 0.4,
+        isEquilibrium: true
+    };
+
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // 차트 설정
+    const ctxChart = document.getElementById('rateChart').getContext('2d');
+    const rateChart = new Chart(ctxChart, {
+        type: 'bar',
+        data: {
+            labels: ['정반응 (수화)', '역반응 (탈수)'],
+            datasets: [{
+                label: '반응 속도',
+                data: [50, 50],
+                backgroundColor: ['#ffb7b2', '#a2c2e0']
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: { y: { beginAtZero: true, max: 100 } },
+            animation: { duration: 200 } // 빠른 업데이트를 위해
+        }
+    });
+
+    // --- 2. 입자 시스템 (미시적 관점) ---
+    let particles = [];
+    const particleCount = 40;
+
+    class WaterMolecule {
+        constructor() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.radius = 3;
+            this.state = 'free'; // 'free' or 'bound'
+            this.targetCo = null; // 결합할 코발트 위치
+        }
+
+        update(tempFactor, cobaltPositions) {
+            // 온도에 따른 속도 변화
+            const speed = 1 + tempFactor * 3;
+            
+            if (this.state === 'free') {
+                this.x += this.vx * speed;
+                this.y += this.vy * speed;
+
+                // 벽 튀기기
+                if(this.x < 0 || this.x > canvas.width) this.vx *= -1;
+                if(this.y < 0 || this.y > canvas.height) this.vy *= -1;
+
+                // 결합 로직: 습도가 높고(state.hydration이 높음) 우연히 코발트 근처면 결합
+                if (Math.random() < state.hydration && Math.random() < 0.05) {
+                    const target = cobaltPositions[Math.floor(Math.random() * cobaltPositions.length)];
+                    this.state = 'bound';
+                    this.targetCo = target;
+                }
+            } else {
+                // 결합 상태 (Co 주변을 맴돔)
+                if (this.targetCo) {
+                    const angle = Date.now() / 200 + this.x; // 회전 애니메이션
+                    this.x = this.targetCo.x + Math.cos(angle) * 10;
+                    this.y = this.targetCo.y + Math.sin(angle) * 10;
+                }
+
+                // 분리 로직: 온도가 높으면(tempFactor 높음) 떨어져 나감
+                // 혹은 현재 hydration 목표보다 너무 많이 결합되어 있으면 분리
+                if (Math.random() < tempFactor * 0.1 || (!state.isEquilibrium && state.hydration < 0.5 && Math.random() < 0.1)) {
+                    this.state = 'free';
+                    this.vx = (Math.random() - 0.5) * 2;
+                    this.vy = (Math.random() - 0.5) * 2;
+                }
+            }
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.state === 'bound' ? '#ff6b6b' : '#00ffff'; // 결합 시 붉은색 틴트, 자유 시 물색
+            ctx.fill();
+        }
+    }
+
+    // 코발트 이온 위치 고정 (중앙에 격자 형태)
+    const cobaltIons = [];
+    function initParticles() {
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = 200;
+        
+        // 코발트 이온 3개 배치
+        for(let i=1; i<=3; i++) {
+            cobaltIons.push({ x: canvas.width * (i/4), y: canvas.height/2 });
+        }
+
+        for(let i=0; i<particleCount; i++) {
+            particles.push(new WaterMolecule());
+        }
+    }
+
+    // --- 3. 핵심 시뮬레이션 로직 ---
+    function updateSimulation() {
+        // 1. 목표 수화도 계산 (단순화된 물리 모델)
+        // 습도가 높을수록(100), 온도가 낮을수록(0) Pink(1.0)에 가까워짐
+        // H: 0~100, T: 0~100
+        // Formula: Base + (Humidity * 0.8) - (Temp * 0.8)
+        let target = 0.5 + (state.humidity - state.temp) / 100;
+        target = Math.max(0, Math.min(1, target)); // 0~1 사이 클램핑
+        state.targetHydration = target;
+
+        // 2. 점진적 변화 (반응 속도 개념)
+        const reactionSpeed = 0.02; // 반응 진행 속도
+        if (Math.abs(state.hydration - state.targetHydration) > 0.005) {
+            state.isEquilibrium = false;
+            if (state.hydration < state.targetHydration) {
+                state.hydration += reactionSpeed; // 정반응 우세
+            } else {
+                state.hydration -= reactionSpeed; // 역반응 우세
+            }
+        } else {
+            state.isEquilibrium = true;
+        }
+
+        // 3. UI 업데이트
+        updateUI();
+        
+        // 4. 애니메이션 루프
+        drawScene();
+        requestAnimationFrame(updateSimulation);
+    }
+
+    function updateUI() {
+        // 색상 보간 (Blue -> Pink)
+        // Blue: rgb(65, 105, 225) -> Pink: rgb(255, 182, 193)
+        const r = 65 + (255 - 65) * state.hydration;
+        const g = 105 + (182 - 105) * state.hydration;
+        const b = 225 + (193 - 225) * state.hydration;
+        
+        const colorString = `rgb(${Math.round(r)}, ${Math.round(g)}, ${Math.round(b)})`;
+        document.getElementById('cobaltPaper').style.backgroundColor = colorString;
+
+        // 텍스트 피드백
+        const statusEl = document.getElementById('equilibriumStatus');
+        const descEl = document.getElementById('reactionDesc');
+
+        // 반응 속도 그래프 데이터 업데이트 (가상의 시각화)
+        // 평형이 아니면 우세한 쪽 속도가 더 큼
+        let fwdRate = 50;
+        let revRate = 50;
+
+        if (!state.isEquilibrium) {
+            statusEl.innerText = "상태: 반응 진행 중 ⚠️";
+            statusEl.style.color = "#d32f2f";
+            
+            if (state.hydration < state.targetHydration) {
+                // 정반응 우세 (물과 결합 중)
+                descEl.innerHTML = "습도가 높아 <b>정반응(수화)</b>이 우세합니다.<br>종이가 붉게 변하고 있습니다.";
+                fwdRate = 70; revRate = 30;
+            } else {
+                // 역반응 우세 (물 증발 중)
+                descEl.innerHTML = "온도가 높아 <b>역반응(탈수)</b>이 우세합니다.<br>종이가 푸르게 변하고 있습니다.";
+                fwdRate = 30; revRate = 70;
+            }
+        } else {
+            statusEl.innerText = "상태: 동적 평형 도달 ✅";
+            statusEl.style.color = "#2e7d32";
+            descEl.innerHTML = "겉보기 변화는 없지만, 입자는 끊임없이 이동하며<br><b>정반응 속도 = 역반응 속도</b>인 상태입니다.";
+        }
+
+        // 차트 업데이트
+        rateChart.data.datasets[0].data = [fwdRate, revRate];
+        rateChart.update('none'); // 'none' mode for performance
+    }
+
+    function drawScene() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 코발트 이온 그리기 (고정)
+        ctx.fillStyle = '#4169e1';
+        cobaltIons.forEach(co => {
+            ctx.beginPath();
+            ctx.arc(co.x, co.y, 15, 0, Math.PI*2);
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.fillText("Co", co.x-7, co.y+4);
+            ctx.fillStyle = '#4169e1';
+        });
+
+        // 물 분자 업데이트 및 그리기
+        const tempFactor = state.temp / 100; // 0 ~ 1
+        particles.forEach(p => {
+            p.update(tempFactor, cobaltIons);
+            p.draw();
+        });
+    }
+
+    // --- 4. 이벤트 리스너 ---
+    document.getElementById('tempSlider').addEventListener('input', (e) => {
+        state.temp = parseInt(e.target.value);
+        document.getElementById('tempVal').innerText = state.temp;
+    });
+
+    document.getElementById('humidSlider').addEventListener('input', (e) => {
+        state.humidity = parseInt(e.target.value);
+        document.getElementById('humidVal').innerText = state.humidity;
+    });
+
+    // --- 5. 퀴즈 로직 ---
+    function checkAnswer(option) {
+        const feedback = document.getElementById('quizFeedback');
+        // 질문: 온도를 급격히 올리면? (역반응 우세 -> 파란색)
+        if(option === 0) {
+            feedback.innerText = "정답입니다! 👏 온도가 오르면 물이 증발(역반응)하여 무수 염화 코발트(파란색)가 됩니다.";
+            feedback.style.color = "#2e7d32";
+        } else if(option === 1) {
+            feedback.innerText = "아닙니다. 붉은색(분홍색)은 물과 결합했을 때 나타납니다. 온도가 오르면 물이 어떻게 될까요?";
+            feedback.style.color = "#d32f2f";
+        } else {
+            feedback.innerText = "틀렸습니다. 평형이 깨지면서 새로운 평형 상태로 이동하게 됩니다.";
+            feedback.style.color = "#d32f2f";
+        }
+    }
+
+    // 초기화 및 실행
+    window.addEventListener('resize', initParticles);
+    initParticles();
+    updateSimulation();
+
+</script>
+</body>
+</html>

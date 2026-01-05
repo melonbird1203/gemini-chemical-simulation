@@ -1,0 +1,574 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 루이스 전자점식 빌더</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #2ecc71;
+            --warning-color: #f1c40f;
+            --danger-color: #e74c3c;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Nanum Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            color: #333;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        .mode-badge {
+            background: rgba(255,255,255,0.2);
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.9rem;
+        }
+
+        /* Layout */
+        .container {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar (Tools) */
+        .sidebar {
+            width: 280px;
+            background-color: var(--panel-bg);
+            border-right: 1px solid #ddd;
+            padding: 20px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group {
+            background: #f9f9f9;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #eee;
+        }
+
+        h3 { margin-top: 0; font-size: 1.1rem; color: #555; border-bottom: 2px solid var(--primary-color); padding-bottom: 5px; display: inline-block;}
+
+        button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-primary { background-color: var(--primary-color); color: white; }
+        .btn-check { background-color: var(--success-color); color: white; margin-top: 15px; }
+        .btn-reset { background-color: var(--danger-color); color: white; }
+        
+        button:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        select {
+            width: 100%;
+            padding: 8px;
+            border-radius: 4px;
+            border: 1px solid #ccc;
+        }
+
+        /* Main Workspace */
+        .workspace {
+            flex: 1;
+            position: relative;
+            background-image: radial-gradient(#ccc 1px, transparent 1px);
+            background-size: 20px 20px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* Atom Component */
+        .atom-container {
+            position: relative;
+            width: 300px;
+            height: 300px;
+            /* border: 1px dashed #ccc; Debugging */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .atom {
+            width: 60px;
+            height: 60px;
+            background-color: white;
+            border: 2px solid #333;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            z-index: 2;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        /* Electron Slots (Top, Right, Bottom, Left) */
+        .electron-slot {
+            position: absolute;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: 0.2s;
+            border-radius: 50%;
+        }
+
+        .electron-slot:hover { background-color: rgba(74, 144, 226, 0.2); }
+
+        .slot-top { top: 80px; }
+        .slot-right { right: 80px; }
+        .slot-bottom { bottom: 80px; }
+        .slot-left { left: 80px; }
+
+        /* Bond Slots (Between atoms) */
+        .bond-area {
+            position: absolute;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            z-index: 1;
+        }
+        
+        /* Layout for H2O example (hardcoded layout for demo stability) */
+        .molecule-layout {
+            display: grid;
+            grid-template-areas: 
+                ". top ."
+                "left center right"
+                ". bottom .";
+            gap: 10px;
+        }
+
+        .atom-wrapper {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        /* Visualizing Electrons */
+        .dot {
+            width: 8px;
+            height: 8px;
+            background-color: #333;
+            border-radius: 50%;
+            margin: 2px;
+            display: inline-block;
+        }
+
+        .bond-line {
+            width: 40px;
+            height: 4px;
+            background-color: #333;
+            margin: 2px;
+        }
+        .bond-double { height: 12px; border-top: 3px solid #333; border-bottom: 3px solid #333; background: none; }
+        .bond-triple { height: 14px; background: none; border-top: 3px solid #333; border-bottom: 3px solid #333; position: relative;}
+        .bond-triple::after { content:''; position: absolute; top: 50%; left:0; width:100%; height:3px; background: #333; transform: translateY(-50%);}
+
+        /* Feedback Area */
+        .feedback-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: white;
+            padding: 15px 30px;
+            border-radius: 30px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            font-size: 1.1rem;
+            text-align: center;
+            min-width: 300px;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        /* Legend */
+        .legend {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div style="display:flex; align-items:center; gap:10px;">
+        <span>🧪 과학 가상실험실</span>
+        <h1>루이스 전자점식 빌더</h1>
+    </div>
+    <span class="mode-badge">고등 화학Ⅰ</span>
+</header>
+
+<div class="container">
+    <div class="sidebar">
+        <div class="control-group">
+            <h3>실험 목표 설정</h3>
+            <p style="font-size:0.9rem; margin-bottom: 10px;">만들 분자를 선택하세요.</p>
+            <select id="moleculeSelector" onchange="initExperiment()">
+                <option value="H2O">물 (H₂O)</option>
+                <option value="CO2">이산화탄소 (CO₂)</option>
+                <option value="NH3">암모니아 (NH₃)</option>
+                <option value="CH4">메테인 (CH₄)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <h3>조작 가이드</h3>
+            <ul style="padding-left: 20px; font-size: 0.9rem; color: #555;">
+                <li>⚛️ <b>원자 주변 클릭:</b> 비공유 전자쌍 추가/제거</li>
+                <li>🔗 <b>원자 사이 클릭:</b> 결합 차수 변경 (단일→이중→삼중)</li>
+                <li>👀 <b>구조식 보기:</b> 점 ↔ 선 변환</li>
+            </ul>
+            <div class="legend">
+                * 옥텟 규칙: 원자 주변 전자 8개 (수소는 2개)
+            </div>
+        </div>
+
+        <div class="control-group">
+            <h3>옵션</h3>
+            <label style="display:flex; align-items:center; cursor:pointer;">
+                <input type="checkbox" id="toggleLines" onchange="renderMolecule()">
+                <span style="margin-left: 8px;">결합을 선으로 표시</span>
+            </label>
+        </div>
+
+        <button class="btn-check" onclick="checkAnswer()">✅ 정답 확인 및 분석</button>
+        <button class="btn-reset" onclick="initExperiment()">🔄 실험 초기화</button>
+    </div>
+
+    <div class="workspace" id="workspace">
+        </div>
+
+    <div class="feedback-panel" id="feedback">
+        분자를 선택하고 실험을 시작하세요!
+    </div>
+</div>
+
+<script>
+    // --- Data & State ---
+    const molecules = {
+        "H2O": {
+            atoms: [
+                { id: "center", symbol: "O", valence: 6, x: 0, y: 0, neighbors: ["left", "right"] },
+                { id: "left", symbol: "H", valence: 1, x: -1, y: 0, neighborTo: "center" },
+                { id: "right", symbol: "H", valence: 1, x: 1, y: 0, neighborTo: "center" }
+            ],
+            correctBonds: { "center-left": 1, "center-right": 1 }, // Single bonds
+            correctLonePairs: { "center": 2, "left": 0, "right": 0 }
+        },
+        "CO2": {
+            atoms: [
+                { id: "center", symbol: "C", valence: 4, x: 0, y: 0, neighbors: ["left", "right"] },
+                { id: "left", symbol: "O", valence: 6, x: -1, y: 0, neighborTo: "center" },
+                { id: "right", symbol: "O", valence: 6, x: 1, y: 0, neighborTo: "center" }
+            ],
+            correctBonds: { "center-left": 2, "center-right": 2 }, // Double bonds
+            correctLonePairs: { "center": 0, "left": 2, "right": 2 }
+        },
+        "NH3": {
+            atoms: [
+                { id: "center", symbol: "N", valence: 5, x: 0, y: 0, neighbors: ["left", "right", "bottom"] },
+                { id: "left", symbol: "H", valence: 1, x: -1, y: 0.5, neighborTo: "center" },
+                { id: "right", symbol: "H", valence: 1, x: 1, y: 0.5, neighborTo: "center" },
+                { id: "bottom", symbol: "H", valence: 1, x: 0, y: 1.2, neighborTo: "center" }
+            ],
+            correctBonds: { "center-left": 1, "center-right": 1, "center-bottom": 1 },
+            correctLonePairs: { "center": 1, "left": 0, "right": 0, "bottom": 0 }
+        },
+        "CH4": {
+            atoms: [
+                { id: "center", symbol: "C", valence: 4, x: 0, y: 0, neighbors: ["left", "right", "top", "bottom"] },
+                { id: "left", symbol: "H", valence: 1, x: -1, y: 0, neighborTo: "center" },
+                { id: "right", symbol: "H", valence: 1, x: 1, y: 0, neighborTo: "center" },
+                { id: "top", symbol: "H", valence: 1, x: 0, y: -1, neighborTo: "center" },
+                { id: "bottom", symbol: "H", valence: 1, x: 0, y: 1, neighborTo: "center" }
+            ],
+            correctBonds: { "center-left": 1, "center-right": 1, "center-top": 1, "center-bottom": 1 },
+            correctLonePairs: { "center": 0, "left": 0, "right": 0, "top": 0, "bottom": 0 }
+        }
+    };
+
+    let currentState = {
+        moleculeId: "H2O",
+        bonds: {}, // e.g., "center-left": 1 (single), 2 (double)
+        lonePairs: {} // e.g., "center": 2 (pairs)
+    };
+
+    // --- Init ---
+    function initExperiment() {
+        const selector = document.getElementById("moleculeSelector");
+        const molId = selector.value;
+        currentState.moleculeId = molId;
+        
+        // Reset state
+        currentState.bonds = {};
+        currentState.lonePairs = {};
+        
+        const molData = molecules[molId];
+        
+        // Initialize bonds to 0 (user must build them) or 1 (guide)
+        // Let's start with single bonds everywhere for ease, or 0? 
+        // Let's start with 0 to force interaction, but visually show proximity.
+        // Actually, for UX, let's pre-connect single bonds but let user change order.
+        molData.atoms.forEach(atom => {
+            currentState.lonePairs[atom.id] = 0;
+            if(atom.neighbors) {
+                atom.neighbors.forEach(n => {
+                    const key = `center-${n}`; // Convention: center is always first in key
+                    if(!currentState.bonds[key]) currentState.bonds[key] = 1; 
+                });
+            }
+        });
+
+        updateFeedback("원자 주변을 눌러 전자를 배치하고, 원자 사이를 눌러 결합을 만드세요.");
+        renderMolecule();
+    }
+
+    // --- Rendering ---
+    function renderMolecule() {
+        const workspace = document.getElementById("workspace");
+        workspace.innerHTML = "";
+        const molData = molecules[currentState.moleculeId];
+        const isLineMode = document.getElementById("toggleLines").checked;
+
+        // Container for layout
+        const container = document.createElement("div");
+        container.style.position = "relative";
+        container.style.width = "400px";
+        container.style.height = "400px";
+        
+        // Render Atoms
+        molData.atoms.forEach(atom => {
+            const atomEl = document.createElement("div");
+            atomEl.className = "atom";
+            atomEl.textContent = atom.symbol;
+            atomEl.style.position = "absolute";
+            // Simple positioning logic
+            const centerX = 200; 
+            const centerY = 200;
+            const gap = 100;
+            atomEl.style.left = (centerX + atom.x * gap - 30) + "px";
+            atomEl.style.top = (centerY + atom.y * gap - 30) + "px";
+            
+            // Render Lone Pair Click Areas (Top/Right/Bottom/Left relative to atom)
+            // Only Central atom usually needs 4 sides. Others depend on position.
+            // Simplified: Central atom gets 4 click zones. Terminal atoms get specific ones avoiding the bond.
+            
+            const dirs = [
+                { name: "top", dx: 0, dy: -50 },
+                { name: "right", dx: 50, dy: 0 },
+                { name: "bottom", dx: 0, dy: 50 },
+                { name: "left", dx: -50, dy: 0 }
+            ];
+
+            // Render Lone Pairs
+            const lpCount = currentState.lonePairs[atom.id] || 0;
+            
+            // Create a clickable zone for toggling LP
+            const lpZone = document.createElement("div");
+            lpZone.style.position = "absolute";
+            lpZone.style.width = "60px";
+            lpZone.style.height = "60px";
+            lpZone.style.borderRadius = "50%";
+            lpZone.style.left = (centerX + atom.x * gap - 30) + "px";
+            lpZone.style.top = (centerY + atom.y * gap - 30) + "px";
+            lpZone.style.cursor = "pointer";
+            lpZone.title = "클릭하여 비공유 전자쌍 변경";
+            lpZone.onclick = () => toggleLonePair(atom.id);
+            
+            // Visualizing LP dots
+            // Display dots around the atom based on count
+            if (lpCount > 0) {
+                renderDotsAround(container, atom, lpCount, centerX, centerY, gap);
+            }
+            
+            container.appendChild(atomEl);
+            container.appendChild(lpZone); // Click handler overlays atom
+        });
+
+        // Render Bonds
+        Object.keys(currentState.bonds).forEach(key => {
+            const [id1, id2] = key.split("-");
+            const atom1 = molData.atoms.find(a => a.id === id1);
+            const atom2 = molData.atoms.find(a => a.id === id2);
+            const bondOrder = currentState.bonds[key];
+
+            const startX = 200 + atom1.x * 100;
+            const startY = 200 + atom1.y * 100;
+            const endX = 200 + atom2.x * 100;
+            const endY = 200 + atom2.y * 100;
+
+            const bondEl = document.createElement("div");
+            bondEl.className = "bond-area";
+            
+            // Position bond in center
+            const midX = (startX + endX) / 2;
+            const midY = (startY + endY) / 2;
+            bondEl.style.left = (midX - 20) + "px";
+            bondEl.style.top = (midY - 10) + "px";
+            bondEl.style.width = "40px";
+            bondEl.style.height = "20px";
+            
+            // Rotate bond
+            const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
+            bondEl.style.transform = `rotate(${angle}deg)`;
+
+            // Draw content
+            if (isLineMode) {
+                if(bondOrder === 1) bondEl.innerHTML = '<div class="bond-line"></div>';
+                if(bondOrder === 2) bondEl.innerHTML = '<div class="bond-double"></div>';
+                if(bondOrder === 3) bondEl.innerHTML = '<div class="bond-triple"></div>';
+            } else {
+                // Dot mode: 2 dots per order
+                let html = '';
+                for(let i=0; i<bondOrder*2; i++) html += '<div class="dot"></div>';
+                bondEl.innerHTML = html;
+                bondEl.style.display = 'flex';
+                bondEl.style.gap = '2px';
+            }
+
+            bondEl.onclick = () => cycleBond(key);
+            container.appendChild(bondEl);
+        });
+
+        workspace.appendChild(container);
+    }
+
+    function renderDotsAround(container, atom, count, cx, cy, gap) {
+        // Simple visualization: place dots at corners
+        const positions = [
+            {x: 0, y: -45}, // Top
+            {x: 45, y: 0},  // Right
+            {x: 0, y: 45},  // Bottom
+            {x: -45, y: 0}  // Left
+        ];
+        
+        // This is a simplified visualizer. It just distributes pairs.
+        for(let i=0; i<count; i++) {
+            const pos = positions[i % 4];
+            const pairDiv = document.createElement("div");
+            pairDiv.style.position = "absolute";
+            pairDiv.style.left = (cx + atom.x * gap + pos.x - 5) + "px";
+            pairDiv.style.top = (cy + atom.y * gap + pos.y - 5) + "px";
+            pairDiv.innerHTML = '<div class="dot"></div><div class="dot"></div>';
+            pairDiv.style.display = "flex";
+            pairDiv.style.gap = "2px";
+            // If top/bottom rotate 0, left/right rotate 90
+            if(i%2 !== 0) pairDiv.style.transform = "rotate(90deg)";
+            container.appendChild(pairDiv);
+        }
+    }
+
+    // --- Interaction ---
+    function toggleLonePair(atomId) {
+        // Max 3 lone pairs for this simple sim (usually enough for terminal atoms, center might need 2)
+        // Cycle: 0 -> 1 -> 2 -> 3 -> 0
+        let current = currentState.lonePairs[atomId];
+        current = (current + 1) % 4;
+        currentState.lonePairs[atomId] = current;
+        renderMolecule();
+    }
+
+    function cycleBond(bondKey) {
+        // Cycle: 1 -> 2 -> 3 -> 1
+        let current = currentState.bonds[bondKey];
+        current = current >= 3 ? 1 : current + 1;
+        currentState.bonds[bondKey] = current;
+        renderMolecule();
+    }
+
+    // --- Logic & Feedback ---
+    function checkAnswer() {
+        const molId = currentState.moleculeId;
+        const target = molecules[molId];
+        let correct = true;
+        let messages = [];
+
+        // 1. Check Bonds
+        for (let key in target.correctBonds) {
+            if (currentState.bonds[key] !== target.correctBonds[key]) {
+                correct = false;
+                messages.push(`⚠️ 원자 사이의 결합 차수(전자쌍 수)가 맞지 않습니다.`);
+                break; // Don't overwhelm
+            }
+        }
+
+        // 2. Check Octet & Lone Pairs
+        if (correct) { // Only check dots if bonds look okay
+            for (let atom of target.atoms) {
+                const userLP = currentState.lonePairs[atom.id];
+                const correctLP = target.correctLonePairs[atom.id];
+                
+                // Calculate current electrons around atom
+                let electronCount = userLP * 2; // Lone pairs
+                // Add bonds
+                Object.keys(currentState.bonds).forEach(bKey => {
+                    if(bKey.includes(atom.id)) {
+                        electronCount += currentState.bonds[bKey] * 2;
+                    }
+                });
+
+                // Check Octet
+                const required = atom.symbol === 'H' ? 2 : 8;
+                if (electronCount !== required) {
+                    correct = false;
+                    messages.push(`⚠️ ${atom.symbol} 원자 주변 전자가 ${electronCount}개입니다. (${required}개 필요)`);
+                } else if (userLP !== correctLP) {
+                    // Octet satisfied but wrong distribution? (Rare with correct bonds, but possible if Formal Charge is off)
+                    // For this simple level, usually Octet check is enough.
+                }
+            }
+        }
+
+        if (correct) {
+            updateFeedback("🎉 정답입니다! 완벽한 루이스 구조를 완성했어요!", "success");
+        } else {
+            updateFeedback(messages[0] || "다시 한번 확인해보세요.", "error");
+        }
+    }
+
+    function updateFeedback(msg, type="info") {
+        const fb = document.getElementById("feedback");
+        fb.textContent = msg;
+        fb.style.borderLeftColor = type === "success" ? "#2ecc71" : (type === "error" ? "#e74c3c" : "#4a90e2");
+    }
+
+    // Start
+    initExperiment();
+</script>
+
+</body>
+</html>

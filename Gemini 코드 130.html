@@ -1,0 +1,717 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 물의 상평형 해석</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --accent-color: #ff6b6b;
+            --bg-color: #f4f7f6;
+            --panel-bg: #ffffff;
+            --text-color: #333;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        /* Header */
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header .subtitle { font-size: 0.9rem; opacity: 0.9; }
+
+        /* Main Layout */
+        main {
+            display: flex;
+            flex: 1;
+            padding: 20px;
+            gap: 20px;
+            overflow: hidden;
+        }
+
+        /* Panels */
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Left: Graph */
+        #graph-section {
+            flex: 2;
+            position: relative;
+        }
+
+        canvas#phaseGraph {
+            width: 100%;
+            height: 100%;
+            cursor: crosshair;
+            border: 1px solid #eee;
+            border-radius: 8px;
+        }
+
+        /* Right: Controls & Viz */
+        #control-section {
+            flex: 1;
+            min-width: 300px;
+            gap: 15px;
+            overflow-y: auto;
+        }
+
+        /* Particle View */
+        #particle-view {
+            height: 200px;
+            background: #2c3e50;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            border: 2px solid #bdc3c7;
+        }
+        
+        .state-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.6);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        /* Controls */
+        .control-group {
+            margin-bottom: 15px;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+        }
+
+        .control-group label {
+            display: flex;
+            justify-content: space-between;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        /* Info Box */
+        .info-box {
+            background-color: #e8f4fd;
+            border-left: 4px solid var(--primary-color);
+            padding: 10px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Quiz Section */
+        #quiz-section {
+            margin-top: auto;
+            border-top: 2px dashed #eee;
+            padding-top: 15px;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            width: 100%;
+            margin-top: 5px;
+            transition: background 0.2s;
+        }
+
+        .btn:hover { background-color: #357abd; }
+        .btn.secondary { background-color: #95a5a6; }
+
+        /* Footer */
+        footer {
+            text-align: center;
+            padding: 10px;
+            font-size: 0.8rem;
+            color: #777;
+            background: #fff;
+        }
+
+        /* Tooltip style for graph */
+        #tooltip {
+            position: absolute;
+            background: rgba(0, 0, 0, 0.8);
+            color: #fff;
+            padding: 5px 10px;
+            border-radius: 4px;
+            font-size: 12px;
+            pointer-events: none;
+            display: none;
+            z-index: 10;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>💧 물의 상평형 해석 실험실</h1>
+        <div class="subtitle">온도와 압력에 따른 물의 상태 변화를 탐구해보세요.</div>
+    </div>
+    <div>
+        <span style="font-size: 0.9rem;">Grade: 고등학교 화학Ⅱ</span>
+    </div>
+</header>
+
+<main>
+    <section id="graph-section" class="panel">
+        <h3>📊 상평형 그림 (Phase Diagram)</h3>
+        <p style="font-size: 0.9rem; color: #666; margin-bottom: 10px;">
+            그래프 위의 점을 드래그하거나 오른쪽 슬라이더를 움직여보세요.
+        </p>
+        <div style="flex:1; position: relative;">
+            <canvas id="phaseGraph"></canvas>
+            <div id="tooltip"></div>
+        </div>
+    </section>
+
+    <section id="control-section" class="panel">
+        
+        <div>
+            <h3>🔬 분자 운동 관찰</h3>
+            <div id="particle-view">
+                <canvas id="particleCanvas"></canvas>
+                <div class="state-label" id="stateDisplay">상태: 고체 (얼음)</div>
+            </div>
+        </div>
+
+        <div class="control-group">
+            <label>
+                <span>🌡️ 온도 (Temperature)</span>
+                <span id="tempVal">0 ℃</span>
+            </label>
+            <input type="range" id="tempSlider" min="-20" max="400" step="1" value="0">
+            
+            <br><br>
+            
+            <label>
+                <span>⏲️ 압력 (Pressure)</span>
+                <span id="pressVal">1.00 atm</span>
+            </label>
+            <input type="range" id="pressSlider" min="0" max="100" step="0.1" value="50">
+        </div>
+
+        <div class="info-box" id="feedbackBox">
+            현재 조건은 <b>1기압, 0℃</b>입니다.<br>
+            이곳은 물의 <b>어는점(녹는점)</b> 부근입니다.
+        </div>
+
+        <div id="quiz-section">
+            <h3>🧠 도전! 탐구 퀴즈</h3>
+            <div id="quizQuestion" style="margin-bottom: 10px; font-size: 0.9rem;">
+                시작 버튼을 눌러 문제를 풀어보세요.
+            </div>
+            <button class="btn" onclick="startQuiz()">퀴즈 시작</button>
+            <button class="btn secondary" style="margin-top: 10px;" onclick="printReport()">📝 실험 결과서 저장 (PDF)</button>
+        </div>
+    </section>
+</main>
+
+<footer>
+    © 2025 Science Virtual Lab Creator | 교육용 목적 - 실제 데이터와 다소 차이가 있을 수 있음 (도식화됨)
+</footer>
+
+<script>
+    /**
+     * Simulation Logic
+     * Note: This uses a simplified schematic coordinate system for educational clarity.
+     * The pressure axis is treated non-linearly to show both low pressure (triple point) and high pressure (critical point).
+     */
+
+    const graphCanvas = document.getElementById('phaseGraph');
+    const graphCtx = graphCanvas.getContext('2d');
+    const particleCanvas = document.getElementById('particleCanvas');
+    const pCtx = particleCanvas.getContext('2d');
+
+    // UI Elements
+    const tempSlider = document.getElementById('tempSlider');
+    const pressSlider = document.getElementById('pressSlider');
+    const tempDisplay = document.getElementById('tempVal');
+    const pressDisplay = document.getElementById('pressVal');
+    const stateDisplay = document.getElementById('stateDisplay');
+    const feedbackBox = document.getElementById('feedbackBox');
+    const tooltip = document.getElementById('tooltip');
+
+    // State Variables
+    let currentTemp = 0; // Celsius
+    let currentPressPercent = 50; // Slider value 0-100 (Mapped to actual ATM)
+    let currentAtm = 1.0;
+    let currentState = "Solid"; // Solid, Liquid, Gas, Supercritical
+    let particles = [];
+    let isDragging = false;
+
+    // Constants for Graph Drawing (Schematic Coordinates 0.0 to 1.0)
+    const TRIPLE_POINT = { x: 0.25, y: 0.3 }; // (approx 0.01C, 0.006atm)
+    const CRITICAL_POINT = { x: 0.85, y: 0.85 }; // (374C, 218atm)
+    const BOILING_POINT_1ATM = { x: 0.55, y: 0.5 }; // (100C, 1atm) -> Reference
+
+    // Resize Canvases
+    function resize() {
+        graphCanvas.width = graphCanvas.clientWidth;
+        graphCanvas.height = graphCanvas.clientHeight;
+        particleCanvas.width = particleCanvas.clientWidth;
+        particleCanvas.height = particleCanvas.clientHeight;
+        drawGraph();
+    }
+    window.addEventListener('resize', resize);
+
+    // --- Physics Logic (Simplified) ---
+
+    // Convert Slider/Graph X to Temp (Linear -20 to 400)
+    function xToTemp(xRatio) {
+        return Math.round((xRatio * 420) - 20);
+    }
+    function tempToX(temp) {
+        return (temp + 20) / 420;
+    }
+
+    // Convert Slider/Graph Y to Pressure (Pseudo-Logarithmic for display)
+    function yToAtm(yRatio) {
+        // Map 0-100 slider to 0.001 - 300 atm roughly
+        if(yRatio < 0.3) return (yRatio / 0.3) * 0.01; // Low pressure zone
+        return Math.pow(10, (yRatio - 0.3) * 3.5) * 0.01; // Exponential growth
+    }
+    function atmToY(atm) {
+        // Inverse approximation (simplified)
+        if(atm <= 0.01) return (atm/0.01) * 0.3;
+        return (Math.log10(atm / 0.01) / 3.5) + 0.3;
+    }
+
+    // Determine Phase based on X (Temp ratio) and Y (Press ratio)
+    function determinePhase(x, y) {
+        // 1. Supercritical Fluid (Above Critical Point)
+        if (x > CRITICAL_POINT.x && y > CRITICAL_POINT.y) return "Supercritical";
+
+        // 2. Solid vs Fluid (Melting Curve - Water slopes LEFT slightly)
+        // Simple line equation from Triple Point upwards
+        let slopeM = -2.0; // Negative slope for water anomaly
+        let meltX = TRIPLE_POINT.x + (y - TRIPLE_POINT.y) / slopeM * 0.05;
+        
+        if (y > TRIPLE_POINT.y && x < meltX) return "Solid";
+        if (y <= TRIPLE_POINT.y && x < TRIPLE_POINT.x) return "Solid"; // Below TP
+
+        // 3. Liquid vs Gas (Boiling Curve)
+        // Curve from TP to CP
+        // Using a simple power function to approximate curve
+        let tNorm = (x - TRIPLE_POINT.x) / (CRITICAL_POINT.x - TRIPLE_POINT.x);
+        let boilY = TRIPLE_POINT.y + (CRITICAL_POINT.y - TRIPLE_POINT.y) * Math.pow(tNorm, 2); // Parabolic approx
+
+        if (x >= TRIPLE_POINT.x && x <= CRITICAL_POINT.x && y > boilY) return "Liquid";
+
+        // 4. Sublimation Curve (Below TP)
+        let subNorm = (x) / (TRIPLE_POINT.x);
+        let subY = TRIPLE_POINT.y * Math.pow(subNorm, 2);
+
+        if (x < TRIPLE_POINT.x && y < subY) return "Gas";
+        
+        return "Gas"; // Default fallback (bottom right)
+    }
+
+    // --- Visualization Functions ---
+
+    function drawGraph() {
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+        const ctx = graphCtx;
+
+        ctx.clearRect(0, 0, w, h);
+
+        // 1. Draw Background Zones (Optional, for clarity)
+        ctx.globalAlpha = 0.1;
+        // (Detailed coloring omitted for cleaner look, focusing on lines)
+
+        // 2. Draw Axes
+        ctx.globalAlpha = 1.0;
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(40, h - 40); ctx.lineTo(w - 20, h - 40); // X-axis (Temp)
+        ctx.moveTo(40, h - 40); ctx.lineTo(40, 20); // Y-axis (Press)
+        ctx.stroke();
+
+        // Labels
+        ctx.fillStyle = '#333';
+        ctx.font = '14px sans-serif';
+        ctx.fillText("온도 (Temperature, ℃)", w - 180, h - 15);
+        ctx.save();
+        ctx.translate(15, h/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillText("압력 (Pressure, atm)", 0, 0);
+        ctx.restore();
+
+        // 3. Draw Phase Lines
+        const tpX = 40 + TRIPLE_POINT.x * (w - 60);
+        const tpY = (h - 40) - TRIPLE_POINT.y * (h - 60);
+        const cpX = 40 + CRITICAL_POINT.x * (w - 60);
+        const cpY = (h - 40) - CRITICAL_POINT.y * (h - 60);
+
+        ctx.lineWidth = 3;
+
+        // Melting Curve (Solid-Liquid) - Slopes Left
+        ctx.strokeStyle = '#3498db'; // Blue
+        ctx.beginPath();
+        ctx.moveTo(tpX, tpY);
+        ctx.lineTo(tpX - 15, 20); // Arbitrary top point
+        ctx.stroke();
+
+        // Boiling Curve (Liquid-Gas)
+        ctx.strokeStyle = '#e74c3c'; // Red
+        ctx.beginPath();
+        ctx.moveTo(tpX, tpY);
+        ctx.quadraticCurveTo((tpX+cpX)/2 + 20, (tpY+cpY)/2 + 20, cpX, cpY);
+        ctx.stroke();
+
+        // Sublimation Curve (Solid-Gas)
+        ctx.strokeStyle = '#9b59b6'; // Purple
+        ctx.beginPath();
+        ctx.moveTo(40, h - 40); // 0,0 visual
+        ctx.quadraticCurveTo((40+tpX)/2, (h-40 + tpY)/2, tpX, tpY);
+        ctx.stroke();
+
+        // 4. Draw Points of Interest
+        drawPoint(ctx, tpX, tpY, "삼중점(T)", "#333");
+        drawPoint(ctx, cpX, cpY, "임계점(C)", "#333");
+
+        // 5. Draw Current State Indicator
+        const curX = 40 + tempToX(currentTemp) * (w - 60);
+        const curY = (h - 40) - (currentPressPercent/100) * (h - 60);
+        
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.arc(curX, curY, 8, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Dashed Guidelines
+        ctx.setLineDash([5, 5]);
+        ctx.strokeStyle = '#ccc';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(curX, h-40); ctx.lineTo(curX, curY); ctx.lineTo(40, curY);
+        ctx.stroke();
+        ctx.setLineDash([]);
+    }
+
+    function drawPoint(ctx, x, y, label, color) {
+        ctx.fillStyle = color;
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, Math.PI*2);
+        ctx.fill();
+        ctx.fillStyle = "#000";
+        ctx.font = "12px sans-serif";
+        ctx.fillText(label, x + 8, y);
+    }
+
+    // --- Particle System ---
+    class Particle {
+        constructor() {
+            this.x = Math.random() * particleCanvas.width;
+            this.y = Math.random() * particleCanvas.height;
+            this.vx = 0;
+            this.vy = 0;
+            this.baseX = this.x; // For solid vibration
+            this.baseY = this.y;
+        }
+
+        update(state, temp) {
+            const speed = (temp + 50) / 100; // Speed based on temp
+
+            if (state === "Solid") {
+                // Vibrate around base position
+                this.x = this.baseX + (Math.random() - 0.5) * speed * 2;
+                this.y = this.baseY + (Math.random() - 0.5) * speed * 2;
+            } else if (state === "Liquid") {
+                // Flow / Wander
+                this.vx += (Math.random() - 0.5) * 0.5;
+                this.vy += (Math.random() - 0.5) * 0.5 + 0.05; // Gravityish
+                // Limit speed
+                const maxSpeed = speed * 2;
+                this.vx = Math.max(-maxSpeed, Math.min(maxSpeed, this.vx));
+                this.vy = Math.max(-maxSpeed, Math.min(maxSpeed, this.vy));
+                
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wrap around / Bounce bottom
+                if(this.x > particleCanvas.width) this.x = 0;
+                if(this.x < 0) this.x = particleCanvas.width;
+                if(this.y > particleCanvas.height) this.y = 0;
+            } else {
+                // Gas / Supercritical - High speed, random
+                const gasSpeed = speed * 5;
+                this.x += (Math.random() - 0.5) * gasSpeed;
+                this.y += (Math.random() - 0.5) * gasSpeed;
+                
+                if(this.x > particleCanvas.width) this.x = 0;
+                if(this.x < 0) this.x = particleCanvas.width;
+                if(this.y > particleCanvas.height) this.y = 0;
+                if(this.y < 0) this.y = particleCanvas.height;
+            }
+        }
+
+        draw(ctx) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = "#3498db"; // Water molecule color
+            
+            if(currentState === "Gas") ctx.globalAlpha = 0.6;
+            else ctx.globalAlpha = 1.0;
+
+            if(currentState === "Supercritical") ctx.fillStyle = "#8e44ad"; // Mysterious color
+
+            ctx.fill();
+        }
+    }
+
+    function initParticles() {
+        particles = [];
+        for(let i=0; i<60; i++) {
+            particles.push(new Particle());
+        }
+    }
+
+    function animateParticles() {
+        pCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+        
+        // Draw container visual cues (e.g., piston if pressure changes? - skipped for simplicity)
+
+        particles.forEach(p => {
+            p.update(currentState, currentTemp);
+            p.draw(pCtx);
+        });
+        requestAnimationFrame(animateParticles);
+    }
+
+    // --- Main Update Loop ---
+
+    function updateSimulation() {
+        // 1. Get Values
+        currentTemp = parseInt(tempSlider.value);
+        currentPressPercent = parseFloat(pressSlider.value);
+        currentAtm = yToAtm(currentPressPercent / 100);
+
+        // 2. Determine State
+        const xRatio = tempToX(currentTemp);
+        const yRatio = currentPressPercent / 100;
+        currentState = determinePhase(xRatio, yRatio);
+
+        // 3. Update UI Text
+        tempDisplay.innerText = `${currentTemp} ℃`;
+        
+        let atmText = currentAtm.toFixed(3);
+        if(currentAtm >= 10) atmText = currentAtm.toFixed(1);
+        pressDisplay.innerText = `${atmText} atm`;
+
+        // 4. Update State Label & Color
+        let stateText = "";
+        let color = "#333";
+        let desc = "";
+
+        switch(currentState) {
+            case "Solid": 
+                stateText = "고체 (얼음 🧊)"; 
+                color = "#3498db"; 
+                desc = "물 분자들이 규칙적으로 배열되어 제자리에서 진동합니다.";
+                break;
+            case "Liquid": 
+                stateText = "액체 (물 💧)"; 
+                color = "#2980b9"; 
+                desc = "물 분자들이 서로 끌어당기며 비교적 자유롭게 움직입니다.";
+                break;
+            case "Gas": 
+                stateText = "기체 (수증기 ☁️)"; 
+                color = "#95a5a6"; 
+                desc = "물 분자들이 매우 빠르게 자유롭게 운동하며 퍼져 나갑니다.";
+                break;
+            case "Supercritical": 
+                stateText = "초임계 유체 🌀"; 
+                color = "#8e44ad"; 
+                desc = "액체와 기체의 구분이 사라진 상태입니다. 기체처럼 확산되면서 액체처럼 물질을 녹입니다.";
+                break;
+        }
+
+        // Special Conditions
+        if (Math.abs(xRatio - TRIPLE_POINT.x) < 0.03 && Math.abs(yRatio - TRIPLE_POINT.y) < 0.03) {
+            stateText = "📍 삼중점 부근";
+            desc = "고체, 액체, 기체가 모두 공존할 수 있는 매우 특별한 상태입니다.";
+        }
+
+        stateDisplay.innerText = `상태: ${stateText}`;
+        stateDisplay.style.backgroundColor = color;
+        
+        feedbackBox.innerHTML = `
+            현재 조건: <b>${atmText} atm, ${currentTemp} ℃</b><br>
+            상태: <b style="color:${color}">${stateText}</b><br>
+            <span style="font-size:0.85rem; color:#555;">${desc}</span>
+        `;
+
+        // 5. Redraw Graph
+        drawGraph();
+    }
+
+    // --- Interaction Events ---
+
+    tempSlider.addEventListener('input', updateSimulation);
+    pressSlider.addEventListener('input', updateSimulation);
+
+    // Canvas Dragging
+    graphCanvas.addEventListener('mousedown', (e) => {
+        isDragging = true;
+        updateFromMouse(e);
+    });
+    window.addEventListener('mouseup', () => isDragging = false);
+    graphCanvas.addEventListener('mousemove', (e) => {
+        if(isDragging) updateFromMouse(e);
+        
+        // Tooltip logic
+        const rect = graphCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+        
+        // Simple hover calculation
+        const xRat = (mouseX - 40) / (graphCanvas.width - 60);
+        const yRat = ((graphCanvas.height - 40) - mouseY) / (graphCanvas.height - 60);
+        
+        if (xRat >= 0 && xRat <= 1 && yRat >= 0 && yRat <= 1) {
+             const t = xToTemp(xRat);
+             const p = yToAtm(yRat);
+             const s = determinePhase(xRat, yRat);
+             
+             // Translate State for Tooltip
+             let sKor = s === "Solid" ? "고체" : s === "Liquid" ? "액체" : s === "Gas" ? "기체" : "초임계";
+
+             tooltip.style.display = 'block';
+             tooltip.style.left = (e.pageX + 10) + 'px';
+             tooltip.style.top = (e.pageY + 10) + 'px';
+             tooltip.innerText = `${t}℃, ${p < 1 ? p.toFixed(3) : p.toFixed(1)} atm (${sKor})`;
+        } else {
+            tooltip.style.display = 'none';
+        }
+    });
+    
+    graphCanvas.addEventListener('mouseout', () => {
+         tooltip.style.display = 'none';
+    });
+
+    function updateFromMouse(e) {
+        const rect = graphCanvas.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        const w = graphCanvas.width;
+        const h = graphCanvas.height;
+
+        // Inverse map coordinates to Slider Values
+        // Graph X: 40 to w-20
+        let xRatio = (x - 40) / (w - 60);
+        // Graph Y: h-40 to 20
+        let yRatio = ((h - 40) - y) / (h - 60);
+
+        // Clamp
+        xRatio = Math.max(0, Math.min(1, xRatio));
+        yRatio = Math.max(0, Math.min(1, yRatio));
+
+        // Update Temps
+        const newTemp = xToTemp(xRatio);
+        tempSlider.value = newTemp;
+
+        // Update Press Slider (Direct mapping for ease)
+        pressSlider.value = yRatio * 100;
+
+        updateSimulation();
+    }
+
+    // --- Quiz & Report Logic ---
+
+    let quizMode = false;
+    let targetState = "";
+
+    function startQuiz() {
+        quizMode = true;
+        const scenarios = [
+            { t: "100℃에서 물을 끓이려면 압력은 1atm이어야 합니다. 1atm, 100℃를 찾아보세요.", check: (t, p, s) => t > 95 && t < 105 && p > 0.9 && p < 1.1 },
+            { t: "압력이 매우 낮으면(0.005 atm 이하) 얼음이 바로 수증기가 됩니다. '승화'가 일어나는 기체 영역을 찾아보세요.", check: (t, p, s) => p < 0.006 && s === "Gas" },
+            { t: "초임계 유체 상태를 만들어보세요! (374℃ 이상, 218 atm 이상)", check: (t, p, s) => s === "Supercritical" },
+            { t: "압력을 높여서 물(액체)이 존재하는 영역으로 이동하세요.", check: (t, p, s) => s === "Liquid" }
+        ];
+
+        const q = scenarios[Math.floor(Math.random() * scenarios.length)];
+        const qDiv = document.getElementById('quizQuestion');
+        
+        qDiv.innerHTML = `<strong>미션:</strong> ${q.t}`;
+        
+        // Monitor checking loop
+        const checker = setInterval(() => {
+            if (q.check(currentTemp, currentAtm, currentState)) {
+                clearInterval(checker);
+                alert("🎉 정답입니다! 훌륭해요!");
+                qDiv.innerHTML = "성공! 다음 퀴즈를 시도하거나 자유롭게 탐구하세요.";
+            }
+        }, 500);
+    }
+
+    function printReport() {
+        // Simple Print Dialog which acts as PDF saver
+        const note = prompt("실험 결과에 대한 메모를 남겨주세요 (예: 삼중점의 위치를 확인했다):", "");
+        if(note) {
+            const date = new Date().toLocaleString();
+            const content = `
+                [실험 결과 보고서]
+                일시: ${date}
+                
+                최종 상태: ${currentTemp}℃, ${currentAtm.toFixed(3)} atm
+                물질 상태: ${stateDisplay.innerText}
+                
+                학생 메모: ${note}
+            `;
+            console.log(content); // In a real app, generate PDF logic here
+            window.print();
+        }
+    }
+
+    // Init
+    window.onload = function() {
+        resize();
+        initParticles();
+        animateParticles();
+        updateSimulation();
+    };
+
+</script>
+</body>
+</html>

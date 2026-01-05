@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 산의 세기 비교 (HCl vs CH₃COOH)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .beaker {
+            position: relative;
+            width: 200px;
+            height: 250px;
+            background: linear-gradient(to bottom, rgba(200, 230, 255, 0.3), rgba(200, 230, 255, 0.6));
+            border: 3px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            background-color: rgba(135, 206, 235, 0.4);
+            transition: height 0.5s;
+        }
+        .bubble {
+            position: absolute;
+            background: rgba(255, 255, 255, 0.7);
+            border-radius: 50%;
+            bottom: 0;
+            animation: rise linear infinite;
+        }
+        @keyframes rise {
+            0% { transform: translateY(0) scale(1); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-200px) scale(1.5); opacity: 0; }
+        }
+        .led-off { color: #555; text-shadow: none; transition: all 0.3s; }
+        .led-on { color: #ffeb3b; transition: all 0.3s; }
+        .particle-box {
+            background-color: #1a202c;
+            border-radius: 50%;
+            position: relative;
+            overflow: hidden;
+        }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 10px;
+            font-weight: bold;
+            color: white;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold"><i class="fas fa-flask mr-2"></i>산의 세기 비교 실험실</h1>
+            <span class="text-sm bg-indigo-800 px-3 py-1 rounded-full">화학Ⅱ: 여러 가지 산과 염기</span>
+        </div>
+    </header>
+
+    <div class="container mx-auto p-4 flex flex-col lg:flex-row gap-6">
+        
+        <div class="w-full lg:w-1/2 flex flex-col gap-6">
+            
+            <div class="bg-white p-6 rounded-xl shadow-md border-l-4 border-indigo-500">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2">1. 실험 조건 설정</h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">산의 종류 선택</label>
+                        <select id="acidType" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-indigo-300">
+                            <option value="HCl">염산 (HCl)</option>
+                            <option value="CH3COOH">아세트산 (CH₃COOH)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-semibold mb-2">농도 설정 (M)</label>
+                        <input type="range" id="concentration" min="0.1" max="2.0" step="0.1" value="1.0" class="w-full accent-indigo-600">
+                        <div class="text-right text-indigo-600 font-bold"><span id="concVal">1.0</span> M</div>
+                    </div>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-sm font-semibold mb-2">마그네슘(Mg) 리본 길이</label>
+                    <div class="flex items-center gap-4">
+                        <input type="range" id="mgSize" min="1" max="5" step="1" value="2" class="w-full accent-gray-600">
+                        <span class="font-bold text-gray-700 w-16"><span id="mgVal">2</span> cm</span>
+                    </div>
+                </div>
+
+                <div class="flex gap-2">
+                    <button onclick="startExperiment()" class="flex-1 bg-green-500 hover:bg-green-600 text-white py-2 rounded-lg font-bold transition shadow">
+                        <i class="fas fa-play mr-2"></i>실험 시작
+                    </button>
+                    <button onclick="resetExperiment()" class="flex-1 bg-red-400 hover:bg-red-500 text-white py-2 rounded-lg font-bold transition shadow">
+                        <i class="fas fa-undo mr-2"></i>초기화
+                    </button>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-md relative">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2">2. 실험 관찰</h2>
+                
+                <div class="flex flex-col md:flex-row gap-4 items-center justify-center">
+                    <div class="text-center">
+                        <div class="mb-2">
+                            <i id="ledBulb" class="fas fa-lightbulb text-6xl led-off"></i>
+                            <p class="text-xs text-gray-500 mt-1">전기 전도도 확인</p>
+                        </div>
+                        <div class="beaker" id="beaker">
+                            <div class="liquid" id="liquid"></div>
+                            <div id="bubblesContainer" class="absolute bottom-0 w-full h-full pointer-events-none"></div>
+                            <div id="mgRibbon" class="absolute bottom-2 left-1/2 transform -translate-x-1/2 bg-gray-400 w-12 h-2 rounded shadow hidden"></div>
+                        </div>
+                        <p class="mt-2 font-semibold text-indigo-700" id="reactionStatus">준비 상태</p>
+                    </div>
+
+                    <div class="flex-1 w-full">
+                        <div class="bg-gray-800 text-white p-2 rounded-t-lg text-sm flex justify-between items-center">
+                            <span>🔬 입자 돋보기 (가상 모형)</span>
+                            <span class="text-xs text-gray-400">*물 분자 생략</span>
+                        </div>
+                        <div id="particleView" class="particle-box w-full h-48 border-4 border-gray-800 relative bg-gray-900">
+                            <div class="absolute inset-0 flex items-center justify-center text-gray-500 text-xs">
+                                실험을 시작하면 입자가 보입니다.
+                            </div>
+                        </div>
+                        <div class="bg-gray-100 p-2 text-xs text-gray-600 rounded-b-lg grid grid-cols-2 gap-2">
+                            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-red-500 mr-2"></div>H⁺ (수소 이온)</div>
+                            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-blue-500 mr-2"></div>음이온 (Cl⁻ / CH₃COO⁻)</div>
+                            <div class="flex items-center"><div class="w-3 h-3 rounded-full bg-green-500 mr-2 border border-white"></div>산 분자 (이온화 안 됨)</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="w-full lg:w-1/2 flex flex-col gap-6">
+            
+            <div class="bg-white p-6 rounded-xl shadow-md">
+                <h2 class="text-xl font-bold mb-2 border-b pb-2">3. 반응 결과 그래프</h2>
+                <div class="h-64">
+                    <canvas id="reactionChart"></canvas>
+                </div>
+                <div class="mt-4 flex justify-between text-sm text-gray-600 bg-gray-50 p-3 rounded">
+                    <div>⚡ <strong>전류 세기:</strong> <span id="currentVal">0</span> mA</div>
+                    <div>🫧 <strong>총 수소 발생량:</strong> <span id="gasVal">0</span> mL</div>
+                </div>
+            </div>
+
+            <div class="bg-white p-6 rounded-xl shadow-md flex-1">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2">4. 실험 로그 & 평가</h2>
+                
+                <div class="overflow-y-auto max-h-40 mb-4 border rounded">
+                    <table class="w-full text-sm text-left text-gray-500">
+                        <thead class="text-xs text-gray-700 uppercase bg-gray-100 sticky top-0">
+                            <tr>
+                                <th class="px-4 py-2">산 종류</th>
+                                <th class="px-4 py-2">농도</th>
+                                <th class="px-4 py-2">전류(mA)</th>
+                                <th class="px-4 py-2">기체량(mL)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="logTableBody">
+                            </tbody>
+                    </table>
+                </div>
+
+                <div class="bg-indigo-50 p-4 rounded-lg border border-indigo-100 mb-4">
+                    <p class="font-bold text-indigo-900 mb-2">🤔 생각 더하기</p>
+                    <p class="text-sm mb-2" id="quizQuestion">실험을 수행하고 결과를 관찰해보세요.</p>
+                    <div id="quizOptions" class="hidden flex gap-2 mt-2">
+                        <button onclick="checkAnswer(true)" class="bg-white border hover:bg-gray-100 px-3 py-1 rounded text-sm">염산(HCl)</button>
+                        <button onclick="checkAnswer(false)" class="bg-white border hover:bg-gray-100 px-3 py-1 rounded text-sm">아세트산(CH₃COOH)</button>
+                    </div>
+                    <p id="quizFeedback" class="text-sm font-bold mt-2 text-red-500"></p>
+                </div>
+
+                <button onclick="exportToPDF()" class="w-full bg-gray-800 hover:bg-gray-900 text-white py-3 rounded-lg font-bold flex items-center justify-center gap-2">
+                    <i class="fas fa-file-pdf"></i> 실험 보고서 다운로드 (PDF)
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 전역 변수
+        let chartInstance = null;
+        let experimentInterval = null;
+        let currentTime = 0;
+        let gasVolume = 0;
+        let currentIntensity = 0;
+        let isRunning = false;
+
+        // 초기화
+        window.onload = function() {
+            initChart();
+            setupEventListeners();
+        };
+
+        function setupEventListeners() {
+            document.getElementById('concentration').addEventListener('input', (e) => {
+                document.getElementById('concVal').innerText = parseFloat(e.target.value).toFixed(1);
+            });
+            document.getElementById('mgSize').addEventListener('input', (e) => {
+                document.getElementById('mgVal').innerText = e.target.value;
+            });
+        }
+
+        // 차트 초기화
+        function initChart() {
+            const ctx = document.getElementById('reactionChart').getContext('2d');
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '수소 기체 발생량 (mL)',
+                        data: [],
+                        borderColor: 'rgb(75, 192, 192)',
+                        tension: 0.1,
+                        fill: true,
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '시간 (초)' } },
+                        y: { title: { display: true, text: '부피 (mL)' }, min: 0 }
+                    },
+                    animation: { duration: 0 }
+                }
+            });
+        }
+
+        // 실험 시작 로직
+        function startExperiment() {
+            if (isRunning) return;
+            isRunning = true;
+            resetData();
+
+            const acidType = document.getElementById('acidType').value;
+            const concentration = parseFloat(document.getElementById('concentration').value);
+            const mgSize = parseInt(document.getElementById('mgSize').value);
+
+            document.getElementById('reactionStatus').innerText = "반응 진행 중...";
+            document.getElementById('reactionStatus').className = "mt-2 font-bold text-red-600 animate-pulse";
+            document.getElementById('mgRibbon').classList.remove('hidden');
+            document.getElementById('mgRibbon').style.width = (mgSize * 10) + 'px';
+
+            // 1. 값 계산 (시뮬레이션 로직)
+            // 강산(HCl): 이온화도 높음(1.0 가정), 반응 빠름
+            // 약산(CH3COOH): 이온화도 낮음(0.05 가정), 반응 느림
+            let ionizationRate = (acidType === 'HCl') ? 1.0 : 0.05; 
+            
+            // 전류 세기: 농도 * 이온화도에 비례
+            currentIntensity = Math.round(concentration * ionizationRate * 1000); 
+            
+            // 반응 속도 상수
+            let reactionRateK = (acidType === 'HCl') ? 5 : 0.5;
+            let maxGas = mgSize * 20; // 마그네슘 양에 따른 최대 기체 발생량 (한계 반응물)
+
+            // 2. 시각화 업데이트
+            updateLED(currentIntensity);
+            generateParticles(acidType, concentration);
+            
+            // 3. 루프 실행 (100ms 마다 업데이트)
+            experimentInterval = setInterval(() => {
+                currentTime += 0.5;
+                
+                // 반응 속도 식 (간소화): dV/dt = k * [Concen] * (RemainMg)
+                let rate = reactionRateK * concentration * (1 - (gasVolume / maxGas));
+                if(rate < 0.01) rate = 0;
+                
+                gasVolume += rate;
+                if (gasVolume >= maxGas) {
+                    gasVolume = maxGas;
+                    stopExperiment();
+                }
+
+                // 기포 효과
+                if (rate > 0.1) createBubble(rate);
+
+                // 데이터 업데이트
+                updateChart(currentTime, gasVolume);
+                document.getElementById('currentVal').innerText = currentIntensity;
+                document.getElementById('gasVal').innerText = gasVolume.toFixed(1);
+
+            }, 500);
+        }
+
+        // 실험 종료
+        function stopExperiment() {
+            clearInterval(experimentInterval);
+            isRunning = false;
+            document.getElementById('reactionStatus').innerText = "반응 완료";
+            document.getElementById('reactionStatus').className = "mt-2 font-bold text-green-600";
+            document.getElementById('bubblesContainer').innerHTML = ''; // 기포 멈춤
+            
+            // 로그 기록
+            logResult();
+            // 퀴즈 활성화
+            presentQuiz();
+        }
+
+        function resetData() {
+            clearInterval(experimentInterval);
+            isRunning = false;
+            currentTime = 0;
+            gasVolume = 0;
+            currentIntensity = 0;
+            chartInstance.data.labels = [];
+            chartInstance.data.datasets[0].data = [];
+            chartInstance.update();
+            document.getElementById('bubblesContainer').innerHTML = '';
+            document.getElementById('ledBulb').className = "fas fa-lightbulb text-6xl led-off";
+            document.getElementById('ledBulb').style.textShadow = "none";
+            document.getElementById('mgRibbon').classList.add('hidden');
+        }
+
+        function resetExperiment() {
+            resetData();
+            document.getElementById('reactionStatus').innerText = "준비 상태";
+            document.getElementById('reactionStatus').className = "mt-2 font-semibold text-indigo-700";
+            document.getElementById('particleView').innerHTML = '<div class="absolute inset-0 flex items-center justify-center text-gray-500 text-xs">실험을 시작하면 입자가 보입니다.</div>';
+            document.getElementById('quizQuestion').innerText = "실험을 수행하고 결과를 관찰해보세요.";
+            document.getElementById('quizOptions').classList.add('hidden');
+            document.getElementById('quizFeedback').innerText = "";
+        }
+
+        // 시각화 함수들
+        function updateLED(current) {
+            const led = document.getElementById('ledBulb');
+            if (current > 50) { // 강산 기준
+                led.className = "fas fa-lightbulb text-6xl led-on";
+                led.style.textShadow = "0 0 20px #ffeb3b, 0 0 40px #ffeb3b"; // 밝게 빛남
+            } else if (current > 0) { // 약산 기준
+                led.className = "fas fa-lightbulb text-6xl led-on text-yellow-700"; // 어둡게 켜짐
+                led.style.textShadow = "0 0 5px #ffeb3b";
+            } else {
+                led.className = "fas fa-lightbulb text-6xl led-off";
+            }
+        }
+
+        function createBubble(rate) {
+            const container = document.getElementById('bubblesContainer');
+            // 반응 속도가 빠르면 기포를 더 많이 생성
+            const count = rate > 2 ? 3 : 1; 
+            
+            for(let i=0; i<count; i++) {
+                const bubble = document.createElement('div');
+                bubble.classList.add('bubble');
+                const size = Math.random() * 10 + 5;
+                bubble.style.width = size + 'px';
+                bubble.style.height = size + 'px';
+                bubble.style.left = (Math.random() * 80 + 10) + '%';
+                bubble.style.animationDuration = (Math.random() * 1 + 1) + 's'; // 속도 랜덤
+                container.appendChild(bubble);
+
+                // 애니메이션 끝나면 제거
+                setTimeout(() => { bubble.remove(); }, 2000);
+            }
+        }
+
+        function generateParticles(type, conc) {
+            const container = document.getElementById('particleView');
+            container.innerHTML = ''; // 초기화
+
+            const totalParticles = 20; // 화면에 보여줄 총 개수
+            // HCl: 거의 100% 해리 -> H+ 와 Cl- 만 존재
+            // CH3COOH: 일부만 해리 -> 대부분 CH3COOH 분자, 소수의 H+ 와 CH3COO-
+
+            let hIonCount = 0;
+            let anionCount = 0;
+            let moleculeCount = 0;
+
+            if (type === 'HCl') {
+                hIonCount = 10;
+                anionCount = 10;
+            } else {
+                hIonCount = 2; // 약산은 이온 적음
+                anionCount = 2;
+                moleculeCount = 16; // 대부분 분자 상태
+            }
+
+            // 입자 생성 헬퍼
+            function createP(text, color, border=false) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                p.style.backgroundColor = color;
+                p.style.width = '20px';
+                p.style.height = '20px';
+                p.innerText = text;
+                p.style.top = Math.random() * 80 + '%';
+                p.style.left = Math.random() * 90 + '%';
+                if(border) p.style.border = "2px solid white";
+                
+                // 간단한 움직임 애니메이션
+                setInterval(() => {
+                    p.style.top = Math.random() * 80 + '%';
+                    p.style.left = Math.random() * 90 + '%';
+                    p.style.transition = "top 2s, left 2s";
+                }, 2000);
+                
+                container.appendChild(p);
+            }
+
+            for(let i=0; i<hIonCount; i++) createP('H⁺', '#ef4444');
+            for(let i=0; i<anionCount; i++) createP('-', '#3b82f6');
+            for(let i=0; i<moleculeCount; i++) createP('HA', '#22c55e', true);
+        }
+
+        function updateChart(time, gas) {
+            chartInstance.data.labels.push(time.toFixed(1));
+            chartInstance.data.datasets[0].data.push(gas);
+            chartInstance.update();
+        }
+
+        function logResult() {
+            const table = document.getElementById('logTableBody');
+            const row = table.insertRow(0);
+            row.className = "bg-white border-b";
+            
+            const acid = document.getElementById('acidType').value;
+            const conc = document.getElementById('concentration').value;
+            
+            row.innerHTML = `
+                <td class="px-4 py-2 font-medium text-gray-900">${acid}</td>
+                <td class="px-4 py-2">${conc} M</td>
+                <td class="px-4 py-2">${currentIntensity}</td>
+                <td class="px-4 py-2">${gasVolume.toFixed(1)}</td>
+            `;
+        }
+
+        // 퀴즈 로직
+        function presentQuiz() {
+            const acid = document.getElementById('acidType').value;
+            const qBox = document.getElementById('quizQuestion');
+            const options = document.getElementById('quizOptions');
+            
+            qBox.innerText = `현재 실험 결과(전류: ${currentIntensity}mA)를 볼 때, 더 많은 이온을 내놓는 산(강산)은 무엇일까요?`;
+            options.classList.remove('hidden');
+        }
+
+        function checkAnswer(isHCl) {
+            const feedback = document.getElementById('quizFeedback');
+            if(isHCl) {
+                feedback.innerText = "정답입니다! ⭕ 염산(HCl)은 수용액에서 거의 100% 이온화되어 전류가 강하게 흐르고 반응이 빠릅니다.";
+                feedback.className = "text-sm font-bold mt-2 text-green-600";
+            } else {
+                feedback.innerText = "다시 생각해보세요. ❌ 아세트산은 약산으로 이온화도가 낮아 전류가 약하게 흐릅니다.";
+                feedback.className = "text-sm font-bold mt-2 text-red-500";
+            }
+        }
+
+        // PDF 내보내기 (jsPDF 사용)
+        async function exportToPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+            
+            doc.setFontSize(16);
+            doc.text("실험 보고서: 산의 세기 비교", 10, 10);
+            
+            doc.setFontSize(12);
+            doc.text(`날짜: ${new Date().toLocaleString()}`, 10, 20);
+            
+            // 테이블 데이터 가져오기
+            let y = 30;
+            doc.text("실험 로그:", 10, y);
+            y += 10;
+            
+            const rows = document.querySelectorAll("#logTableBody tr");
+            rows.forEach((row, index) => {
+                const cells = row.querySelectorAll("td");
+                let rowText = `${index + 1}. `;
+                rowText += `산: ${cells[0].innerText}, `;
+                rowText += `농도: ${cells[1].innerText}, `;
+                rowText += `전류: ${cells[2].innerText} mA, `;
+                rowText += `기체: ${cells[3].innerText} mL`;
+                doc.text(rowText, 10, y);
+                y += 10;
+            });
+
+            doc.text("결론: 강산은 이온화도가 높아 전류가 세고 반응이 빠르다.", 10, y + 10);
+            
+            doc.save("Acid_Strength_Experiment.pdf");
+        }
+    </script>
+</body>
+</html>

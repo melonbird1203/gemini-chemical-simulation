@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 염 수용액의 액성 탐구</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; }
+        .beaker {
+            width: 200px;
+            height: 250px;
+            border-left: 4px solid #cbd5e1;
+            border-right: 4px solid #cbd5e1;
+            border-bottom: 4px solid #cbd5e1;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            background: rgba(255, 255, 255, 0.5);
+            margin: 0 auto;
+            overflow: hidden;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 0%; /* Initially empty */
+            transition: height 1s ease-in-out, background-color 1s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .bubbles {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        .bubble {
+            position: absolute;
+            background: rgba(255,255,255,0.3);
+            border-radius: 50%;
+            animation: rise 4s infinite ease-in;
+        }
+        @keyframes rise {
+            0% { bottom: -10px; transform: translateX(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { bottom: 100%; transform: translateX(-20px); opacity: 0; }
+        }
+        .molecule-view {
+            transition: all 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-lg">
+        <div class="container mx-auto flex justify-between items-center">
+            <div>
+                <h1 class="text-2xl font-bold">🧪 염 수용액의 액성 알아보기</h1>
+                <p class="text-sm opacity-90">화학Ⅱ: 중화 반응과 이온의 성질</p>
+            </div>
+            <button onclick="resetLab()" class="bg-indigo-500 hover:bg-indigo-700 px-4 py-2 rounded text-sm transition">
+                실험 초기화
+            </button>
+        </div>
+    </header>
+
+    <main class="container mx-auto p-6 grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        <section class="bg-white p-6 rounded-xl shadow-md space-y-6">
+            <h2 class="text-xl font-bold text-indigo-700 border-b pb-2">1. 실험 조건 설정</h2>
+            
+            <div>
+                <label class="block font-bold mb-2">염(Salt)의 종류 선택</label>
+                <select id="saltSelect" class="w-full p-3 border rounded-lg focus:ring-2 focus:ring-indigo-400">
+                    <option value="" disabled selected>염을 선택하세요</option>
+                    <option value="NaCl">염화 나트륨 (NaCl)</option>
+                    <option value="CH3COONa">아세트산 나트륨 (CH₃COONa)</option>
+                    <option value="NH4Cl">염화 암모늄 (NH₄Cl)</option>
+                    <option value="KNO3">질산 칼륨 (KNO₃)</option>
+                    <option value="Na2CO3">탄산 나트륨 (Na₂CO₃)</option>
+                </select>
+                <p class="text-xs text-gray-500 mt-1">※ 학교 실험실에 구비된 시약 목록입니다.</p>
+            </div>
+
+            <div>
+                <label class="block font-bold mb-2">농도 조절 (Molar)</label>
+                <input type="range" id="concentration" min="0.01" max="0.1" step="0.01" value="0.05" 
+                       class="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer">
+                <div class="flex justify-between text-sm text-gray-600 mt-1">
+                    <span>0.01 M</span>
+                    <span id="concValue" class="font-bold text-indigo-600">0.05 M</span>
+                    <span>0.10 M</span>
+                </div>
+            </div>
+
+            <button onclick="startExperiment()" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 rounded-lg shadow transition transform hover:scale-105">
+                수용액 만들기 및 pH 측정
+            </button>
+
+            <div class="bg-yellow-50 p-4 rounded-lg border border-yellow-200 text-sm">
+                <p class="font-bold text-yellow-800">🤔 실험 전 예측하기</p>
+                <p class="mt-1">선택한 염은 물에 녹았을 때 산성, 중성, 염기성 중 어떤 성질을 띨까요? 마음속으로 먼저 정답을 생각해 보세요.</p>
+            </div>
+        </section>
+
+        <section class="bg-white p-6 rounded-xl shadow-md text-center flex flex-col items-center justify-center">
+            <h2 class="text-xl font-bold text-indigo-700 mb-6">2. 거시적 관찰 (pH 측정)</h2>
+            
+            <div class="beaker">
+                <div id="liquid" class="liquid" style="background-color: #e2e8f0;">
+                    <div class="bubbles" id="bubbles"></div>
+                </div>
+                <div class="absolute top-1/2 left-0 right-0 text-center pointer-events-none">
+                    <span id="phLabel" class="text-4xl font-bold text-white drop-shadow-md opacity-0 transition-opacity duration-1000">pH --</span>
+                </div>
+            </div>
+
+            <div class="mt-6 w-full">
+                <div class="h-4 rounded-full bg-gradient-to-r from-red-500 via-green-400 to-purple-600 w-full mb-2"></div>
+                <div class="flex justify-between text-xs text-gray-500 px-1">
+                    <span>산성 (pH < 7)</span>
+                    <span>중성 (pH = 7)</span>
+                    <span>염기성 (pH > 7)</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="bg-white p-6 rounded-xl shadow-md space-y-4 overflow-y-auto max-h-[600px]">
+            <h2 class="text-xl font-bold text-indigo-700 border-b pb-2">3. 미시적 원리 및 분석</h2>
+            
+            <div id="explanationArea" class="hidden space-y-4">
+                <div class="bg-gray-50 p-3 rounded border">
+                    <h3 class="font-bold text-gray-700 mb-2">📊 실험 결과 데이터</h3>
+                    <ul class="text-sm space-y-1">
+                        <li class="flex justify-between"><span>염의 종류:</span> <span id="resSalt" class="font-bold"></span></li>
+                        <li class="flex justify-between"><span>몰 농도:</span> <span id="resConc" class="font-bold"></span></li>
+                        <li class="flex justify-between"><span>측정 pH:</span> <span id="resPH" class="font-bold text-indigo-600"></span></li>
+                        <li class="flex justify-between"><span>최종 액성:</span> <span id="resType" class="font-bold"></span></li>
+                    </ul>
+                </div>
+
+                <div class="bg-indigo-50 p-4 rounded border border-indigo-100">
+                    <h3 class="font-bold text-indigo-800 mb-2">🔬 왜 이런 액성을 띨까요?</h3>
+                    <p id="hydrolysisText" class="text-sm text-gray-700 leading-relaxed mb-2"></p>
+                    <div id="reactionEquation" class="bg-white p-2 rounded text-center font-mono text-sm text-red-600 font-bold border border-indigo-200">
+                        </div>
+                </div>
+
+                <div class="bg-green-50 p-4 rounded border border-green-200">
+                    <h3 class="font-bold text-green-800 mb-2">✅ 개념 확인 퀴즈</h3>
+                    <p id="quizQuestion" class="text-sm font-bold mb-2"></p>
+                    <div id="quizOptions" class="space-y-2"></div>
+                    <p id="quizFeedback" class="text-sm font-bold mt-2 hidden"></p>
+                </div>
+            </div>
+
+            <div id="placeholderText" class="text-center text-gray-400 py-10">
+                <p>실험을 시작하면<br>이곳에 원리 설명이 나타납니다.</p>
+            </div>
+        </section>
+    </main>
+
+    <footer class="text-center p-6 text-gray-500 text-sm mt-8 border-t">
+        <p>2015 개정 교육과정 화학Ⅱ | 중화 반응과 이온의 성질</p>
+        <p>Tip: 강산-강염기의 염은 중성, 강산-약염기의 염은 산성, 약산-강염기의 염은 염기성을 띱니다.</p>
+    </footer>
+
+    <script>
+        // Data: Salt Properties
+        const salts = {
+            'NaCl': { 
+                name: '염화 나트륨', 
+                type: 'neutral', 
+                parents: '강산(HCl) + 강염기(NaOH)',
+                desc: '강산과 강염기의 반응으로 생성된 염입니다. 물 속에서 이온화된 Na⁺와 Cl⁻는 물과 반응하지 않으므로(가수분해 안 함) 액성은 중성입니다.',
+                equation: 'Na⁺ + H₂O → 반응 없음 / Cl⁻ + H₂O → 반응 없음',
+                ka: null, kb: null 
+            },
+            'CH3COONa': { 
+                name: '아세트산 나트륨', 
+                type: 'basic', 
+                parents: '약산(CH₃COOH) + 강염기(NaOH)',
+                desc: '약산의 짝염기인 CH₃COO⁻가 물과 반응하여 가수분해를 일으킵니다. 이 과정에서 OH⁻(수산화 이온)가 생성되어 수용액은 염기성을 띱니다.',
+                equation: 'CH₃COO⁻ + H₂O ⇌ CH₃COOH + OH⁻',
+                kb: 5.6e-10 // Approximation
+            },
+            'NH4Cl': { 
+                name: '염화 암모늄', 
+                type: 'acidic', 
+                parents: '강산(HCl) + 약염기(NH₃)',
+                desc: '약염기의 짝산인 NH₄⁺가 물과 반응하여 가수분해를 일으킵니다. 이 과정에서 H₃O⁺(옥소늄 이온)가 생성되어 수용액은 산성을 띱니다.',
+                equation: 'NH₄⁺ + H₂O ⇌ NH₃ + H₃O⁺',
+                ka: 5.6e-10 // Approximation
+            },
+            'KNO3': { 
+                name: '질산 칼륨', 
+                type: 'neutral', 
+                parents: '강산(HNO₃) + 강염기(KOH)',
+                desc: '강산과 강염기의 반응으로 생성된 염입니다. K⁺와 NO₃⁻ 모두 물과 반응하지 않아 중성을 유지합니다.',
+                equation: 'K⁺ + H₂O → 반응 없음 / NO₃⁻ + H₂O → 반응 없음',
+                ka: null, kb: null
+            },
+            'Na2CO3': { 
+                name: '탄산 나트륨', 
+                type: 'basic', 
+                parents: '약산(H₂CO₃) + 강염기(NaOH)',
+                desc: '약산의 짝염기인 CO₃²⁻가 물과 반응하여 가수분해를 일으킵니다. OH⁻가 다량 생성되어 강한 염기성을 띱니다.',
+                equation: 'CO₃²⁻ + H₂O ⇌ HCO₃⁻ + OH⁻',
+                kb: 2.1e-4 // Approximation (Step 1)
+            }
+        };
+
+        // DOM Elements
+        const concInput = document.getElementById('concentration');
+        const concDisplay = document.getElementById('concValue');
+        
+        // Update concentration display
+        concInput.addEventListener('input', (e) => {
+            concDisplay.textContent = parseFloat(e.target.value).toFixed(2) + " M";
+        });
+
+        // Main Logic
+        function startExperiment() {
+            const saltKey = document.getElementById('saltSelect').value;
+            const concentration = parseFloat(concInput.value);
+
+            if (!saltKey) {
+                alert("실험할 염을 먼저 선택해주세요.");
+                return;
+            }
+
+            const saltData = salts[saltKey];
+            
+            // 1. Calculate pH (Simplified for High School level simulation)
+            let ph = 7.00;
+            if (saltData.type === 'neutral') {
+                ph = 7.00;
+            } else if (saltData.type === 'acidic') {
+                // [H+] = sqrt(Ka * C)
+                const h_conc = Math.sqrt(saltData.ka * concentration);
+                ph = -Math.log10(h_conc);
+            } else if (saltData.type === 'basic') {
+                // [OH-] = sqrt(Kb * C)
+                const oh_conc = Math.sqrt(saltData.kb * concentration);
+                const poh = -Math.log10(oh_conc);
+                ph = 14 - poh;
+            }
+
+            // 2. Determine Color (Universal Indicator approximation)
+            let color = '#4ade80'; // Green (7)
+            if (ph < 5) color = '#ef4444'; // Red
+            else if (ph < 6.5) color = '#f97316'; // Orange
+            else if (ph > 10) color = '#7e22ce'; // Purple
+            else if (ph > 8) color = '#3b82f6'; // Blue
+            
+            // 3. Update Visuals (Animation)
+            const liquid = document.getElementById('liquid');
+            const phLabel = document.getElementById('phLabel');
+            
+            // Reset animation
+            liquid.style.height = '0%';
+            phLabel.style.opacity = '0';
+            
+            setTimeout(() => {
+                liquid.style.height = '80%';
+                liquid.style.backgroundColor = color;
+                createBubbles(saltData.type);
+            }, 100);
+
+            setTimeout(() => {
+                phLabel.innerText = `pH ${ph.toFixed(2)}`;
+                phLabel.style.opacity = '1';
+                updateExplanation(saltData, concentration, ph);
+            }, 1100);
+        }
+
+        function createBubbles(type) {
+            const container = document.getElementById('bubbles');
+            container.innerHTML = '';
+            if(type === 'neutral') return; // No vigorous reaction animation for neutral
+
+            for(let i=0; i<10; i++) {
+                const bubble = document.createElement('div');
+                bubble.classList.add('bubble');
+                bubble.style.left = `${Math.random() * 100}%`;
+                bubble.style.width = `${Math.random() * 10 + 5}px`;
+                bubble.style.height = bubble.style.width;
+                bubble.style.animationDuration = `${Math.random() * 2 + 2}s`;
+                bubble.style.animationDelay = `${Math.random() * 2}s`;
+                container.appendChild(bubble);
+            }
+        }
+
+        function updateExplanation(data, conc, ph) {
+            document.getElementById('placeholderText').classList.add('hidden');
+            document.getElementById('explanationArea').classList.remove('hidden');
+
+            // Set Data
+            document.getElementById('resSalt').innerText = data.name;
+            document.getElementById('resConc').innerText = conc.toFixed(2) + " M";
+            document.getElementById('resPH').innerText = ph.toFixed(2);
+            
+            let typeText = "중성";
+            if (data.type === 'acidic') typeText = "산성 (Acidic)";
+            if (data.type === 'basic') typeText = "염기성 (Basic)";
+            document.getElementById('resType').innerText = typeText;
+
+            // Set Explanation
+            document.getElementById('hydrolysisText').innerHTML = 
+                `<strong>[${data.parents}]</strong>의 반응으로 생성된 염입니다.<br>${data.desc}`;
+            document.getElementById('reactionEquation').innerText = data.equation;
+
+            // Generate Quiz
+            generateQuiz(data);
+        }
+
+        function generateQuiz(data) {
+            const quizArea = document.getElementById('quizQuestion');
+            const optionsArea = document.getElementById('quizOptions');
+            const feedback = document.getElementById('quizFeedback');
+            
+            optionsArea.innerHTML = '';
+            feedback.classList.add('hidden');
+            feedback.className = "text-sm font-bold mt-2 hidden"; // reset style
+
+            // Dynamic Question Logic
+            let q, a1, a2, correct;
+            if (data.type === 'neutral') {
+                q = `${data.name} 수용액이 중성인 이유는 무엇인가요?`;
+                a1 = "구성 이온이 물과 가수분해 반응을 하지 않기 때문이다.";
+                a2 = "강산의 이온이 물과 반응하여 H+를 내놓기 때문이다.";
+                correct = 1;
+            } else if (data.type === 'acidic') {
+                q = `${data.name} 수용액에서 액성을 산성으로 만드는 이온은?`;
+                a1 = "Cl⁻ (염화 이온)";
+                a2 = "NH₄⁺ (암모늄 이온)"; // Specific to NH4Cl context generally
+                correct = 2;
+            } else {
+                q = `${data.name} 수용액이 염기성을 띠는 이유는?`;
+                a1 = "음이온이 물과 반응하여 OH⁻를 생성하기 때문이다.";
+                a2 = "양이온이 물과 반응하여 H⁺를 생성하기 때문이다.";
+                correct = 1;
+            }
+
+            quizArea.innerText = "Q. " + q;
+
+            // Button 1
+            const btn1 = document.createElement('button');
+            btn1.className = "w-full text-left p-2 border rounded hover:bg-gray-100 text-sm";
+            btn1.innerText = "1. " + a1;
+            btn1.onclick = () => checkAnswer(1, correct);
+            optionsArea.appendChild(btn1);
+
+            // Button 2
+            const btn2 = document.createElement('button');
+            btn2.className = "w-full text-left p-2 border rounded hover:bg-gray-100 text-sm";
+            btn2.innerText = "2. " + a2;
+            btn2.onclick = () => checkAnswer(2, correct);
+            optionsArea.appendChild(btn2);
+        }
+
+        function checkAnswer(selected, correct) {
+            const feedback = document.getElementById('quizFeedback');
+            feedback.classList.remove('hidden');
+            if (selected === correct) {
+                feedback.innerText = "⭕ 정답입니다! 개념을 완벽하게 이해했네요.";
+                feedback.classList.add('text-green-600');
+            } else {
+                feedback.innerText = "❌ 다시 생각해보세요. 가수분해 식을 참고하세요!";
+                feedback.classList.add('text-red-500');
+            }
+        }
+
+        function resetLab() {
+            location.reload();
+        }
+    </script>
+</body>
+</html>

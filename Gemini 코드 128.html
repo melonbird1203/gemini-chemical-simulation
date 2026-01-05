@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 온도에 따른 화학 평형 이동</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --text-color: #333;
+            --bg-color: #f4f7f9;
+            --panel-bg: #ffffff;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 { margin-bottom: 10px; text-align: center; }
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        .panel {
+            background: var(--panel-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        /* 실험 영역 스타일 */
+        .experiment-area {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+        .beaker-container {
+            position: relative;
+            width: 200px;
+            height: 250px;
+            border: 4px solid #aaa;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            margin: 20px;
+            background-color: rgba(255, 192, 203, 0.8); /* 초기값: 분홍 */
+            transition: background-color 0.5s ease;
+            display: flex;
+            align-items: flex-end;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .liquid-label {
+            margin-bottom: 20px;
+            font-weight: bold;
+            color: rgba(0,0,0,0.6);
+            background: rgba(255,255,255,0.5);
+            padding: 5px 10px;
+            border-radius: 4px;
+        }
+        .heater {
+            width: 220px;
+            height: 20px;
+            background: #ddd;
+            border-radius: 4px;
+            margin-top: 5px;
+            position: relative;
+        }
+        .heater.hot { background: linear-gradient(to right, #ffeda0, #ff4d4d); }
+        .heater.cold { background: linear-gradient(to right, #a0d8ef, #0077be); }
+
+        /* 입자 모형 캔버스 */
+        #particleCanvas {
+            width: 100%;
+            height: 200px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        /* 그래프 캔버스 */
+        #graphCanvas {
+            width: 100%;
+            height: 200px;
+            background: #fff;
+            border: 1px solid #ddd;
+            border-radius: 8px;
+        }
+
+        /* 제어 패널 */
+        .controls {
+            margin-top: 20px;
+            width: 100%;
+        }
+        input[type=range] {
+            width: 100%;
+            margin: 10px 0;
+        }
+        .value-display {
+            font-size: 1.2em;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        /* 화학 반응식 강조 */
+        .reaction-equation {
+            font-size: 1.1em;
+            text-align: center;
+            padding: 15px;
+            background: #eef2f5;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            line-height: 1.6;
+        }
+        .reactant { color: #e91e63; font-weight: bold; } /* 분홍 */
+        .product { color: #2196f3; font-weight: bold; } /* 파랑 */
+        .energy { color: #f44336; font-weight: bold; }
+
+        /* 퀴즈 및 버튼 */
+        .quiz-section { margin-top: 20px; border-top: 2px dashed #ddd; padding-top: 20px; }
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1em;
+            margin-top: 10px;
+        }
+        .btn:hover { background-color: #357abd; }
+        .btn-reset { background-color: #999; }
+        
+        /* 피드백 박스 */
+        #feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+        .correct { background-color: #d4edda; color: #155724; }
+        .incorrect { background-color: #f8d7da; color: #721c24; }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+        
+        /* 인쇄용 스타일 */
+        @media print {
+            body { background: white; }
+            .panel { box-shadow: none; border: 1px solid #ddd; }
+            .btn { display: none; }
+        }
+    </style>
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 온도와 화학 평형</h1>
+    <p>화학Ⅱ 2-4-02: 온도 변화에 따른 평형 이동 관찰 실험</p>
+
+    <div class="container">
+        <div class="panel">
+            <h2>🧪 실험 장치</h2>
+            <div class="reaction-equation">
+                <span class="reactant">$[Co(H_2O)_6]^{2+}$</span> (분홍) + $4Cl^-$ + <span class="energy">열(Heat)</span> <br>
+                $\rightleftharpoons$ <span class="product">$[CoCl_4]^{2-}$</span> (파랑) + $6H_2O$
+            </div>
+            
+            <div class="experiment-area">
+                <div class="beaker-container" id="beaker">
+                    <div class="liquid-label" id="colorName">분홍색</div>
+                </div>
+                <div class="heater" id="heaterPlate"></div>
+            </div>
+
+            <div class="controls">
+                <div class="value-display">현재 온도: <span id="tempValue">25</span>°C</div>
+                <label>❄️ 냉각 ------------------------ 가열 🔥</label>
+                <input type="range" id="tempSlider" min="0" max="100" value="25" step="1">
+                <button class="btn btn-reset" onclick="resetExperiment()">조건 초기화</button>
+            </div>
+            
+            <div style="margin-top: 15px; font-size: 0.9em; color: #666;">
+                <strong>💡 Tip:</strong> 슬라이더를 움직여 온도를 변화시켜 보세요. 온도가 올라가면 '열'이 가해지는 것입니다.
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📊 결과 분석</h2>
+            
+            <h3>1. 입자 모형 (Micro View)</h3>
+            <canvas id="particleCanvas"></canvas>
+            <p style="font-size: 0.8em; text-align: center;">🔴: 분홍색 착이온(반응물) / 🔵: 파란색 착이온(생성물)</p>
+
+            <h3>2. 평형 상수(K) 변화 그래프</h3>
+            <canvas id="graphCanvas"></canvas>
+            
+            <div class="quiz-section">
+                <h3>📝 확인 퀴즈</h3>
+                <p>Q. 온도를 높이면 수용액이 파란색으로 변합니다. 이때 정반응은 흡열 반응일까요, 발열 반응일까요?</p>
+                <button class="btn" onclick="checkAnswer('endo')">흡열 반응</button>
+                <button class="btn" onclick="checkAnswer('exo')">발열 반응</button>
+                <div id="feedback"></div>
+            </div>
+
+            <button class="btn" style="width:100%; margin-top:20px; background-color: #28a745;" onclick="window.print()">📄 결과 보고서 인쇄 (PDF 저장)</button>
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소 가져오기
+        const slider = document.getElementById('tempSlider');
+        const tempValue = document.getElementById('tempValue');
+        const beaker = document.getElementById('beaker');
+        const colorName = document.getElementById('colorName');
+        const heaterPlate = document.getElementById('heaterPlate');
+        const feedback = document.getElementById('feedback');
+
+        // 캔버스 설정
+        const pCanvas = document.getElementById('particleCanvas');
+        const pCtx = pCanvas.getContext('2d');
+        const gCanvas = document.getElementById('graphCanvas');
+        const gCtx = gCanvas.getContext('2d');
+
+        // 캔버스 크기 조정
+        function resizeCanvas() {
+            pCanvas.width = pCanvas.offsetWidth;
+            pCanvas.height = 200;
+            gCanvas.width = gCanvas.offsetWidth;
+            gCanvas.height = 200;
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        // 입자 배열
+        let particles = [];
+        const TOTAL_PARTICLES = 50;
+
+        // 입자 클래스
+        class Particle {
+            constructor() {
+                this.x = Math.random() * pCanvas.width;
+                this.y = Math.random() * pCanvas.height;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.size = 5;
+                this.type = 'pink'; // 'pink' or 'blue'
+            }
+
+            move(speedFactor) {
+                this.x += this.vx * speedFactor;
+                this.y += this.vy * speedFactor;
+
+                // 벽 충돌
+                if (this.x < 0 || this.x > pCanvas.width) this.vx *= -1;
+                if (this.y < 0 || this.y > pCanvas.height) this.vy *= -1;
+            }
+
+            draw() {
+                pCtx.beginPath();
+                pCtx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+                pCtx.fillStyle = this.type === 'pink' ? '#e91e63' : '#2196f3';
+                pCtx.fill();
+                pCtx.closePath();
+            }
+        }
+
+        // 입자 초기화
+        for (let i = 0; i < TOTAL_PARTICLES; i++) {
+            particles.push(new Particle());
+        }
+
+        // 메인 루프
+        function animate() {
+            updateExperiment();
+            drawParticles();
+            drawGraph();
+            requestAnimationFrame(animate);
+        }
+
+        function updateExperiment() {
+            const temp = parseInt(slider.value);
+            tempValue.textContent = temp;
+
+            // 1. 비커 색상 계산 (온도가 높을수록 파랑, 낮을수록 분홍)
+            // 0도 -> 분홍(100%), 100도 -> 파랑(100%) 로 가정하여 보간
+            // Pink RGB: 255, 192, 203 | Blue RGB: 65, 105, 225 (RoyalBlue)
+            
+            const ratio = temp / 100; // 0.0 ~ 1.0
+            
+            const r = Math.round(255 * (1 - ratio) + 65 * ratio);
+            const g = Math.round(192 * (1 - ratio) + 105 * ratio);
+            const b = Math.round(203 * (1 - ratio) + 225 * ratio);
+
+            beaker.style.backgroundColor = `rgb(${r}, ${g}, ${b})`;
+
+            // 텍스트 라벨 변경
+            if (temp < 40) colorName.textContent = "분홍색 (반응물 우세)";
+            else if (temp > 60) colorName.textContent = "파란색 (생성물 우세)";
+            else colorName.textContent = "보라색 (평형 상태)";
+
+            // 히터 시각화
+            heaterPlate.className = 'heater ' + (temp > 50 ? 'hot' : 'cold');
+
+            // 2. 입자 상태 업데이트 (확률적 변환)
+            // temp가 높을수록 'blue'가 될 확률 높음
+            const blueCountTarget = Math.floor(TOTAL_PARTICLES * ratio);
+            let currentBlue = particles.filter(p => p.type === 'blue').length;
+
+            particles.forEach(p => {
+                // 입자 속도 = 온도에 비례
+                p.move(0.5 + (temp / 50)); 
+            });
+
+            // 개수 맞추기 (단순화된 모델: 무작위 입자를 타겟 색상으로 변경)
+            if (currentBlue < blueCountTarget) {
+                // 파란색이 부족하면 분홍 -> 파랑
+                const pinks = particles.filter(p => p.type === 'pink');
+                if (pinks.length > 0) pinks[0].type = 'blue';
+            } else if (currentBlue > blueCountTarget) {
+                // 파란색이 넘치면 파랑 -> 분홍
+                const blues = particles.filter(p => p.type === 'blue');
+                if (blues.length > 0) blues[0].type = 'pink';
+            }
+        }
+
+        function drawParticles() {
+            pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+            particles.forEach(p => p.draw());
+        }
+
+        function drawGraph() {
+            gCtx.clearRect(0, 0, gCanvas.width, gCanvas.height);
+            
+            // 축 그리기
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#666';
+            gCtx.moveTo(30, 10);
+            gCtx.lineTo(30, 170); // Y축
+            gCtx.lineTo(gCanvas.width - 10, 170); // X축
+            gCtx.stroke();
+
+            // 라벨
+            gCtx.fillStyle = '#333';
+            gCtx.font = '12px Arial';
+            gCtx.fillText('Temp (°C)', gCanvas.width - 60, 190);
+            gCtx.fillText('K (평형상수)', 10, 20);
+
+            // 그래프 그리기 (지수 함수적 증가 흉내)
+            gCtx.beginPath();
+            gCtx.strokeStyle = '#28a745';
+            gCtx.lineWidth = 2;
+            
+            for (let t = 0; t <= 100; t++) {
+                const x = 30 + (t / 100) * (gCanvas.width - 40);
+                // K값 시뮬레이션: 흡열 반응이므로 T 증가 시 K 증가
+                // y값은 캔버스 좌표계 (위가 0)이므로 반전 필요
+                const kValue = Math.pow(t/100, 2) * 0.8 + 0.1; // 0~1 사이 값
+                const y = 170 - (kValue * 150); 
+                
+                if (t === 0) gCtx.moveTo(x, y);
+                else gCtx.lineTo(x, y);
+            }
+            gCtx.stroke();
+
+            // 현재 위치 표시
+            const currentTemp = parseInt(slider.value);
+            const cx = 30 + (currentTemp / 100) * (gCanvas.width - 40);
+            const ckValue = Math.pow(currentTemp/100, 2) * 0.8 + 0.1;
+            const cy = 170 - (ckValue * 150);
+
+            gCtx.beginPath();
+            gCtx.fillStyle = 'red';
+            gCtx.arc(cx, cy, 5, 0, Math.PI*2);
+            gCtx.fill();
+        }
+
+        // 초기화 함수
+        function resetExperiment() {
+            slider.value = 25;
+            feedback.style.display = 'none';
+        }
+
+        // 퀴즈 정답 확인
+        function checkAnswer(answer) {
+            feedback.style.display = 'block';
+            if (answer === 'endo') {
+                feedback.className = 'correct';
+                feedback.innerHTML = "<strong>✅ 정답입니다!</strong><br>온도를 높였을 때(열 가함) 평형이 오른쪽(생성물, 파랑)으로 이동했으므로, 정반응은 열을 흡수하는 <strong>흡열 반응</strong>입니다.<br>(르샤틀리에 원리: 가해준 열을 소비하는 쪽으로 이동)";
+            } else {
+                feedback.className = 'incorrect';
+                feedback.innerHTML = "<strong>❌ 다시 생각해볼까요?</strong><br>발열 반응이라면 온도를 높였을 때 열을 제거하기 위해 역반응(분홍색) 쪽으로 이동해야 합니다. 시뮬레이션에서 온도를 높이면 색이 어떻게 변했나요?";
+            }
+        }
+
+        // 애니메이션 시작
+        animate();
+    </script>
+</body>
+</html>

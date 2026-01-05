@@ -1,0 +1,404 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 농도와 반응 속도</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-color: #e74c3c;
+            --text-color: #2c3e50;
+            --liquid-color: #e0f7fa;
+            --reaction-color: #1a237e; /* 청람색 */
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            max-width: 800px;
+        }
+
+        h1 { margin-bottom: 10px; }
+        .badge {
+            background: var(--primary-color);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+        }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        /* 실험 제어 영역 */
+        .control-panel {
+            padding: 20px;
+            border-right: 1px solid #eee;
+        }
+
+        .slider-group {
+            margin-bottom: 20px;
+        }
+
+        input[type=range] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .btn {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.3s;
+            width: 100%;
+            margin-bottom: 10px;
+        }
+        .btn:hover { background: #357abd; }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+
+        /* 시각화 영역 */
+        .visual-panel {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border: 4px solid #333;
+            border-top: none;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: white;
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70%;
+            background-color: var(--liquid-color);
+            transition: background-color 0.2s; /* 색 변화 애니메이션 */
+        }
+
+        .timer-display {
+            font-size: 2rem;
+            font-weight: bold;
+            font-family: monospace;
+            color: var(--text-color);
+        }
+
+        /* 데이터 및 그래프 영역 */
+        .data-section {
+            grid-column: 1 / -1;
+            margin-top: 20px;
+            border-top: 2px dashed #eee;
+            padding-top: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+            font-size: 0.9rem;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th { background-color: #f8f9fa; }
+
+        .chart-container {
+            width: 100%;
+            height: 300px;
+        }
+
+        .feedback-box {
+            background: #e8f4fd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            display: none; /* 초기엔 숨김 */
+        }
+
+        .theory-box {
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <span class="badge">화학Ⅱ</span>
+        <span class="badge">3. 화학 반응과 에너지</span>
+        <h1>가상 실험: 농도와 반응 속도</h1>
+        <p>아이오딘산 칼륨($KIO_3$) 수용액의 농도를 조절하여 <strong>아이오딘 시계 반응</strong>의 속도를 측정해봅시다.</p>
+    </header>
+
+    <div class="container">
+        <div class="control-panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="slider-group">
+                <label for="concentration"><strong>$KIO_3$ 농도: <span id="concVal">0.10</span> M</strong></label>
+                <input type="range" id="concentration" min="0.1" max="0.4" step="0.05" value="0.1">
+                <p style="font-size: 0.8rem; color: #666;">* 다른 변인(온도 25℃, 녹말 농도 등)은 일정하게 유지됩니다.</p>
+            </div>
+
+            <button class="btn" id="startBtn" onclick="startExperiment()">🧪 실험 시작</button>
+            <button class="btn" style="background-color: #95a5a6;" onclick="resetExperiment()">🔄 초기화</button>
+
+            <div class="theory-box">
+                <h4>📚 핵심 개념: 충돌 이론</h4>
+                <p>반응물의 농도가 진할수록 단위 부피당 입자 수가 많아져, 입자 간 <strong>충돌 횟수</strong>가 증가합니다. 이는 곧 반응 속도의 증가로 이어집니다.</p>
+            </div>
+        </div>
+
+        <div class="visual-panel">
+            <div class="beaker">
+                <div class="liquid" id="liquid"></div>
+            </div>
+            <div class="timer-display" id="timer">00.00 s</div>
+            <div id="statusMsg" style="margin-top:10px; font-weight:bold; color:#4a90e2;">준비 완료</div>
+        </div>
+
+        <div class="data-section">
+            <h3>📊 실험 결과 및 분석</h3>
+            
+            <div style="display: flex; gap: 20px;">
+                <div style="flex: 1;">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>시도</th>
+                                <th>농도 [M]</th>
+                                <th>반응 시간 (s)</th>
+                                <th>반응 속도 (1/t)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dataTableBody">
+                            </tbody>
+                    </table>
+                    <div class="feedback-box" id="feedback"></div>
+                </div>
+                <div style="flex: 1;">
+                    <div class="chart-container">
+                        <canvas id="rateChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 전역 변수 설정 ---
+        let isRunning = false;
+        let experimentCount = 0;
+        let animationFrame;
+        let startTime;
+        let results = [];
+        
+        // 차트 초기화
+        const ctx = document.getElementById('rateChart').getContext('2d');
+        const rateChart = new Chart(ctx, {
+            type: 'scatter',
+            data: {
+                datasets: [{
+                    label: '농도 vs 반응 속도',
+                    data: [],
+                    backgroundColor: '#e74c3c',
+                    borderColor: '#e74c3c',
+                    showLine: true,
+                    tension: 0.2
+                }]
+            },
+            options: {
+                scales: {
+                    x: { type: 'linear', position: 'bottom', title: { display: true, text: '농도 [M]' }, min: 0, max: 0.5 },
+                    y: { title: { display: true, text: '반응 속도 (1/시간)' }, min: 0 }
+                },
+                responsive: true,
+                maintainAspectRatio: false
+            }
+        });
+
+        // --- DOM 요소 참조 ---
+        const slider = document.getElementById('concentration');
+        const concValDisplay = document.getElementById('concVal');
+        const liquid = document.getElementById('liquid');
+        const timerDisplay = document.getElementById('timer');
+        const startBtn = document.getElementById('startBtn');
+        const statusMsg = document.getElementById('statusMsg');
+        const tableBody = document.getElementById('dataTableBody');
+        const feedbackBox = document.getElementById('feedback');
+
+        // --- 이벤트 리스너 ---
+        slider.addEventListener('input', (e) => {
+            concValDisplay.textContent = parseFloat(e.target.value).toFixed(2);
+            resetVisuals();
+        });
+
+        // --- 핵심 로직 함수 ---
+
+        // 1. 실험 시작
+        function startExperiment() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            startBtn.disabled = true;
+            slider.disabled = true;
+            statusMsg.textContent = "반응 진행 중...";
+            
+            const concentration = parseFloat(slider.value);
+            
+            // 시뮬레이션 로직: 농도가 높을수록 시간은 짧아짐 (간단한 1차 반응 모델 적용)
+            // 기본 상수 k를 가정하여 시간 계산. Time = Constant / Concentration
+            // 예: 0.1M일 때 10초라 가정 -> Constant = 1
+            const baseConstant = 1.5; 
+            // 랜덤 오차 추가 (실제 실험 느낌)
+            const randomError = (Math.random() * 0.2) - 0.1; 
+            const targetTime = (baseConstant / concentration) + randomError;
+            
+            // 최소 시간 안전장치
+            const finalTime = Math.max(0.5, targetTime);
+
+            startTime = Date.now();
+            liquid.style.backgroundColor = "#e0f7fa"; // 초기 색상 (무색 투명)
+
+            animate(finalTime * 1000);
+        }
+
+        // 2. 애니메이션 및 타이머
+        function animate(durationMs) {
+            function update() {
+                const elapsed = Date.now() - startTime;
+                timerDisplay.textContent = (elapsed / 1000).toFixed(2) + " s";
+
+                if (elapsed < durationMs) {
+                    animationFrame = requestAnimationFrame(update);
+                } else {
+                    finishExperiment(durationMs / 1000);
+                }
+            }
+            animationFrame = requestAnimationFrame(update);
+        }
+
+        // 3. 실험 종료 및 결과 처리
+        function finishExperiment(measuredTime) {
+            isRunning = false;
+            startBtn.disabled = false;
+            slider.disabled = false;
+            statusMsg.textContent = "반응 완료! (청람색)";
+            
+            // 색상 변화 (시계 반응 특유의 급격한 변화)
+            liquid.style.backgroundColor = "#1a237e"; 
+            timerDisplay.textContent = measuredTime.toFixed(2) + " s";
+
+            recordData(parseFloat(slider.value), measuredTime);
+        }
+
+        // 4. 데이터 기록 및 차트 업데이트
+        function recordData(conc, time) {
+            experimentCount++;
+            const rate = 1 / time; // 반응 속도 = 1/t
+
+            // 테이블 추가
+            const row = tableBody.insertRow();
+            row.innerHTML = `
+                <td>${experimentCount}</td>
+                <td>${conc.toFixed(2)}</td>
+                <td>${time.toFixed(2)}</td>
+                <td><strong>${rate.toFixed(3)}</strong></td>
+            `;
+
+            // 차트 데이터 추가
+            rateChart.data.datasets[0].data.push({x: conc, y: rate});
+            // x축 기준 정렬 (그래프 선이 꼬이지 않게)
+            rateChart.data.datasets[0].data.sort((a, b) => a.x - b.x);
+            rateChart.update();
+
+            provideFeedback(conc, rate);
+        }
+
+        // 5. 교육적 피드백 제공 (AI 역할)
+        function provideFeedback(conc, rate) {
+            feedbackBox.style.display = "block";
+            let msg = `<strong>💡 분석 결과:</strong><br>`;
+            
+            if (results.length > 0) {
+                const prev = results[results.length - 1];
+                if (conc > prev.conc) {
+                    msg += `농도를 높이니 반응 속도가 증가했네요! 이는 입자 간 충돌 빈도가 늘어났기 때문입니다.`;
+                } else if (conc < prev.conc) {
+                    msg += `농도를 낮추니 반응 속도가 느려졌습니다. 유효 충돌 횟수가 줄어들었기 때문입니다.`;
+                } else {
+                    msg += `같은 농도에서 실험을 반복하여 데이터의 신뢰도를 높였습니다.`;
+                }
+            } else {
+                msg += `첫 번째 데이터가 기록되었습니다. 농도를 변경하여 그래프의 기울기를 확인해보세요.`;
+            }
+            
+            // 반응 차수 질문 유도
+            if (experimentCount >= 3) {
+                msg += `<br><br><em>❓ 생각해보기: 농도가 2배가 될 때, 반응 속도는 약 몇 배가 되었나요? 이를 통해 반응 차수를 예측해봅시다.</em>`;
+            }
+
+            feedbackBox.innerHTML = msg;
+            results.push({conc, rate});
+        }
+
+        // 6. 초기화
+        function resetExperiment() {
+            resetVisuals();
+            liquid.style.backgroundColor = "#e0f7fa";
+            timerDisplay.textContent = "00.00 s";
+            statusMsg.textContent = "준비 완료";
+        }
+
+        function resetVisuals() {
+             liquid.style.backgroundColor = "#e0f7fa";
+        }
+    </script>
+</body>
+</html>

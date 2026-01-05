@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 촉매와 과산화수소 분해</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --secondary-color: #50E3C2;
+            --danger-color: #FF6B6B;
+            --bg-color: #F7F9FC;
+            --glass-color: rgba(255, 255, 255, 0.8);
+        }
+
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { color: #2C3E50; margin-bottom: 10px; }
+        .subtitle { color: #7F8C8D; margin-bottom: 30px; }
+
+        /* 레이아웃 */
+        .lab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+
+        /* 제어 패널 */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+            margin-bottom: 10px;
+        }
+        button {
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+        .btn-start { background-color: var(--primary-color); color: white; border: none; }
+        .btn-start:hover { background-color: #357ABD; }
+        .btn-reset { background-color: #95A5A6; color: white; border: none; }
+        
+        /* 실험 시각화 (비커 & 거품) */
+        .visualization-area {
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            height: 300px;
+            background: #E0E6ED;
+            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            border-bottom: 4px solid #BDC3C7;
+        }
+
+        .test-tube {
+            width: 80px;
+            height: 250px;
+            background: linear-gradient(to right, rgba(255,255,255,0.4), rgba(255,255,255,0.1));
+            border: 2px solid rgba(255,255,255,0.6);
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            position: relative;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 40px; /* 초기 액체 높이 */
+            background-color: rgba(74, 144, 226, 0.3);
+            transition: height 0.5s;
+            z-index: 1;
+        }
+
+        .foam {
+            position: absolute;
+            bottom: 40px; /* 액체 위 */
+            width: 100%;
+            height: 0px;
+            background: repeating-linear-gradient(
+                45deg,
+                rgba(255, 255, 255, 0.8),
+                rgba(255, 255, 255, 0.8) 5px,
+                rgba(236, 240, 241, 0.8) 5px,
+                rgba(236, 240, 241, 0.8) 10px
+            );
+            transition: height 0.2s linear;
+            z-index: 2;
+            opacity: 0.9;
+        }
+
+        /* 거품 애니메이션 효과 */
+        @keyframes bubble {
+            0% { transform: translateY(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateY(-100px); opacity: 0; }
+        }
+        .particle {
+            position: absolute;
+            background: white;
+            border-radius: 50%;
+            opacity: 0.6;
+            animation: bubble 2s infinite ease-in;
+            bottom: 10px;
+        }
+
+        /* 그래프 영역 */
+        canvas {
+            width: 100%;
+            height: 200px;
+            border: 1px solid #eee;
+            margin-top: 10px;
+        }
+
+        /* 결과 및 퀴즈 */
+        .result-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #FFF3CD;
+            border-radius: 8px;
+            display: none;
+        }
+        .quiz-section { margin-top: 20px; display: none;}
+        .quiz-option {
+            display: block;
+            margin: 5px 0;
+            padding: 8px;
+            background: #f1f1f1;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .quiz-option:hover { background: #e2e2e2; }
+        .correct { background: #D4EDDA !important; color: #155724; }
+        .wrong { background: #F8D7DA !important; color: #721C24; }
+
+    </style>
+</head>
+<body>
+
+    <h1>⚗️ 가상 실험실: 과산화수소 분해와 촉매</h1>
+    <p class="subtitle">촉매의 종류에 따라 산소 거품이 얼마나 빠르게 생기는지 관찰해 봅시다.</p>
+
+    <div class="lab-container">
+        <div class="panel">
+            <h3>🎛️ 실험 조건 설정</h3>
+            <div class="control-group">
+                <label for="catalyst-select">촉매 선택</label>
+                <select id="catalyst-select">
+                    <option value="none">촉매 없음 (대조군)</option>
+                    <option value="potato">감자 조각 (카탈레이스 - 생체 정촉매)</option>
+                    <option value="ki">아이오딘화 칼륨 (KI - 무기 정촉매)</option>
+                    <option value="acid">인산 (부촉매)</option>
+                </select>
+            </div>
+            <div class="control-group">
+                <label>현재 상태</label>
+                <div id="status-text" style="color: var(--primary-color); font-weight:bold;">준비됨</div>
+            </div>
+            <button class="btn-start" onclick="startExperiment()">실험 시작 ▶</button>
+            <button class="btn-reset" onclick="resetExperiment()">초기화 ↺</button>
+            
+            <div class="result-box" id="feedback-box">
+                <strong>💡 실험 분석:</strong>
+                <p id="feedback-text"></p>
+            </div>
+        </div>
+
+        <div class="panel" style="flex: 1.5;">
+            <h3>👀 실험 관찰 (시험관)</h3>
+            <div class="visualization-area" id="vis-area">
+                <div class="test-tube">
+                    <div class="liquid" id="liquid"></div>
+                    <div class="foam" id="foam"></div>
+                    </div>
+            </div>
+            <div style="text-align: center; margin-top: 10px; font-size: 0.9em; color: #666;">
+                ▲ 발생한 산소 거품의 높이
+            </div>
+        </div>
+
+        <div class="panel">
+            <h3>📈 결과 그래프 (시간 vs 거품 높이)</h3>
+            <canvas id="chartCanvas"></canvas>
+            
+            <div class="quiz-section" id="quiz-section">
+                <h4>🧠 개념 퀴즈</h4>
+                <p id="quiz-question"></p>
+                <div id="quiz-options"></div>
+                <p id="quiz-feedback" style="margin-top:10px; font-weight:bold;"></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 변수 설정
+        let timer = null;
+        let time = 0;
+        let foamHeight = 0;
+        let isRunning = false;
+        const maxTime = 20; // 실험 시간 (초)
+        const canvas = document.getElementById('chartCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // 촉매별 반응 속도 데이터 (가상 계수)
+        const catalysts = {
+            'none': { rate: 0.2, name: '촉매 없음', type: 'none', desc: '반응이 매우 느리게 일어납니다.' },
+            'potato': { rate: 2.5, name: '감자(카탈레이스)', type: 'positive', desc: '효소(생체 촉매)에 의해 거품이 빠르게 발생합니다.' },
+            'ki': { rate: 4.5, name: '아이오딘화 칼륨(KI)', type: 'positive', desc: '무기 정촉매로 인해 매우 격렬하게 반응합니다.' },
+            'acid': { rate: 0.05, name: '인산', type: 'negative', desc: '부촉매로 인해 반응 속도가 느려집니다.' }
+        };
+
+        let currentData = []; // 그래프용 데이터
+
+        // 캔버스 초기화
+        function initChart() {
+            canvas.width = canvas.offsetWidth;
+            canvas.height = canvas.offsetHeight;
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // 축 그리기
+            ctx.beginPath();
+            ctx.moveTo(30, 10);
+            ctx.lineTo(30, canvas.height - 20); // Y축
+            ctx.lineTo(canvas.width - 10, canvas.height - 20); // X축
+            ctx.strokeStyle = '#333';
+            ctx.stroke();
+            
+            ctx.fillStyle = '#666';
+            ctx.font = '10px Arial';
+            ctx.fillText("0", 15, canvas.height - 15);
+            ctx.fillText("시간(s)", canvas.width - 40, canvas.height - 5);
+            ctx.fillText("높이", 5, 20);
+        }
+
+        initChart();
+
+        function startExperiment() {
+            if (isRunning) return;
+            
+            const type = document.getElementById('catalyst-select').value;
+            const config = catalysts[type];
+            
+            isRunning = true;
+            document.getElementById('status-text').innerText = "반응 진행 중...";
+            document.getElementById('feedback-box').style.display = "none";
+            document.getElementById('quiz-section').style.display = "none";
+            
+            // 거품 파티클 효과 시작
+            if (config.rate > 0.1) startBubbles(config.rate);
+
+            timer = setInterval(() => {
+                time += 0.5;
+                
+                // 반응 속도에 따른 높이 계산 (단순 선형 + 약간의 랜덤성)
+                let increment = config.rate * 2; 
+                foamHeight += increment;
+                
+                if (foamHeight > 180) foamHeight = 180; // 최대 높이 제한
+                if (time >= maxTime) {
+                    endExperiment(config);
+                }
+
+                updateVisuals(foamHeight);
+                drawGraph(time, foamHeight);
+
+            }, 500); // 0.5초마다 업데이트
+        }
+
+        function updateVisuals(height) {
+            const foam = document.getElementById('foam');
+            foam.style.height = height + 'px';
+        }
+
+        function drawGraph(t, h) {
+            // 데이터 저장
+            currentData.push({t: t, h: h});
+
+            // 스케일링
+            const xScale = (canvas.width - 40) / maxTime;
+            const yScale = (canvas.height - 30) / 200; // 최대 높이 200 기준
+
+            ctx.beginPath();
+            ctx.strokeStyle = '#E74C3C';
+            ctx.lineWidth = 2;
+
+            if (currentData.length > 1) {
+                const prev = currentData[currentData.length - 2];
+                const curr = currentData[currentData.length - 1];
+                
+                ctx.moveTo(30 + prev.t * xScale, canvas.height - 20 - prev.h * yScale);
+                ctx.lineTo(30 + curr.t * xScale, canvas.height - 20 - curr.h * yScale);
+                ctx.stroke();
+            }
+        }
+
+        function startBubbles(rate) {
+            const tube = document.querySelector('.test-tube');
+            const particleInterval = 1000 / (rate * 5); // 속도에 따라 생성 빈도 조절
+            
+            const createBubble = setInterval(() => {
+                if (!isRunning) {
+                    clearInterval(createBubble);
+                    return;
+                }
+                const bubble = document.createElement('div');
+                bubble.className = 'particle';
+                bubble.style.left = Math.random() * 60 + 10 + 'px';
+                bubble.style.width = Math.random() * 5 + 3 + 'px';
+                bubble.style.height = bubble.style.width;
+                tube.appendChild(bubble);
+
+                // 애니메이션 끝나면 제거
+                setTimeout(() => { bubble.remove(); }, 2000);
+            }, particleInterval);
+        }
+
+        function endExperiment(config) {
+            clearInterval(timer);
+            isRunning = false;
+            document.getElementById('status-text').innerText = "반응 종료";
+            
+            // 피드백 표시
+            const fbBox = document.getElementById('feedback-box');
+            const fbText = document.getElementById('feedback-text');
+            fbBox.style.display = 'block';
+            fbText.innerHTML = `선택한 <b>${config.name}</b>: ${config.desc}<br>활성화 에너지가 ${config.type === 'positive' ? '낮아져' : (config.type === 'negative' ? '높아져' : '변하지 않아')} 반응 속도가 ${config.type === 'positive' ? '빨라졌습니다' : (config.type === 'negative' ? '느려졌습니다' : '일정합니다')}.`;
+
+            // 퀴즈 표시
+            showQuiz(config.type);
+        }
+
+        function resetExperiment() {
+            clearInterval(timer);
+            isRunning = false;
+            time = 0;
+            foamHeight = 0;
+            currentData = [];
+            
+            document.getElementById('foam').style.height = '0px';
+            document.getElementById('status-text').innerText = "준비됨";
+            document.getElementById('feedback-box').style.display = "none";
+            document.getElementById('quiz-section').style.display = "none";
+            
+            // 캔버스 클리어
+            initChart();
+            
+            // 잔여 버블 제거
+            document.querySelectorAll('.particle').forEach(e => e.remove());
+        }
+
+        function showQuiz(type) {
+            const quizSec = document.getElementById('quiz-section');
+            const qTitle = document.getElementById('quiz-question');
+            const qOptions = document.getElementById('quiz-options');
+            const qFeed = document.getElementById('quiz-feedback');
+            
+            quizSec.style.display = 'block';
+            qOptions.innerHTML = '';
+            qFeed.innerText = '';
+
+            let qData = {};
+            if (type === 'positive') {
+                qData = {
+                    q: "이 촉매는 활성화 에너지($E_a$)를 어떻게 변화시켰나요?",
+                    opts: ["증가시켰다", "감소시켰다", "변화 없다"],
+                    ans: 1
+                };
+            } else if (type === 'negative') {
+                qData = {
+                    q: "인산을 넣었을 때 반응 속도가 느려진 이유는?",
+                    opts: ["활성화 에너지가 낮아져서", "활성화 에너지가 높아져서", "반응열이 감소해서"],
+                    ans: 1
+                };
+            } else {
+                qData = {
+                    q: "촉매가 없을 때 반응이 느린 주된 이유는?",
+                    opts: ["활성화 에너지가 너무 높아서", "반응열이 흡열 반응이라서", "과산화수소 농도가 낮아서"],
+                    ans: 0
+                };
+            }
+
+            qTitle.innerText = "Q. " + qData.q;
+            
+            qData.opts.forEach((opt, idx) => {
+                const btn = document.createElement('div');
+                btn.className = 'quiz-option';
+                btn.innerText = (idx+1) + ". " + opt;
+                btn.onclick = () => {
+                    if (idx === qData.ans) {
+                        btn.classList.add('correct');
+                        qFeed.innerText = "정답입니다! 🎉 정촉매는 활성화 에너지를 낮춥니다.";
+                        qFeed.style.color = "green";
+                    } else {
+                        btn.classList.add('wrong');
+                        qFeed.innerText = "다시 생각해 보세요. 🤔";
+                        qFeed.style.color = "red";
+                    }
+                };
+                qOptions.appendChild(btn);
+            });
+        }
+    </script>
+</body>
+</html>

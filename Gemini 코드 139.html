@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 반응 속도식 도출</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        h1, h2, h3 { margin: 0 0 10px 0; }
+        
+        .lab-layout {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        @media (max-width: 768px) {
+            .lab-layout { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+            margin-bottom: 20px;
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #eef2f5;
+            border-radius: 8px;
+        }
+
+        label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        input[type="range"] {
+            width: 100%;
+            cursor: pointer;
+        }
+
+        .value-display {
+            font-size: 1.2em;
+            color: var(--primary-color);
+            font-weight: bold;
+            float: right;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: background 0.3s;
+            margin-right: 10px;
+        }
+
+        button:hover { background-color: #357abd; }
+        button.reset { background-color: #e74c3c; }
+        button.reset:hover { background-color: #c0392b; }
+        button.print { background-color: #2ecc71; }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+
+        th { background-color: #f2f2f2; }
+
+        .equation-box {
+            text-align: center;
+            font-size: 1.3em;
+            background: #fff3cd;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #ffeeba;
+            margin-bottom: 20px;
+        }
+
+        .feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 5px;
+            display: none;
+        }
+        .feedback.correct { background-color: #d4edda; color: #155724; }
+        .feedback.incorrect { background-color: #f8d7da; color: #721c24; }
+
+        .quiz-inputs input {
+            width: 50px;
+            padding: 5px;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 화학 반응 속도 실험실</h1>
+        <p>농도 변화에 따른 반응 속도를 측정하고 반응 차수(Order)를 구해보세요.</p>
+    </header>
+
+    <div class="equation-box">
+        반응식: <strong>NH₄⁺(aq) + NO₂⁻(aq) → N₂(g) + 2H₂O(l)</strong><br>
+        속도식: <em>v = k [NH₄⁺]ᵐ [NO₂⁻]ⁿ</em>
+    </div>
+
+    <div class="lab-layout">
+        <div class="left-panel">
+            <div class="card">
+                <h3>🎛️ 실험 조건 설정</h3>
+                <p>온도는 25℃로 일정합니다. (k = 2.0 × 10⁻⁴)</p>
+                
+                <div class="control-group">
+                    <label>
+                        [NH₄⁺] 초기 농도 (M)
+                        <span id="val-a" class="value-display">0.10</span>
+                    </label>
+                    <input type="range" id="range-a" min="0.01" max="0.40" step="0.01" value="0.10">
+                </div>
+
+                <div class="control-group">
+                    <label>
+                        [NO₂⁻] 초기 농도 (M)
+                        <span id="val-b" class="value-display">0.10</span>
+                    </label>
+                    <input type="range" id="range-b" min="0.01" max="0.40" step="0.01" value="0.10">
+                </div>
+
+                <button onclick="runExperiment()">⚗️ 실험 시작 (측정)</button>
+                <button class="reset" onclick="resetLab()">🔄 초기화</button>
+            </div>
+
+            <div class="card">
+                <h3>📝 결과 해석 및 퀴즈</h3>
+                <p>위 실험 데이터를 바탕으로 반응 차수 m과 n을 예측하세요.</p>
+                <div class="quiz-inputs">
+                    <label>m (NH₄⁺의 차수): <input type="number" id="input-m" min="0" max="3"></label><br><br>
+                    <label>n (NO₂⁻의 차수): <input type="number" id="input-n" min="0" max="3"></label>
+                </div>
+                <br>
+                <button onclick="checkAnswer()">정답 확인</button>
+                <div id="quiz-feedback" class="feedback"></div>
+            </div>
+            
+            <div class="card">
+                 <button class="print" onclick="window.print()">🖨️ 보고서 인쇄 (PDF 저장)</button>
+            </div>
+        </div>
+
+        <div class="right-panel">
+            <div class="card">
+                <h3>📊 실험 데이터 기록</h3>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>실험 #</th>
+                            <th>[NH₄⁺] (M)</th>
+                            <th>[NO₂⁻] (M)</th>
+                            <th>초기 속도 (M/s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="data-table-body">
+                        </tbody>
+                </table>
+            </div>
+
+            <div class="card">
+                <h3>📈 농도 vs 속도 그래프</h3>
+                <canvas id="rateChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 상수 및 상태 변수
+    const k = 2.0e-4; // 속도 상수
+    const actualM = 1; // 실제 정답 m
+    const actualN = 1; // 실제 정답 n
+    
+    let experimentCount = 0;
+    let experimentData = [];
+    let chart;
+
+    // DOM 요소 참조
+    const rangeA = document.getElementById('range-a');
+    const rangeB = document.getElementById('range-b');
+    const valA = document.getElementById('val-a');
+    const valB = document.getElementById('val-b');
+    const tableBody = document.getElementById('data-table-body');
+    const feedbackBox = document.getElementById('quiz-feedback');
+
+    // 초기화
+    function init() {
+        updateDisplays();
+        initChart();
+    }
+
+    // 슬라이더 값 업데이트
+    rangeA.addEventListener('input', updateDisplays);
+    rangeB.addEventListener('input', updateDisplays);
+
+    function updateDisplays() {
+        valA.textContent = parseFloat(rangeA.value).toFixed(2);
+        valB.textContent = parseFloat(rangeB.value).toFixed(2);
+    }
+
+    // 차트 초기화
+    function initChart() {
+        const ctx = document.getElementById('rateChart').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '초기 반응 속도 (×10⁻⁶ M/s)',
+                    data: [],
+                    backgroundColor: 'rgba(74, 144, 226, 0.6)',
+                    borderColor: 'rgba(74, 144, 226, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                scales: {
+                    y: { beginAtZero: true, title: { display: true, text: '속도 (×10⁻⁶ M/s)' } }
+                }
+            }
+        });
+    }
+
+    // 실험 실행
+    function runExperiment() {
+        const concA = parseFloat(rangeA.value);
+        const concB = parseFloat(rangeB.value);
+
+        // 이미 동일한 조건으로 실험했는지 확인 (선택 사항)
+        // 여기서는 반복 실험 허용
+
+        // 속도 계산: v = k * [A]^m * [B]^n
+        const rate = k * Math.pow(concA, actualM) * Math.pow(concB, actualN);
+        
+        // 화면 표시용 속도 (너무 작으므로 10^6을 곱해서 표시)
+        const displayRate = (rate * 1e6).toFixed(2);
+
+        experimentCount++;
+        
+        // 데이터 저장
+        const dataPoint = {
+            id: experimentCount,
+            concA: concA.toFixed(2),
+            concB: concB.toFixed(2),
+            rate: rate,
+            displayRate: displayRate
+        };
+        experimentData.push(dataPoint);
+
+        // 테이블 업데이트
+        updateTable(dataPoint);
+        
+        // 차트 업데이트
+        updateChart(dataPoint);
+    }
+
+    function updateTable(data) {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${data.id}</td>
+            <td>${data.concA}</td>
+            <td>${data.concB}</td>
+            <td>${data.rate.toExponential(2)}</td>
+        `;
+        tableBody.appendChild(row);
+    }
+
+    function updateChart(data) {
+        chart.data.labels.push(`실험 ${data.id}`);
+        chart.data.datasets[0].data.push(data.displayRate);
+        chart.update();
+    }
+
+    // 퀴즈 정답 확인
+    function checkAnswer() {
+        const userM = parseInt(document.getElementById('input-m').value);
+        const userN = parseInt(document.getElementById('input-n').value);
+
+        feedbackBox.style.display = 'block';
+        feedbackBox.className = 'feedback';
+
+        if (userM === actualM && userN === actualN) {
+            feedbackBox.classList.add('correct');
+            feedbackBox.innerHTML = `<strong>🎉 정답입니다!</strong><br> 
+                [NH₄⁺]가 2배 될 때 속도가 2배이므로 m=1,<br>
+                [NO₂⁻]가 2배 될 때 속도가 2배이므로 n=1 입니다.<br>
+                따라서 전체 반응 차수는 2차 반응입니다.`;
+        } else {
+            feedbackBox.classList.add('incorrect');
+            let hint = "<strong>🤔 다시 생각해볼까요?</strong><br>";
+            hint += "실험 데이터를 비교해보세요.<br>";
+            hint += "한 물질의 농도만 2배로 변했을 때, 속도는 몇 배가 되었나요?";
+            feedbackBox.innerHTML = hint;
+        }
+    }
+
+    // 전체 초기화
+    function resetLab() {
+        experimentCount = 0;
+        experimentData = [];
+        tableBody.innerHTML = '';
+        chart.data.labels = [];
+        chart.data.datasets[0].data = [];
+        chart.update();
+        feedbackBox.style.display = 'none';
+        document.getElementById('input-m').value = '';
+        document.getElementById('input-n').value = '';
+    }
+
+    // 실행
+    init();
+</script>
+
+</body>
+</html>

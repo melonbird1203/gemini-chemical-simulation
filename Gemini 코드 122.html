@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 어는점 내림과 분자량 측정</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f7fa;
+            --accent-color: #e74c3c;
+            --text-color: #2c3e50;
+            --success-color: #27ae60;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #ecf0f1;
+            color: var(--text-color);
+            line-height: 1.6;
+        }
+
+        header {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 20px auto;
+            padding: 0 20px;
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+        }
+
+        .panel {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        h2 { border-bottom: 2px solid var(--secondary-color); padding-bottom: 10px; margin-top: 0; font-size: 1.2rem; }
+        h3 { font-size: 1.1rem; margin-top: 15px; margin-bottom: 5px; color: #555; }
+
+        /* Controls */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 5px; font-weight: bold; font-size: 0.9rem; }
+        select, input[type="number"], input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            box-sizing: border-box;
+        }
+        
+        .slider-val { float: right; color: var(--primary-color); font-weight: bold; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #357abd; }
+        button.secondary { background-color: #95a5a6; }
+        button.check-btn { background-color: var(--success-color); margin-top: 5px;}
+
+        /* Visualization */
+        .vis-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            height: 350px;
+        }
+        
+        #particleCanvas {
+            width: 100%;
+            height: 100%;
+            background: #eef2f3;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+        }
+
+        .chart-wrapper {
+            position: relative;
+            height: 100%;
+            width: 100%;
+            background: white;
+            border-radius: 8px;
+            border: 1px solid #ddd;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        /* Results & Analysis */
+        .results-area {
+            grid-column: 1 / -1;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .formula-box {
+            background: var(--secondary-color);
+            padding: 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            text-align: center;
+            border: 1px dashed #bdc3c7;
+        }
+
+        .calc-input {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .calc-input input { width: 80px; }
+
+        .feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: none;
+        }
+        .feedback.correct { background-color: #d4edda; color: #155724; }
+        .feedback.wrong { background-color: #f8d7da; color: #721c24; }
+        .feedback.info { background-color: #d1ecf1; color: #0c5460; }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+            .vis-container { grid-template-columns: 1fr; height: auto; }
+            #particleCanvas { height: 250px; }
+            .chart-wrapper { height: 250px; }
+            .results-area { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 어는점 내림과 분자량 측정 실험</h1>
+    <p>화학Ⅱ: 묽은 용액의 총괄성 학습 시뮬레이션</p>
+</header>
+
+<div class="container">
+    <div class="panel">
+        <h2>1. 실험 설계</h2>
+        
+        <div class="control-group">
+            <label for="solventType">용매 선택 (Solvent)</label>
+            <select id="solventType">
+                <option value="water">물 (K_f = 1.86 ℃/m)</option>
+                <option value="benzene">벤젠 (K_f = 5.12 ℃/m)</option>
+            </select>
+            <small style="color:red; display:none;" id="benzeneWarning">⚠️ 벤젠은 독성이 있으므로 후드 내에서 취급하세요!</small>
+        </div>
+
+        <div class="control-group">
+            <label>용매 질량 (W) <span class="slider-val" id="solventMassVal">100g</span></label>
+            <input type="range" id="solventMass" min="50" max="200" step="10" value="100">
+        </div>
+
+        <div class="control-group">
+            <label for="soluteType">미지 용질 선택 (Solute)</label>
+            <select id="soluteType">
+                <option value="A">미지 시료 A (고체 분말)</option>
+                <option value="B">미지 시료 B (흰색 결정)</option>
+                <option value="C">미지 시료 C (설탕 모양)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>용질 질량 (w) <span class="slider-val" id="soluteMassVal">0g</span></label>
+            <input type="range" id="soluteMass" min="0" max="30" step="1" value="0">
+        </div>
+
+        <button id="startBtn" onclick="startExperiment()">❄️ 냉각 실험 시작</button>
+        <button class="secondary" onclick="resetExperiment()">🔄 초기화</button>
+    </div>
+
+    <div class="panel">
+        <h2>2. 실험 관찰</h2>
+        <div class="vis-container">
+            <div style="position: relative;">
+                <canvas id="particleCanvas"></canvas>
+                <div style="position: absolute; top: 10px; left: 10px; background: rgba(255,255,255,0.8); padding: 5px; border-radius: 4px; font-size: 0.8rem;">
+                    🔵 용매 입자<br>🔴 용질 입자
+                </div>
+            </div>
+            <div class="chart-wrapper">
+                <canvas id="tempChart"></canvas>
+            </div>
+        </div>
+        <div style="margin-top: 10px; text-align: center;">
+            현재 온도: <span id="currentTemp" style="font-weight: bold; font-size: 1.2rem;">25.0</span> ℃ 
+            <span id="stateStatus" style="margin-left: 10px; font-size: 0.9rem; color: #777;">(액체)</span>
+        </div>
+    </div>
+
+    <div class="panel results-area">
+        <div>
+            <h2>3. 데이터 분석</h2>
+            <p>냉각 곡선에서 평평해지는 구간(어는점)을 찾아 입력하세요.</p>
+            
+            <div class="calc-input">
+                <label>순수한 용매 어는점 ($T_0$):</label>
+                <input type="number" id="pureFpInput" step="0.1" placeholder="℃">
+            </div>
+            <div class="calc-input">
+                <label>용액의 어는점 ($T_f$):</label>
+                <input type="number" id="solutionFpInput" step="0.1" placeholder="℃">
+            </div>
+            
+            <div class="feedback info" id="dtResult" style="display:block; margin-bottom:10px;">
+                어는점 내림($\Delta T_f$) = ?
+            </div>
+            
+            <button class="check-btn" onclick="checkFreezingPoint()">데이터 확인</button>
+        </div>
+
+        <div>
+            <h2>4. 결론 및 평가</h2>
+            <div class="formula-box">
+                $$ M = \frac{K_f \times w \times 1000}{\Delta T_f \times W} $$
+            </div>
+            <p>위 공식을 이용하여 미지 시료의 분자량을 계산해보세요.</p>
+            
+            <div class="calc-input">
+                <label>계산된 분자량(M):</label>
+                <input type="number" id="mwInput" placeholder="g/mol">
+            </div>
+            <div class="control-group">
+                <label>이 물질은 무엇일까요?</label>
+                <select id="guessMaterial">
+                    <option value="">물질 선택...</option>
+                    <option value="60">요소 (MW: 60)</option>
+                    <option value="180">포도당 (MW: 180)</option>
+                    <option value="342">설탕 (MW: 342)</option>
+                    <option value="128">나프탈렌 (MW: 128)</option>
+                </select>
+            </div>
+            
+            <button class="check-btn" onclick="checkConclusion()">결과 제출 및 정답 확인</button>
+            <div id="finalFeedback" class="feedback"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Constants & State
+    const SOLVENTS = {
+        water: { name: '물', kf: 1.86, fp: 0.0, color: '#3498db', density: 1.0 },
+        benzene: { name: '벤젠', kf: 5.12, fp: 5.5, color: '#e67e22', density: 0.88 }
+    };
+
+    const SOLUTES = {
+        A: { mw: 180, name: '포도당' }, // Glucose
+        B: { mw: 60, name: '요소' },    // Urea
+        C: { mw: 342, name: '설탕' }    // Sucrose
+    };
+
+    let state = {
+        running: false,
+        time: 0,
+        temp: 25.0,
+        solvent: 'water',
+        solute: 'A',
+        w: 0, // solute mass
+        W: 100, // solvent mass
+        currentFp: 0,
+        history: [],
+        particles: []
+    };
+
+    // Chart Setup
+    let chart;
+    const ctxChart = document.getElementById('tempChart').getContext('2d');
+
+    function initChart() {
+        if(chart) chart.destroy();
+        chart = new Chart(ctxChart, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '온도 (℃)',
+                    data: [],
+                    borderColor: '#e74c3c',
+                    tension: 0.4,
+                    pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                animation: false,
+                scales: {
+                    y: { title: { display: true, text: '온도 (℃)' }, min: -5, max: 30 },
+                    x: { title: { display: true, text: '시간 (s)' } }
+                }
+            }
+        });
+    }
+
+    // Input Listeners
+    document.getElementById('solventMass').addEventListener('input', (e) => {
+        document.getElementById('solventMassVal').innerText = e.target.value + 'g';
+        state.W = parseFloat(e.target.value);
+    });
+    document.getElementById('soluteMass').addEventListener('input', (e) => {
+        document.getElementById('soluteMassVal').innerText = e.target.value + 'g';
+        state.w = parseFloat(e.target.value);
+        if(state.w > 0) initParticles();
+    });
+    document.getElementById('solventType').addEventListener('change', (e) => {
+        state.solvent = e.target.value;
+        document.getElementById('benzeneWarning').style.display = (state.solvent === 'benzene') ? 'block' : 'none';
+        initParticles();
+    });
+    document.getElementById('soluteType').addEventListener('change', (e) => state.solute = e.target.value);
+
+    // Particle System
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.offsetWidth;
+        canvas.height = canvas.parentElement.offsetHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+
+    function initParticles() {
+        resizeCanvas();
+        state.particles = [];
+        // Add Solvent Particles (Blue)
+        const solventCount = 50;
+        for(let i=0; i<solventCount; i++) {
+            state.particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 2,
+                vy: (Math.random() - 0.5) * 2,
+                type: 'solvent',
+                r: 4
+            });
+        }
+        // Add Solute Particles (Red)
+        const soluteCount = Math.floor(state.w * 1.5); // Visual representation
+        for(let i=0; i<soluteCount; i++) {
+            state.particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                vx: (Math.random() - 0.5) * 1.5,
+                vy: (Math.random() - 0.5) * 1.5,
+                type: 'solute',
+                r: 6
+            });
+        }
+    }
+
+    function drawParticles() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // Speed factor based on temp (Freezing stops movement)
+        let speedFactor = (state.temp + 10) / 35; 
+        if(state.temp <= state.currentFp) speedFactor = 0.1; // Solid state vibration
+
+        state.particles.forEach(p => {
+            if(state.running || speedFactor > 0.1) {
+                p.x += p.vx * speedFactor;
+                p.y += p.vy * speedFactor;
+
+                // Bounce
+                if(p.x < 0 || p.x > canvas.width) p.vx *= -1;
+                if(p.y < 0 || p.y > canvas.height) p.vy *= -1;
+            } else {
+                // Vibrate in place if frozen
+                p.x += (Math.random()-0.5) * 0.5;
+                p.y += (Math.random()-0.5) * 0.5;
+            }
+
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+            ctx.fillStyle = p.type === 'solvent' ? SOLVENTS[state.solvent].color : '#e74c3c';
+            ctx.fill();
+            
+            // Draw connections if frozen (Lattice visual)
+            if(state.temp <= state.currentFp && p.type === 'solvent') {
+                ctx.strokeStyle = "rgba(255,255,255,0.3)";
+                ctx.stroke();
+            }
+        });
+
+        // Overlay text based on state
+        if(state.temp <= state.currentFp) {
+            ctx.fillStyle = "rgba(0,0,0,0.5)";
+            ctx.fillRect(0,0,canvas.width, canvas.height);
+            ctx.fillStyle = "white";
+            ctx.font = "20px Arial";
+            ctx.textAlign = "center";
+            ctx.fillText("응고됨 (Solid)", canvas.width/2, canvas.height/2);
+        }
+
+        requestAnimationFrame(drawParticles);
+    }
+
+    // Experiment Logic
+    function calculateTrueValues() {
+        const solv = SOLVENTS[state.solvent];
+        const solu = SOLUTES[state.solute];
+        
+        // Molality (m) = (w / MW) / (W / 1000)
+        const moles = state.w / solu.mw;
+        const kgSolvent = state.W / 1000;
+        const molality = moles / kgSolvent;
+        
+        const dt = solv.kf * molality;
+        const fp = solv.fp - dt;
+        
+        return { fp, dt, molality };
+    }
+
+    function startExperiment() {
+        if(state.running) return;
+        
+        // Reset Visuals
+        state.time = 0;
+        state.temp = 25.0;
+        state.history = [];
+        initChart();
+        
+        const trueVals = calculateTrueValues();
+        state.currentFp = trueVals.fp;
+        state.running = true;
+        
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('soluteMass').disabled = true;
+        document.getElementById('solventMass').disabled = true;
+
+        const loop = setInterval(() => {
+            if(!state.running) {
+                clearInterval(loop);
+                return;
+            }
+
+            state.time += 1;
+            
+            // Simulation Logic: Cooling
+            // Newton's law of cooling approximation + Phase transition plateau
+            if(state.temp > state.currentFp) {
+                // Liquid phase cooling
+                state.temp -= 0.2 + (Math.random() * 0.05); 
+            } else if (state.temp > state.currentFp - 0.5) {
+                // Phase change plateau (Freezing)
+                // Supercooling effect slight visualization could be added here, keeping simple for now
+                state.temp = state.currentFp + (Math.random() * 0.1 - 0.05);
+            } else {
+                // Solid phase cooling
+                 state.temp -= 0.1;
+            }
+
+            // Update UI
+            document.getElementById('currentTemp').innerText = state.temp.toFixed(1);
+            if(state.temp <= state.currentFp + 0.1) {
+                document.getElementById('stateStatus').innerText = "(응고 중)";
+            } else {
+                document.getElementById('stateStatus').innerText = "(액체)";
+            }
+
+            // Update Chart
+            chart.data.labels.push(state.time);
+            chart.data.datasets[0].data.push(state.temp);
+            
+            // Dynamic Scale
+            if(state.temp < chart.options.scales.y.min) {
+                chart.options.scales.y.min = state.temp - 2;
+            }
+            chart.update();
+
+            // End condition
+            if(state.time > 100 || state.temp < state.currentFp - 3) {
+                state.running = false;
+                document.getElementById('startBtn').disabled = false;
+                document.getElementById('soluteMass').disabled = false;
+                document.getElementById('solventMass').disabled = false;
+                alert("실험이 완료되었습니다. 그래프를 보고 어는점을 분석해보세요.");
+            }
+
+        }, 100); // 100ms update rate
+    }
+
+    function resetExperiment() {
+        state.running = false;
+        state.temp = 25.0;
+        document.getElementById('currentTemp').innerText = "25.0";
+        initChart();
+        document.getElementById('finalFeedback').style.display = 'none';
+        document.getElementById('dtResult').innerText = "어는점 내림 = ?";
+        document.getElementById('dtResult').className = "feedback info";
+        
+        // Clear inputs
+        document.querySelectorAll('.calc-input input').forEach(i => i.value = '');
+    }
+
+    // Analysis Logic
+    function checkFreezingPoint() {
+        const t0 = parseFloat(document.getElementById('pureFpInput').value);
+        const tf = parseFloat(document.getElementById('solutionFpInput').value);
+        const feedback = document.getElementById('dtResult');
+        
+        if(isNaN(t0) || isNaN(tf)) {
+            alert("온도 값을 모두 입력해주세요.");
+            return;
+        }
+
+        const userDt = t0 - tf;
+        const trueVals = calculateTrueValues();
+        
+        // Allow error margin of 0.5
+        const isCorrectT0 = Math.abs(t0 - SOLVENTS[state.solvent].fp) < 0.5;
+        const isCorrectTf = Math.abs(tf - trueVals.fp) < 0.5;
+
+        if(isCorrectT0 && isCorrectTf) {
+            feedback.innerHTML = `정확합니다! <br> 어는점 내림($\\Delta T_f$) : <strong>${userDt.toFixed(2)}℃</strong>`;
+            feedback.className = "feedback correct";
+        } else {
+            let msg = "값이 조금 다릅니다. <br>";
+            if(!isCorrectT0) msg += `- 순수한 ${SOLVENTS[state.solvent].name}의 어는점을 다시 확인하세요.<br>`;
+            if(!isCorrectTf) msg += `- 그래프에서 온도가 일정하게 유지되는 구간을 찾아보세요.`;
+            feedback.innerHTML = msg;
+            feedback.className = "feedback wrong";
+        }
+    }
+
+    function checkConclusion() {
+        const userMw = parseFloat(document.getElementById('mwInput').value);
+        const guess = document.getElementById('guessMaterial').value;
+        const feedback = document.getElementById('finalFeedback');
+        
+        const trueMw = SOLUTES[state.solute].mw;
+        
+        if(isNaN(userMw) || !guess) {
+            alert("계산된 분자량과 예상 물질을 모두 선택해주세요.");
+            return;
+        }
+
+        // Calculate Error
+        const error = Math.abs((userMw - trueMw) / trueMw * 100);
+        
+        let html = "";
+        let isSuccess = false;
+
+        if (error < 10) {
+            html += `✅ <strong>훌륭합니다!</strong> 계산된 분자량이 실제 값(${trueMw})과 거의 일치합니다. (오차: ${error.toFixed(1)}%)<br>`;
+            isSuccess = true;
+        } else {
+            html += `⚠️ <strong>계산을 다시 확인해보세요.</strong><br>공식에 대입한 값들($K_f, w, W, \\Delta T_f$) 단위를 점검해보세요.<br>`;
+        }
+
+        if(isSuccess && parseInt(guess) === trueMw) {
+            html += `🎉 정답입니다! 미지 시료는 <strong>${SOLUTES[state.solute].name}</strong>였습니다.`;
+            feedback.className = "feedback correct";
+        } else if (isSuccess) {
+            html += `❓ 분자량 계산은 맞았지만, 물질 추론이 틀렸습니다. 분자량 ${trueMw}인 물질을 다시 선택해보세요.`;
+            feedback.className = "feedback info";
+        } else {
+             feedback.className = "feedback wrong";
+        }
+        
+        feedback.style.display = 'block';
+        feedback.innerHTML = html;
+    }
+
+    // Initialize
+    initParticles();
+    drawParticles();
+    initChart();
+</script>
+
+</body>
+</html>

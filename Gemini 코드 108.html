@@ -1,0 +1,613 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 산과 염기의 중화 반응</title>
+    <style>
+        :root {
+            --primary-color: #4A90E2;
+            --accent-color: #FF6B6B;
+            --bg-color: #F7F9FC;
+            --panel-bg: #FFFFFF;
+            --text-color: #333333;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1, h2, h3 { margin: 0 0 10px 0; }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        .tag {
+            background-color: var(--primary-color);
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+        }
+
+        .main-container {
+            display: flex;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        /* Controls Panel */
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .control-group {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+
+        label { display: block; margin-bottom: 5px; font-weight: bold; }
+        
+        input[type="range"] {
+            width: 100%;
+            margin: 10px 0;
+        }
+
+        .value-display {
+            float: right;
+            color: var(--primary-color);
+            font-weight: bold;
+        }
+
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+            margin-bottom: 10px;
+        }
+
+        .btn-mix { background-color: var(--primary-color); color: white; }
+        .btn-mix:hover { background-color: #357ABD; }
+        
+        .btn-evap { background-color: #F5A623; color: white; }
+        .btn-evap:hover { background-color: #D48806; }
+
+        .btn-reset { background-color: #999; color: white; }
+
+        /* Visualization Panel */
+        .simulation-view {
+            flex: 2;
+            min-width: 400px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            border: 2px solid #ddd;
+            border-radius: 0 0 20px 20px; /* Beaker shape bottom */
+            border-top: none;
+            background: #fff;
+            cursor: crosshair;
+        }
+        
+        .beaker-label {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            background: rgba(255,255,255,0.8);
+            padding: 5px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.9rem;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .legend-item { display: flex; align-items: center; gap: 5px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+
+        /* Results Panel */
+        .results {
+            flex: 1;
+            min-width: 250px;
+            background: var(--panel-bg);
+            padding: 20px;
+            border-radius: var(--border-radius);
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        .status-box {
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+            margin-bottom: 15px;
+            font-weight: bold;
+            font-size: 1.2rem;
+            transition: 0.3s;
+        }
+
+        .acidic { background-color: #FFEBEE; color: #D32F2F; border: 2px solid #D32F2F; }
+        .neutral { background-color: #E8F5E9; color: #388E3C; border: 2px solid #388E3C; }
+        .basic { background-color: #E3F2FD; color: #1976D2; border: 2px solid #1976D2; }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+        }
+        
+        .data-table th, .data-table td {
+            border-bottom: 1px solid #eee;
+            padding: 8px;
+            text-align: left;
+        }
+
+        .feedback-area {
+            margin-top: 20px;
+            padding: 10px;
+            background: #FFF9C4;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+        }
+
+        /* Quiz Section */
+        .quiz-section {
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 20px;
+            background: white;
+            padding: 20px;
+            border-radius: var(--border-radius);
+            display: none; /* Hidden until mixed */
+        }
+
+        .quiz-options button {
+            margin: 5px;
+            padding: 8px 16px;
+            background: #f0f0f0;
+            border: 1px solid #ddd;
+            border-radius: 20px;
+            cursor: pointer;
+        }
+        
+        .quiz-options button:hover { background: #e0e0e0; }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>⚗️ 산과 염기의 중화 반응 실험실</h1>
+        <p><span class="tag">화학Ⅰ</span><span class="tag">4단원</span> 산($HCl$)과 염기($NaOH$)를 섞었을 때 입자들은 어떻게 변할까요?</p>
+    </div>
+
+    <div class="main-container">
+        <div class="controls">
+            <h3>🎛️ 실험 조건 설정</h3>
+            
+            <div class="control-group">
+                <label style="color: #D32F2F;">염산 (HCl)</label>
+                <label>농도 (M) <span id="val-hcl-con" class="value-display">1.0</span></label>
+                <input type="range" id="hcl-con" min="0.5" max="2.0" step="0.5" value="1.0">
+                
+                <label>부피 (mL) <span id="val-hcl-vol" class="value-display">10</span></label>
+                <input type="range" id="hcl-vol" min="5" max="20" step="5" value="10">
+            </div>
+
+            <div class="control-group">
+                <label style="color: #1976D2;">수산화 나트륨 (NaOH)</label>
+                <label>농도 (M) <span id="val-naoh-con" class="value-display">1.0</span></label>
+                <input type="range" id="naoh-con" min="0.5" max="2.0" step="0.5" value="1.0">
+                
+                <label>부피 (mL) <span id="val-naoh-vol" class="value-display">10</span></label>
+                <input type="range" id="naoh-vol" min="5" max="20" step="5" value="10">
+            </div>
+
+            <button class="btn btn-mix" onclick="startExperiment()">🧪 용액 혼합하기</button>
+            <button class="btn btn-evap" id="btn-evap" onclick="evaporateWater()" disabled>🔥 물 증발시키기 (결정 확인)</button>
+            <button class="btn btn-reset" onclick="resetExperiment()">🔄 초기화</button>
+        </div>
+
+        <div class="simulation-view">
+            <canvas id="simCanvas" width="400" height="400"></canvas>
+            <div class="beaker-label" id="temp-display">25°C</div>
+            
+            <div class="legend">
+                <div class="legend-item"><span class="dot" style="background:#FF6B6B"></span>H⁺</div>
+                <div class="legend-item"><span class="dot" style="background:#4ECDC4"></span>Cl⁻</div>
+                <div class="legend-item"><span class="dot" style="background:#9B59B6"></span>Na⁺</div>
+                <div class="legend-item"><span class="dot" style="background:#4A90E2"></span>OH⁻</div>
+                <div class="legend-item"><span class="dot" style="background:#888; width:8px; height:8px;"></span>H₂O</div>
+            </div>
+        </div>
+
+        <div class="results">
+            <h3>📊 실험 결과</h3>
+            <div id="ph-status" class="status-box neutral">대기 중</div>
+            
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>이온 종류</th>
+                        <th>입자 수(모형)</th>
+                    </tr>
+                </thead>
+                <tbody id="ion-table-body">
+                    <tr><td>H⁺ (수소)</td><td id="count-h">0</td></tr>
+                    <tr><td>OH⁻ (수산화)</td><td id="count-oh">0</td></tr>
+                    <tr><td>Na⁺ (나트륨)</td><td id="count-na">0</td></tr>
+                    <tr><td>Cl⁻ (염화)</td><td id="count-cl">0</td></tr>
+                    <tr><td>H₂O (물)</td><td id="count-water">0</td></tr>
+                </tbody>
+            </table>
+
+            <div class="feedback-area" id="feedback-text">
+                왼쪽에서 농도와 부피를 설정하고<br>
+                '용액 혼합하기'를 눌러보세요.
+            </div>
+            
+            <div style="margin-top: 15px;">
+                <strong>알짜 이온 반응식:</strong><br>
+                <span id="net-equation" style="font-family: serif; font-style: italic; color: #555;">-</span>
+            </div>
+        </div>
+    </div>
+
+    <div class="quiz-section" id="quiz-section">
+        <h3>📝 학습 점검 퀴즈</h3>
+        <p id="quiz-question">현재 용액의 액성은 무엇인가요?</p>
+        <div class="quiz-options">
+            <button onclick="checkAnswer('acid')">산성</button>
+            <button onclick="checkAnswer('neutral')">중성</button>
+            <button onclick="checkAnswer('base')">염기성</button>
+        </div>
+        <p id="quiz-result" style="font-weight: bold; margin-top: 10px;"></p>
+    </div>
+
+    <script>
+        // --- Configuration & State ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let particles = [];
+        let animationId;
+        let isMixed = false;
+        let isEvaporated = false;
+        
+        // Simulation Scaling Factor (Mol * Vol -> Particle Count)
+        // e.g., 1M * 10mL = 10mmol -> 10 particles
+        const SCALE = 1; 
+
+        const inputIds = ['hcl-con', 'hcl-vol', 'naoh-con', 'naoh-vol'];
+        
+        // Particle Types
+        const TYPES = {
+            H: { color: '#FF6B6B', radius: 4, mass: 1, label: 'H' },
+            Cl: { color: '#4ECDC4', radius: 8, mass: 5, label: 'Cl' },
+            Na: { color: '#9B59B6', radius: 7, mass: 4, label: 'Na' },
+            OH: { color: '#4A90E2', radius: 6, mass: 3, label: 'OH' },
+            Water: { color: '#888888', radius: 5, mass: 3, label: 'H2O' }
+        };
+
+        // --- Event Listeners ---
+        inputIds.forEach(id => {
+            document.getElementById(id).addEventListener('input', (e) => {
+                document.getElementById('val-' + id).innerText = e.target.value;
+                if(isMixed) resetExperiment(); // Auto reset if changed during experiment
+            });
+        });
+
+        // --- Core Logic ---
+
+        class Particle {
+            constructor(type, x, y) {
+                this.type = type; // Key from TYPES
+                this.x = x;
+                this.y = y;
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+                this.prop = TYPES[type];
+                this.active = true; // false if reacted
+                
+                // For Crystal Lattice target
+                this.targetX = null;
+                this.targetY = null;
+            }
+
+            update() {
+                if (isEvaporated && this.targetX !== null) {
+                    // Move towards lattice position
+                    this.x += (this.targetX - this.x) * 0.1;
+                    this.y += (this.targetY - this.y) * 0.1;
+                    return;
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Wall Collision
+                if (this.x < this.prop.radius || this.x > canvas.width - this.prop.radius) this.vx *= -1;
+                if (this.y < 50 || this.y > canvas.height - this.prop.radius) this.vy *= -1; // Top margin for liquid surface
+            }
+
+            draw() {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.prop.radius, 0, Math.PI * 2);
+                ctx.fillStyle = this.prop.color;
+                ctx.fill();
+                ctx.closePath();
+                
+                // Optional: Draw text inside for clarity? (Might be too cluttered)
+            }
+        }
+
+        function init() {
+            // Draw empty beaker
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#E3F2FD";
+            ctx.fillRect(0, 50, canvas.width, canvas.height - 50); // Water
+            ctx.fillStyle = "#333";
+            ctx.fillText("실험 준비 완료", 150, 200);
+        }
+
+        function startExperiment() {
+            if (isMixed) return;
+            isMixed = true;
+            document.getElementById('btn-evap').disabled = false;
+            document.getElementById('quiz-section').style.display = 'block';
+            document.getElementById('quiz-result').innerText = "";
+
+            const hclM = parseFloat(document.getElementById('hcl-con').value);
+            const hclV = parseFloat(document.getElementById('hcl-vol').value);
+            const naohM = parseFloat(document.getElementById('naoh-con').value);
+            const naohV = parseFloat(document.getElementById('naoh-vol').value);
+
+            // Calculate Counts
+            const countH = Math.round(hclM * hclV * SCALE);
+            const countCl = countH;
+            const countNa = Math.round(naohM * naohV * SCALE);
+            const countOH = countNa;
+
+            particles = [];
+
+            // Spawn Particles
+            spawnParticles('H', countH);
+            spawnParticles('Cl', countCl);
+            spawnParticles('Na', countNa);
+            spawnParticles('OH', countOH);
+
+            updateCounts();
+            analyzeResult(countH, countOH);
+            animate();
+        }
+
+        function spawnParticles(type, count) {
+            for(let i=0; i<count; i++) {
+                particles.push(new Particle(type, 
+                    Math.random() * (canvas.width - 40) + 20, 
+                    Math.random() * (canvas.height - 70) + 60
+                ));
+            }
+        }
+
+        function analyzeResult(h, oh) {
+            const diff = h - oh;
+            const statusBox = document.getElementById('ph-status');
+            const feedback = document.getElementById('feedback-text');
+            const tempDisplay = document.getElementById('temp-display');
+            const netEq = document.getElementById('net-equation');
+
+            let temp = 25;
+            // Simplified heat calculation: proportional to water formed
+            const waterFormed = Math.min(h, oh);
+            temp += waterFormed * 0.5; 
+            tempDisplay.innerText = temp.toFixed(1) + "°C";
+
+            netEq.innerHTML = "H⁺(aq) + OH⁻(aq) → H₂O(l)";
+
+            if (diff > 0) {
+                statusBox.className = "status-box acidic";
+                statusBox.innerText = "산성 (Acidic)";
+                feedback.innerHTML = `⚠️ <b>H⁺가 ${diff}개 더 많습니다.</b><br>중화 반응 후에도 산성이 유지됩니다.<br>구경꾼 이온(Na⁺, Cl⁻)은 그대로 남아 있습니다.`;
+            } else if (diff < 0) {
+                statusBox.className = "status-box basic";
+                statusBox.innerText = "염기성 (Basic)";
+                feedback.innerHTML = `⚠️ <b>OH⁻가 ${Math.abs(diff)}개 더 많습니다.</b><br>중화 반응 후 염기성이 되었습니다.<br>페놀프탈레인 용액을 넣으면 붉게 변할 것입니다.`;
+            } else {
+                statusBox.className = "status-box neutral";
+                statusBox.innerText = "중성 (Neutral)";
+                feedback.innerHTML = `✅ <b>모든 H⁺와 OH⁻가 반응했습니다.</b><br>완전 중화가 일어났습니다.<br>이제 용액에는 물과 염(NaCl)만 존재합니다.`;
+            }
+        }
+
+        function animate() {
+            if (!isMixed) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Liquid Background
+            if (!isEvaporated) {
+                ctx.fillStyle = "#E3F2FD";
+                ctx.fillRect(0, 50, canvas.width, canvas.height - 50);
+            } else {
+                ctx.fillStyle = "#FFF"; // No water
+                ctx.fillRect(0, 50, canvas.width, canvas.height - 50);
+            }
+
+            // Reaction Logic (H + OH -> Water)
+            if (!isEvaporated) {
+                for (let i = 0; i < particles.length; i++) {
+                    if (!particles[i].active) continue;
+                    
+                    if (particles[i].type === 'H') {
+                        for (let j = 0; j < particles.length; j++) {
+                            if (particles[j].active && particles[j].type === 'OH') {
+                                // Simple collision check
+                                const dx = particles[i].x - particles[j].x;
+                                const dy = particles[i].y - particles[j].y;
+                                const dist = Math.sqrt(dx*dx + dy*dy);
+                                
+                                if (dist < 15) { // React threshold
+                                    particles[i].active = false; // Remove H
+                                    particles[j].type = 'Water'; // Turn OH into Water (visual simplification)
+                                    particles[j].prop = TYPES['Water'];
+                                    break;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Draw and Update Particles
+            particles.forEach(p => {
+                if (!p.active) return;
+                p.update();
+                p.draw();
+            });
+
+            // Clean up inactive particles from array periodically or just filter for counting
+            updateCounts();
+
+            animationId = requestAnimationFrame(animate);
+        }
+
+        function updateCounts() {
+            const counts = { H:0, OH:0, Na:0, Cl:0, Water:0 };
+            particles.forEach(p => {
+                if(p.active) counts[p.type]++;
+            });
+
+            document.getElementById('count-h').innerText = counts.H;
+            document.getElementById('count-oh').innerText = counts.OH;
+            document.getElementById('count-na').innerText = counts.Na;
+            document.getElementById('count-cl').innerText = counts.Cl;
+            document.getElementById('count-water').innerText = counts.Water;
+        }
+
+        function evaporateWater() {
+            if(!isMixed) return;
+            isEvaporated = true;
+            document.getElementById('btn-evap').disabled = true;
+            document.getElementById('feedback-text').innerHTML += "<br><hr>🔥 <b>가열 중...</b> 물이 증발하고 소금(NaCl) 결정이 나타납니다.";
+
+            // Remove Water and excess H/OH (simulate evaporation)
+            particles.forEach(p => {
+                if (p.type === 'Water' || p.type === 'H' || p.type === 'OH') {
+                    p.active = false;
+                }
+            });
+
+            // Arrange Na and Cl into a grid (Crystal Lattice)
+            let naParticles = particles.filter(p => p.active && p.type === 'Na');
+            let clParticles = particles.filter(p => p.active && p.type === 'Cl');
+            
+            const centerX = canvas.width / 2;
+            const centerY = canvas.height / 2;
+            const spacing = 20;
+            
+            // Simple lattice algorithm
+            let index = 0;
+            // Interleave them for visual lattice effect
+            const max = Math.max(naParticles.length, clParticles.length);
+            
+            let row = 0, col = 0;
+            const cols = Math.ceil(Math.sqrt((naParticles.length + clParticles.length)));
+
+            [...naParticles, ...clParticles].forEach((p, i) => {
+                p.targetX = centerX - (cols * spacing / 2) + (col * spacing);
+                p.targetY = centerY - (cols * spacing / 2) + (row * spacing);
+                col++;
+                if(col >= cols) { col = 0; row++; }
+                
+                // Kill velocity
+                p.vx = 0; p.vy = 0;
+            });
+        }
+
+        function resetExperiment() {
+            isMixed = false;
+            isEvaporated = false;
+            cancelAnimationFrame(animationId);
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            particles = [];
+            
+            document.getElementById('ph-status').className = 'status-box';
+            document.getElementById('ph-status').innerText = '대기 중';
+            document.getElementById('temp-display').innerText = '25°C';
+            document.getElementById('btn-evap').disabled = true;
+            document.getElementById('quiz-section').style.display = 'none';
+            document.getElementById('net-equation').innerText = '-';
+            
+            document.getElementById('feedback-text').innerText = "왼쪽에서 농도와 부피를 설정하고 '용액 혼합하기'를 눌러보세요.";
+            
+            ['h', 'oh', 'na', 'cl', 'water'].forEach(id => {
+                document.getElementById('count-' + id).innerText = '0';
+            });
+            
+            init();
+        }
+
+        function checkAnswer(ans) {
+            const h = parseInt(document.getElementById('count-h').innerText);
+            const oh = parseInt(document.getElementById('count-oh').innerText);
+            let correct = '';
+            
+            if (h > oh) correct = 'acid';
+            else if (oh > h) correct = 'base';
+            else correct = 'neutral';
+
+            const resultText = document.getElementById('quiz-result');
+            if (ans === correct) {
+                resultText.style.color = 'green';
+                resultText.innerText = "🙆‍♂️ 정답입니다! 이온 수를 비교해보면 알 수 있습니다.";
+            } else {
+                resultText.style.color = 'red';
+                resultText.innerText = "🙅 틀렸습니다. H⁺와 OH⁻ 중 어느 것이 남았는지 확인해보세요.";
+            }
+        }
+
+        // Initialize on load
+        window.onload = init;
+
+    </script>
+</body>
+</html>

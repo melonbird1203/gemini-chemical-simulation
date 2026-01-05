@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 수소 연료 전지 (Chemical Energy)</title>
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #10b981;
+            --danger: #ef4444;
+            --bg: #f8fafc;
+            --panel: #ffffff;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+        }
+
+        /* Header */
+        header {
+            grid-column: 1 / -1;
+            background: var(--primary);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; }
+        .subtitle { font-size: 0.9rem; opacity: 0.9; }
+
+        /* Panels */
+        .panel {
+            background: var(--panel);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 { font-size: 1.1rem; border-bottom: 2px solid #e2e8f0; padding-bottom: 10px; margin-top: 0; }
+
+        /* Controls */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 8px; font-size: 0.9rem; }
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #cbd5e1;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            font-size: 1rem;
+        }
+        button.action-btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+        }
+        button.action-btn:hover { background-color: #1d4ed8; }
+        
+        .app-selector { display: flex; gap: 5px; margin-bottom: 15px; }
+        .app-btn {
+            flex: 1;
+            padding: 8px;
+            font-size: 0.8rem;
+            background: #e2e8f0;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .app-btn.active { background: var(--secondary); color: white; }
+
+        /* Canvas Area */
+        .simulation-area {
+            position: relative;
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background: #f1f5f9;
+        }
+
+        /* Results & Feedback */
+        .metric {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 10px;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 6px;
+        }
+        .metric-value { font-weight: bold; color: var(--primary); }
+        
+        .feedback-box {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #ecfdf5;
+            border-left: 4px solid var(--secondary);
+            font-size: 0.9rem;
+        }
+        .feedback-box.error {
+            background-color: #fef2f2;
+            border-left-color: var(--danger);
+        }
+
+        .formula-box {
+            background: #1e293b;
+            color: #fbbf24;
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85rem;
+            margin-top: 10px;
+        }
+
+        /* Quiz Section */
+        .quiz-section { grid-column: 1 / -1; margin-top: 20px; }
+        .quiz-options { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-top: 10px; }
+        .quiz-btn { background: white; border: 1px solid var(--primary); color: var(--primary); }
+        .quiz-btn:hover { background: #eff6ff; }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <h1>🧪 화학 가상실험실: 수소 연료 전지</h1>
+        <div class="subtitle">고등학교 화학 II - IV. 화학 에너지의 이용</div>
+    </div>
+    <div style="text-align: right; font-size: 0.9rem;">
+        단원 성취도: <span id="progress">0</span>%
+    </div>
+</header>
+
+<div class="container">
+    
+    <div class="panel">
+        <h2>🎛️ 실험 설정</h2>
+        
+        <div class="control-group">
+            <label>1. 활용 분야 선택 (Load)</label>
+            <div class="app-selector">
+                <button class="app-btn active" onclick="setApp('lab')">실험실</button>
+                <button class="app-btn" onclick="setApp('car')">수소차</button>
+                <button class="app-btn" onclick="setApp('space')">우주선</button>
+            </div>
+            <p id="app-desc" style="font-size: 0.85rem; color: #64748b;">
+                기본 실험실 환경입니다. 전구의 밝기를 관찰하세요.
+            </p>
+        </div>
+
+        <div class="control-group">
+            <label>2. (-)극 (산화 전극) 주입 기체</label>
+            <select id="anode-gas">
+                <option value="none">선택하세요</option>
+                <option value="H2">수소 (H₂)</option>
+                <option value="CH4">메탄 (CH₄)</option>
+                <option value="O2">산소 (O₂)</option>
+            </select>
+        </div>
+
+        <div class="control-group">
+            <label>3. (+)극 (환원 전극) 주입 기체</label>
+            <select id="cathode-gas">
+                <option value="none">선택하세요</option>
+                <option value="H2">수소 (H₂)</option>
+                <option value="O2">산소 (O₂)</option>
+                <option value="N2">질소 (N₂)</option>
+            </select>
+        </div>
+
+        <button class="action-btn" onclick="toggleSimulation()">실험 시작 / 중지</button>
+        <div style="font-size: 0.8rem; color: #64748b; margin-top:10px; text-align: center;">
+            ⚠️ 안전: 실제 수소 실험은 화재 위험이 있으나, 이 시뮬레이션은 안전합니다.
+        </div>
+    </div>
+
+    <div class="simulation-area panel">
+        <h2>⚡ 연료 전지 내부 작동 모형</h2>
+        <canvas id="simCanvas" width="500" height="400"></canvas>
+        <div id="reaction-display" class="formula-box">
+            준비 상태: 기체를 주입하고 실험을 시작하세요.
+        </div>
+    </div>
+
+    <div class="panel">
+        <h2>📊 실험 결과 & 분석</h2>
+        
+        <div class="metric">
+            <span>전압 (Voltage)</span>
+            <span id="volt-val" class="metric-value">0.00 V</span>
+        </div>
+        <div class="metric">
+            <span>효율 (Efficiency)</span>
+            <span id="eff-val" class="metric-value">0 %</span>
+        </div>
+        <div class="metric">
+            <span>부산물 (Byproduct)</span>
+            <span id="byproduct-val" class="metric-value">-</span>
+        </div>
+
+        <div id="ai-feedback" class="feedback-box">
+            👩‍🏫 <b>선생님 조언:</b><br>
+            연료 전지는 화학 에너지를 전기 에너지로 직접 변환합니다. (-)극에 연료를, (+)극에 산화제를 공급해 보세요.
+        </div>
+
+        <div style="margin-top: 20px;">
+            <label>📝 핵심 개념 메모</label>
+            <ul style="font-size: 0.85rem; padding-left: 20px; color: #475569;">
+                <li>산화 전극(-): 수소가 전자를 잃음</li>
+                <li>환원 전극(+): 산소가 전자와 결합</li>
+                <li>전해질 막: $H^+$ 이온만 통과</li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="panel quiz-section">
+        <h2>🧠 형성 평가 (개념 확인)</h2>
+        <div id="quiz-container">
+            <p id="quiz-question">Q. 수소 연료 전지에서 물($H_2O$)이 생성되는 곳은 어디인가요?</p>
+            <div class="quiz-options">
+                <button class="quiz-btn" onclick="checkAnswer(1)">(-)극 (산화 전극)</button>
+                <button class="quiz-btn" onclick="checkAnswer(2)">(+)극 (환원 전극)</button>
+                <button class="quiz-btn" onclick="checkAnswer(3)">전해질 막 내부</button>
+                <button class="quiz-btn" onclick="checkAnswer(4)">외부 도선</button>
+            </div>
+            <p id="quiz-result" style="margin-top: 10px; font-weight: bold;"></p>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // State Variables
+    let isRunning = false;
+    let particles = [];
+    let electrons = [];
+    let ions = [];
+    let currentApp = 'lab'; // lab, car, space
+    let voltage = 0;
+    let reactionStatus = 'idle'; // idle, running, error, inefficient
+
+    // Elements
+    const anodeSelect = document.getElementById('anode-gas');
+    const cathodeSelect = document.getElementById('cathode-gas');
+    const voltDisplay = document.getElementById('volt-val');
+    const effDisplay = document.getElementById('eff-val');
+    const byproductDisplay = document.getElementById('byproduct-val');
+    const feedbackBox = document.getElementById('ai-feedback');
+    const reactionText = document.getElementById('reaction-display');
+    const appDesc = document.getElementById('app-desc');
+
+    // App Descriptions
+    const appData = {
+        lab: { desc: "기본 실험실 환경입니다. 전구의 밝기를 관찰하세요.", loadName: "전구" },
+        car: { desc: "수소 자동차입니다. 매연 대신 물만 배출되는 친환경 차입니다.", loadName: "모터" },
+        space: { desc: "우주선(아폴로)입니다. 생성된 물은 식수로 사용됩니다.", loadName: "우주선 전력" }
+    };
+
+    function setApp(app) {
+        currentApp = app;
+        document.querySelectorAll('.app-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        appDesc.innerText = appData[app].desc;
+        drawFuelCell();
+    }
+
+    function toggleSimulation() {
+        if (isRunning) {
+            stopSimulation();
+        } else {
+            startSimulation();
+        }
+    }
+
+    function startSimulation() {
+        const anode = anodeSelect.value;
+        const cathode = cathodeSelect.value;
+
+        if (anode === 'none' || cathode === 'none') {
+            feedbackBox.innerHTML = "⚠️ <b>경고:</b> 두 전극에 기체를 모두 주입해야 합니다.";
+            feedbackBox.className = "feedback-box error";
+            return;
+        }
+
+        isRunning = true;
+        document.querySelector('.action-btn').innerText = "실험 중지";
+        
+        // Check Logic
+        if (anode === 'H2' && cathode === 'O2') {
+            reactionStatus = 'running';
+            voltage = 1.23; // Theoretical max ideal
+            feedbackBox.innerHTML = "✅ <b>성공!</b> 수소와 산소가 반응하여 전기를 생성합니다. <br>(-)극: 산화, (+)극: 환원";
+            feedbackBox.className = "feedback-box";
+            reactionText.innerHTML = "(-) $2H_2 \\rightarrow 4H^+ + 4e^-$ <br> (+) $O_2 + 4H^+ + 4e^- \\rightarrow 2H_2O$";
+        } else if (anode === 'CH4' && cathode === 'O2') {
+            reactionStatus = 'inefficient';
+            voltage = 0.7; // Lower efficiency due to reforming
+            feedbackBox.innerHTML = "⚠️ <b>참고:</b> 메탄(CH₄) 사용 시 이산화탄소가 배출되며, 개질(Reforming) 과정이 필요해 효율이 낮습니다.";
+            feedbackBox.className = "feedback-box";
+            reactionText.innerHTML = "$CH_4 + 2H_2O \\rightarrow 4H_2 + CO_2$ (개질 반응 필요)";
+        } else {
+            reactionStatus = 'error';
+            voltage = 0;
+            feedbackBox.innerHTML = "❌ <b>반응 없음:</b> 올바른 연료와 산화제 조합이 아닙니다. <br>Tip: (-)극엔 수소 계열, (+)극엔 산소가 필요합니다.";
+            feedbackBox.className = "feedback-box error";
+            reactionText.innerHTML = "반응이 일어나지 않습니다.";
+        }
+
+        updateMetrics();
+        animate();
+    }
+
+    function stopSimulation() {
+        isRunning = false;
+        document.querySelector('.action-btn').innerText = "실험 시작";
+        particles = [];
+        electrons = [];
+        ions = [];
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawFuelCell();
+        voltage = 0;
+        updateMetrics();
+    }
+
+    function updateMetrics() {
+        voltDisplay.innerText = voltage.toFixed(2) + " V";
+        
+        if (reactionStatus === 'running') {
+            effDisplay.innerText = "85 % (High)";
+            byproductDisplay.innerText = "순수한 물 (H₂O)";
+        } else if (reactionStatus === 'inefficient') {
+            effDisplay.innerText = "40 % (Low)";
+            byproductDisplay.innerText = "물 + 이산화탄소(CO₂)";
+        } else {
+            effDisplay.innerText = "0 %";
+            byproductDisplay.innerText = "-";
+        }
+        
+        // Render Latex manually for simple display (simulated)
+        // In a real app, MathJax would parse reactionText content
+    }
+
+    // --- Visualization Logic ---
+    
+    function drawFuelCell() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Background
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Structure
+        // Anode (Left)
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(100, 100, 40, 200);
+        ctx.fillStyle = '#000';
+        ctx.font = "14px Arial";
+        ctx.fillText("(-) Anode", 85, 320);
+
+        // Cathode (Right)
+        ctx.fillStyle = '#94a3b8';
+        ctx.fillRect(360, 100, 40, 200);
+        ctx.fillText("(+) Cathode", 350, 320);
+
+        // Electrolyte / Membrane (Center)
+        ctx.fillStyle = '#fcd34d'; // Yellowish for membrane
+        ctx.fillRect(140, 100, 220, 200);
+        ctx.fillStyle = '#78350f';
+        ctx.fillText("전해질 막 (PEM)", 200, 320);
+        ctx.font = "12px Arial";
+        ctx.fillText("H+ 이온만 통과", 210, 340);
+
+        // Wire & Load
+        ctx.beginPath();
+        ctx.strokeStyle = '#334155';
+        ctx.lineWidth = 4;
+        ctx.moveTo(120, 100);
+        ctx.lineTo(120, 50);
+        ctx.lineTo(250, 50); // Load position
+        ctx.lineTo(380, 50);
+        ctx.lineTo(380, 100);
+        ctx.stroke();
+
+        // Load Indicator (Bulb/Motor/Space)
+        ctx.fillStyle = (voltage > 0) ? '#fbbf24' : '#cbd5e1';
+        ctx.beginPath();
+        ctx.arc(250, 50, 20, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = '#000';
+        ctx.font = "12px Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(appData[currentApp].loadName, 250, 85);
+
+        // Inputs
+        ctx.fillStyle = '#3b82f6'; // H2 input color
+        ctx.font = "bold 16px Arial";
+        ctx.fillText("IN: " + (anodeSelect.value !== 'none' ? anodeSelect.value : ""), 30, 200);
+        
+        ctx.fillStyle = '#ef4444'; // O2 input color
+        ctx.fillText("IN: " + (cathodeSelect.value !== 'none' ? cathodeSelect.value : ""), 420, 200);
+    }
+
+    function animate() {
+        if (!isRunning) return;
+
+        drawFuelCell();
+
+        // 1. Gas Injection Animation
+        if (Math.random() < 0.1) {
+            // H2 particle entering Anode
+            particles.push({ x: 0, y: 150 + Math.random() * 100, type: 'H2', stage: 0 });
+            // O2 particle entering Cathode
+            particles.push({ x: 500, y: 150 + Math.random() * 100, type: 'O2', stage: 0 });
+        }
+
+        particles.forEach((p, index) => {
+            // Draw Particle
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = (p.type === 'H2' || p.type === 'H+') ? '#3b82f6' : '#ef4444';
+            ctx.fill();
+
+            // Logic Movement
+            if (p.type === 'H2') {
+                if (p.x < 120) p.x += 2; // Move to Anode
+                else {
+                    // Split at Anode
+                    p.type = 'H+'; 
+                    // Create electron
+                    electrons.push({ x: 120, y: 100, path: 0 });
+                }
+            } else if (p.type === 'H+') {
+                // Move through membrane
+                if (p.x < 380) p.x += 1;
+                else p.type = 'dead'; // Reached Cathode to form water
+            } else if (p.type === 'O2') {
+                if (p.x > 380) p.x -= 2;
+                else p.type = 'waiting';
+            }
+            
+            // Cleanup
+            if (p.x > 450 || p.type === 'dead') particles.splice(index, 1);
+        });
+
+        // 2. Electron Flow Animation (Through Wire)
+        electrons.forEach((e, index) => {
+            ctx.beginPath();
+            ctx.arc(e.x, e.y, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24'; // Electron yellow
+            ctx.fill();
+
+            // Path logic: Up -> Right -> Down
+            if (e.x === 120 && e.y > 50) e.y -= 4; // Up
+            else if (e.y <= 50 && e.x < 380) e.x += 6; // Across (Fast)
+            else if (e.x >= 380 && e.y < 150) e.y += 4; // Down
+            else {
+                electrons.splice(index, 1); // Reached Cathode
+                // Create Water Visual
+                particles.push({x: 380, y: e.y, type: 'H2O', stage: 1}); 
+            }
+        });
+        
+        // 3. Water Output (Only if running correctly)
+        if (reactionStatus === 'running' || reactionStatus === 'inefficient') {
+             ctx.fillStyle = '#0ea5e9';
+             ctx.font = "bold 14px Arial";
+             if(Math.random() < 0.05) {
+                 ctx.fillText("H₂O Drop", 420, 250 + Math.random()*20);
+             }
+        }
+
+        requestAnimationFrame(animate);
+    }
+
+    // Initial Draw
+    drawFuelCell();
+
+    // Quiz Logic
+    function checkAnswer(option) {
+        const result = document.getElementById('quiz-result');
+        const progress = document.getElementById('progress');
+        
+        if (option === 2) {
+            result.innerText = "✅ 정답입니다! (+)극에서 산소, 수소이온, 전자가 만나 물이 생성됩니다.";
+            result.style.color = "var(--secondary)";
+            progress.innerText = "100";
+        } else {
+            result.innerText = "❌ 다시 생각해보세요. 물은 산소가 있는 쪽에서 만들어집니다.";
+            result.style.color = "var(--danger)";
+        }
+    }
+</script>
+
+</body>
+</html>

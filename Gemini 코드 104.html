@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 분자의 극성 확인</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --warning: #F1C40F;
+            --danger: #E74C3C;
+            --dark: #34495E;
+            --light: #ECF0F1;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f7fa;
+            color: #333;
+        }
+        header {
+            background-color: var(--dark);
+            color: white;
+            padding: 1rem 2rem;
+            text-align: center;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+        /* 실험 영역 */
+        .lab-bench {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+            position: relative;
+            min-height: 500px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        canvas {
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            background: #fff;
+        }
+        /* 컨트롤 패널 */
+        .controls {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            padding: 20px;
+        }
+        .control-group {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        h3 { margin-top: 0; color: var(--dark); }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 14px;
+            margin-right: 5px;
+            transition: background 0.3s;
+        }
+        button:hover { background-color: #357ABD; }
+        button.reset { background-color: var(--danger); }
+        
+        select, input[type="range"] {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            border-radius: 4px;
+            border: 1px solid #ddd;
+        }
+
+        /* 탭 메뉴 */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 15px;
+            width: 100%;
+            justify-content: center;
+        }
+        .tab-btn {
+            background: var(--light);
+            color: var(--dark);
+            flex: 1;
+        }
+        .tab-btn.active {
+            background: var(--primary);
+            color: white;
+        }
+
+        /* 피드백 박스 */
+        .feedback-box {
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #e8f4fd;
+            border-left: 5px solid var(--primary);
+            border-radius: 4px;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        
+        /* 퀴즈 영역 */
+        .quiz-area {
+            display: none;
+            padding: 20px;
+        }
+        .quiz-area.active { display: block; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 가상 실험실: 분자의 극성</h1>
+    <p>중·고등학교 화학Ⅰ [12화학Ⅰ03-07]</p>
+</header>
+
+<div class="container">
+    <div class="lab-bench">
+        <div class="tabs">
+            <button class="tab-btn active" onclick="setMode('stream')">실험 1: 액체 줄기 휘어짐</button>
+            <button class="tab-btn" onclick="setMode('particle')">실험 2: 입자 돋보기</button>
+        </div>
+        
+        <canvas id="experimentCanvas" width="600" height="400"></canvas>
+        
+        <div id="feedback" class="feedback-box">
+            실험 준비 완료! 오른쪽 패널에서 용액을 선택하고 수도꼭지를 틀어보세요.
+        </div>
+    </div>
+
+    <div class="controls">
+        <h3>🔬 실험 조건 설정</h3>
+        
+        <div class="control-group">
+            <label>1. 용액 선택</label>
+            <select id="liquidSelect" onchange="updateExperiment()">
+                <option value="water">물 (H₂O) - 극성</option>
+                <option value="hexane">헥세인 (C₆H₁₄) - 무극성</option>
+            </select>
+        </div>
+
+        <div class="control-group" id="streamControls">
+            <label>2. 대전체 가져오기</label>
+            <div style="display: flex; gap: 5px; margin-bottom: 10px;">
+                <button onclick="setCharge(0)">없음</button>
+                <button onclick="setCharge(1)">⊕ 대전체</button>
+                <button onclick="setCharge(-1)">⊖ 대전체</button>
+            </div>
+            <label>3. 뷰렛 조작</label>
+            <button id="toggleFlowBtn" onclick="toggleFlow()">수도꼭지 열기</button>
+        </div>
+
+        <div class="control-group" id="particleControls" style="display: none;">
+            <label>전기장 세기</label>
+            <input type="range" id="fieldStrength" min="0" max="100" value="0" oninput="updateParticles()">
+            <p style="font-size: 0.8rem; color: #666;">슬라이더를 움직여 전기장을 걸어주세요.</p>
+        </div>
+
+        <div class="control-group">
+            <button class="reset" onclick="resetExperiment()">실험 초기화</button>
+        </div>
+
+        <div class="control-group">
+            <h4>💡 핵심 개념</h4>
+            <ul style="font-size: 0.85rem; padding-left: 20px;">
+                <li><strong>극성 분자:</strong> 전하가 고르게 분포하지 않아 부분적인 전하를 띱니다.</li>
+                <li><strong>무극성 분자:</strong> 전하가 균일하게 분포합니다.</li>
+            </ul>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('experimentCanvas');
+    const ctx = canvas.getContext('2d');
+    const feedback = document.getElementById('feedback');
+    
+    let mode = 'stream'; // 'stream' or 'particle'
+    let liquid = 'water'; // 'water' or 'hexane'
+    let isFlowing = false;
+    let chargeType = 0; // 0: none, 1: positive, -1: negative
+    let particles = [];
+    let animationId;
+
+    // 초기화
+    function init() {
+        createParticles();
+        animate();
+    }
+
+    function resetExperiment() {
+        isFlowing = false;
+        chargeType = 0;
+        document.getElementById('toggleFlowBtn').innerText = "수도꼭지 열기";
+        document.getElementById('fieldStrength').value = 0;
+        updateExperiment();
+    }
+
+    function setMode(newMode) {
+        mode = newMode;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        if(mode === 'stream') {
+            document.getElementById('streamControls').style.display = 'block';
+            document.getElementById('particleControls').style.display = 'none';
+            feedback.innerHTML = "실험 1: 뷰렛에서 액체를 흘려보내고 대전체를 가까이 가져가 보세요.";
+        } else {
+            document.getElementById('streamControls').style.display = 'none';
+            document.getElementById('particleControls').style.display = 'block';
+            feedback.innerHTML = "실험 2: 전기장을 걸었을 때 분자들의 배열이 어떻게 변하는지 관찰해 보세요.";
+        }
+        updateExperiment();
+    }
+
+    function updateExperiment() {
+        liquid = document.getElementById('liquidSelect').value;
+        createParticles();
+    }
+
+    function setCharge(type) {
+        chargeType = type;
+        if(isFlowing) checkResult();
+    }
+
+    function toggleFlow() {
+        isFlowing = !isFlowing;
+        const btn = document.getElementById('toggleFlowBtn');
+        btn.innerText = isFlowing ? "수도꼭지 잠그기" : "수도꼭지 열기";
+        if(isFlowing) checkResult();
+    }
+
+    function checkResult() {
+        if (!isFlowing) return;
+
+        if (liquid === 'water') {
+            if (chargeType !== 0) {
+                feedback.innerHTML = "<strong>관찰 결과:</strong> 물줄기가 대전체 쪽으로 휘어집니다!<br>→ 물 분자는 극성을 띠므로 전기적 인력을 받습니다.";
+            } else {
+                feedback.innerHTML = "물줄기가 똑바로 떨어집니다. 대전체를 가까이 가져가 보세요.";
+            }
+        } else {
+            if (chargeType !== 0) {
+                feedback.innerHTML = "<strong>관찰 결과:</strong> 헥세인 줄기는 거의 휘어지지 않습니다.<br>→ 헥세인은 무극성 분자이므로 전기장의 영향을 거의 받지 않습니다.";
+            } else {
+                feedback.innerHTML = "헥세인이 흐르고 있습니다.";
+            }
+        }
+    }
+
+    // 입자 생성
+    function createParticles() {
+        particles = [];
+        const numParticles = 40;
+        for(let i=0; i<numParticles; i++) {
+            particles.push({
+                x: Math.random() * canvas.width,
+                y: Math.random() * canvas.height,
+                angle: Math.random() * Math.PI * 2,
+                speed: 0.5 + Math.random()
+            });
+        }
+    }
+
+    function updateParticles() {
+        // 슬라이더 조작 시 호출
+        const strength = document.getElementById('fieldStrength').value;
+        if (strength > 20) {
+            if (liquid === 'water') {
+                feedback.innerHTML = "전기장이 강해지자 물 분자들이 <strong>일정한 방향으로 정렬</strong>합니다. (δ+ 부분은 -, δ- 부분은 + 쪽으로)";
+            } else {
+                feedback.innerHTML = "헥세인은 무극성이므로 전기장이 강해져도 <strong>배열에 큰 변화가 없습니다.</strong>";
+            }
+        }
+    }
+
+    // 그리기 루프
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (mode === 'stream') {
+            drawLabSetup();
+        } else {
+            drawMicroView();
+        }
+
+        animationId = requestAnimationFrame(animate);
+    }
+
+    // --- 실험 1: 뷰렛과 물줄기 그리기 ---
+    function drawLabSetup() {
+        // 뷰렛
+        ctx.fillStyle = '#ddd';
+        ctx.fillRect(280, 0, 40, 100); // 몸통
+        ctx.fillStyle = '#bbb';
+        ctx.beginPath();
+        ctx.moveTo(280, 100);
+        ctx.lineTo(320, 100);
+        ctx.lineTo(300, 150); // 팁
+        ctx.fill();
+
+        // 대전체 (막대)
+        if (chargeType !== 0) {
+            ctx.fillStyle = chargeType === 1 ? '#FF6B6B' : '#4A90E2'; // 빨강(+) / 파랑(-)
+            ctx.fillRect(400, 200, 20, 150);
+            
+            // 전하 표시
+            ctx.fillStyle = 'white';
+            ctx.font = '20px Arial';
+            let symbol = chargeType === 1 ? '+' : '-';
+            for(let i=0; i<5; i++) {
+                ctx.fillText(symbol, 403, 220 + i*30);
+            }
+        }
+
+        // 액체 흐름
+        if (isFlowing) {
+            ctx.strokeStyle = liquid === 'water' ? 'rgba(74, 144, 226, 0.6)' : 'rgba(200, 200, 200, 0.6)';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(300, 150);
+
+            if (liquid === 'water' && chargeType !== 0) {
+                // 휘어짐 (베지어 곡선) - 항상 대전체 쪽으로 끌림
+                // 극성 분자는 +대전체든 -대전체든 인력을 받음 (유도 쌍극자/배향)
+                ctx.quadraticCurveTo(380, 250, 380, 400); 
+            } else {
+                // 직선
+                ctx.lineTo(300, 400);
+            }
+            ctx.stroke();
+        }
+    }
+
+    // --- 실험 2: 입자 뷰 그리기 ---
+    function drawMicroView() {
+        const fieldStrength = document.getElementById('fieldStrength').value;
+        const isPolar = liquid === 'water';
+
+        // 전기장 화살표 배경
+        if (fieldStrength > 0) {
+            ctx.fillStyle = `rgba(200, 200, 200, ${fieldStrength/200})`;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = '#666';
+            ctx.font = '20px Arial';
+            ctx.fillText(fieldStrength > 0 ? "+ (전기장)" : "", 20, 30);
+            ctx.fillText(fieldStrength > 0 ? "- (전기장)" : "", canvas.width - 100, 30);
+        }
+
+        particles.forEach(p => {
+            ctx.save();
+            ctx.translate(p.x, p.y);
+
+            // 회전 로직
+            let targetAngle = p.angle;
+            if (isPolar && fieldStrength > 10) {
+                // 전기장이 있으면 0도(수평)로 정렬하려는 힘
+                // 물 분자: 산소(-)가 +쪽으로, 수소(+)가 -쪽으로.
+                // 여기서는 단순히 수평 정렬로 시각화
+                targetAngle = 0; 
+                // 서서히 회전 (보간)
+                p.angle += (targetAngle - p.angle) * 0.1;
+            } else {
+                // 무극성이거나 전기장 없으면 랜덤 회전
+                p.angle += 0.02;
+            }
+
+            ctx.rotate(p.angle);
+
+            // 분자 그리기 (단순화된 타원)
+            if (isPolar) {
+                // 물 분자 (굽은형)
+                ctx.fillStyle = '#E74C3C'; // 산소
+                ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#ECF0F1'; // 수소
+                ctx.beginPath(); ctx.arc(10, 5, 6, 0, Math.PI*2); ctx.fill();
+                ctx.beginPath(); ctx.arc(10, -5, 6, 0, Math.PI*2); ctx.fill();
+                
+                // 쌍극자 모멘트 표시 (작은 화살표)
+                if(document.getElementById('fieldStrength').value > 50) {
+                    ctx.strokeStyle = 'yellow';
+                    ctx.lineWidth = 2;
+                    ctx.beginPath(); ctx.moveTo(-5,0); ctx.lineTo(15,0); ctx.stroke();
+                }
+            } else {
+                // 헥세인 (무극성, 긴 사슬 대용 타원)
+                ctx.fillStyle = '#95A5A6';
+                ctx.beginPath();
+                ctx.ellipse(0, 0, 15, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.restore();
+            
+            // 약간의 브라운 운동
+            p.x += (Math.random() - 0.5);
+            p.y += (Math.random() - 0.5);
+        });
+    }
+
+    init();
+</script>
+
+</body>
+</html>

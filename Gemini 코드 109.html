@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 중화 적정</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --success: #2ECC71;
+            --danger: #E74C3C;
+            --warning: #F1C40F;
+            --glass: rgba(255, 255, 255, 0.8);
+            --liquid-hcl: #E0F7FA;
+            --liquid-naoh: #E3F2FD;
+            --pink: rgba(255, 105, 180, 0.6);
+            --dark-pink: rgba(255, 20, 147, 0.9);
+        }
+
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: #f0f4f8;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        header {
+            background: var(--primary);
+            color: white;
+            width: 100%;
+            padding: 1rem;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            max-width: 1200px;
+            width: 100%;
+            padding: 20px;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        /* 실험대 영역 */
+        .lab-bench {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            width: 400px;
+            height: 500px;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+            user-select: none;
+        }
+
+        /* 기구 스타일 */
+        .stand {
+            width: 10px;
+            height: 450px;
+            background: #555;
+            position: absolute;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-80px);
+        }
+
+        .clamp {
+            width: 40px;
+            height: 10px;
+            background: #555;
+            position: absolute;
+            left: 50%;
+            top: 100px;
+            transform: translateX(-75px);
+        }
+
+        .burette {
+            width: 20px;
+            height: 250px;
+            border: 2px solid #ccc;
+            border-top: none;
+            background: var(--glass);
+            position: absolute;
+            left: 50%;
+            top: 50px;
+            transform: translateX(-40px);
+            border-radius: 0 0 5px 5px;
+            overflow: hidden;
+        }
+
+        .burette::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 8px;
+            width: 4px;
+            height: 10px;
+            background: #ccc;
+        }
+
+        .burette-liquid {
+            width: 100%;
+            background: var(--liquid-naoh);
+            position: absolute;
+            bottom: 0;
+            transition: height 0.2s;
+        }
+
+        .flask {
+            width: 100px;
+            height: 120px;
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            justify-content: center;
+            align-items: flex-end;
+        }
+
+        .flask-shape {
+            width: 100%;
+            height: 100%;
+            background: var(--glass);
+            border: 2px solid #ccc;
+            clip-path: polygon(20% 0, 80% 0, 100% 100%, 0% 100%);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .flask-liquid {
+            width: 100%;
+            height: 40px; /* 초기 높이 */
+            background: var(--liquid-hcl);
+            position: absolute;
+            bottom: 0;
+            transition: background-color 0.5s ease;
+        }
+
+        .drop {
+            width: 6px;
+            height: 6px;
+            background: var(--liquid-naoh);
+            border-radius: 50%;
+            position: absolute;
+            left: 50%;
+            top: 300px;
+            transform: translateX(-40px);
+            opacity: 0;
+        }
+
+        @keyframes dropFall {
+            0% { top: 300px; opacity: 1; }
+            100% { top: 380px; opacity: 0; }
+        }
+
+        /* 제어 패널 */
+        .controls {
+            flex: 1;
+            min-width: 300px;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+
+        h2 { border-bottom: 2px solid var(--primary); padding-bottom: 10px; color: #333; }
+        
+        .status-panel {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .data-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 5px 0;
+            font-size: 0.95rem;
+        }
+
+        .btn-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+
+        button {
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: 0.2s;
+        }
+
+        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary:hover { background: #357ABD; }
+        .btn-danger { background: var(--danger); color: white; }
+        .btn-success { background: var(--success); color: white; }
+        .btn-warning { background: var(--warning); color: #333; }
+        
+        button:disabled { background: #ccc; cursor: not-allowed; }
+
+        .slider-container {
+            margin: 20px 0;
+        }
+
+        input[type="range"] { width: 100%; }
+
+        .calc-section {
+            border-top: 2px dashed #ccc;
+            padding-top: 20px;
+            display: none;
+        }
+
+        .input-group {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .input-group input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 5px;
+        }
+
+        .feedback-box {
+            margin-top: 15px;
+            padding: 10px;
+            border-radius: 5px;
+            font-weight: bold;
+            text-align: center;
+            min-height: 40px;
+        }
+
+        .tooltip {
+            font-size: 0.8rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* 반응형 */
+        @media (max-width: 768px) {
+            .lab-bench { width: 100%; height: 400px; }
+            .container { padding: 10px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 가상 화학 실험실: 중화 적정</h1>
+    <p>표준 용액(NaOH)을 사용하여 미지 염산(HCl)의 농도를 구해보세요.</p>
+</header>
+
+<div class="container">
+    <div class="lab-bench">
+        <div class="stand"></div>
+        <div class="clamp"></div>
+        
+        <div class="burette">
+            <div class="burette-liquid" id="buretteLiquid" style="height: 100%;"></div>
+        </div>
+        <div class="drop" id="dropAnimation"></div>
+
+        <div class="flask">
+            <div class="flask-shape">
+                <div class="flask-liquid" id="flaskLiquid"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="controls">
+        <div class="status-panel">
+            <h3>📊 실험 데이터</h3>
+            <div class="data-row"><span>표준 용액 (NaOH) 농도:</span> <strong>0.1 M</strong></div>
+            <div class="data-row"><span>염산 (HCl) 부피:</span> <strong>20 mL</strong></div>
+            <div class="data-row"><span>현재 투입된 NaOH 부피:</span> <strong id="volDisplay">0.0</strong> mL</div>
+            <div class="data-row"><span>현재 플라스크 색상:</span> <span id="colorStatus">무색</span></div>
+        </div>
+
+        <div id="step1-setup">
+            <h3>STEP 1: 실험 준비</h3>
+            <p>실험 기구를 세팅하고 지시약을 넣습니다.</p>
+            <button class="btn-warning" style="width: 100%" onclick="setupExperiment()">🧪 페놀프탈레인 지시약 넣기</button>
+        </div>
+
+        <div id="step2-titration" style="display: none;">
+            <h3>STEP 2: 적정 수행</h3>
+            <p>뷰렛 콕을 조절하여 NaOH를 떨어뜨리세요. <br><small>💡 붉은색이 나타나 사라지지 않을 때 멈추세요.</small></p>
+            
+            <div class="btn-group">
+                <button class="btn-primary" onclick="addBase(1)">1 mL 넣기</button>
+                <button class="btn-primary" onclick="addBase(0.5)">0.5 mL 넣기</button>
+                <button class="btn-primary" onclick="addBase(0.1)">0.1 mL 넣기</button>
+                <button class="btn-primary" onclick="addBase(0.05)">한 방울 (0.05mL)</button>
+            </div>
+            
+            <button class="btn-success" style="width: 100%" onclick="finishTitration()">✅ 실험 종료 및 계산하기</button>
+        </div>
+
+        <div id="step3-calc" class="calc-section">
+            <h3>STEP 3: 결과 계산</h3>
+            <p>중화점까지 들어간 NaOH 부피: <strong id="finalVol"></strong> mL</p>
+            <p>공식: $1 \times M_{HCl} \times 20 = 1 \times 0.1 \times V_{NaOH}$</p>
+            <div class="input-group">
+                <input type="number" id="userAnswer" placeholder="HCl 농도 입력 (소수점 둘째자리)">
+                <button class="btn-primary" onclick="checkAnswer()">정답 확인</button>
+            </div>
+            <div id="feedback" class="feedback-box"></div>
+            <button class="btn-danger" style="width: 100%; margin-top: 10px;" onclick="resetExperiment()">🔄 다시 실험하기</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 실험 변수
+    const naohConc = 0.1; // M
+    const hclVol = 20; // mL
+    let hclConc = 0; // 랜덤 생성
+    let currentNaohVol = 0;
+    let targetVol = 0; // 중화점 부피
+    let isIndicatorAdded = false;
+
+    // 초기화 함수
+    function init() {
+        // 랜덤 농도 생성 (0.05 ~ 0.15 M 사이)
+        hclConc = (Math.random() * (0.15 - 0.05) + 0.05).toFixed(3);
+        // 이론적 중화점 계산 (M1V1 = M2V2) -> 1 * ? * 20 = 1 * 0.1 * V2
+        // V2 = (hclConc * 20) / 0.1
+        targetVol = (hclConc * hclVol) / naohConc;
+        
+        currentNaohVol = 0;
+        isIndicatorAdded = false;
+        
+        // UI 초기화
+        document.getElementById('volDisplay').innerText = "0.0";
+        document.getElementById('colorStatus').innerText = "무색";
+        document.getElementById('colorStatus').style.color = "black";
+        document.getElementById('flaskLiquid').style.backgroundColor = "#E0F7FA";
+        document.getElementById('buretteLiquid').style.height = "100%";
+        
+        document.getElementById('step1-setup').style.display = "block";
+        document.getElementById('step2-titration').style.display = "none";
+        document.getElementById('step3-calc').style.display = "none";
+        document.getElementById('feedback').innerText = "";
+        document.getElementById('userAnswer').value = "";
+        
+        console.log(`[Developer Log] Target NaOH Volume: ${targetVol.toFixed(2)} mL, HCl Conc: ${hclConc} M`);
+    }
+
+    // Step 1: 준비
+    function setupExperiment() {
+        isIndicatorAdded = true;
+        alert("페놀프탈레인 지시약을 2~3방울 넣었습니다.\n현재 용액은 산성이므로 무색입니다.");
+        document.getElementById('step1-setup').style.display = "none";
+        document.getElementById('step2-titration').style.display = "block";
+    }
+
+    // Step 2: 적정
+    function addBase(amount) {
+        if (!isIndicatorAdded) return;
+
+        currentNaohVol += amount;
+        
+        // 시각적 업데이트 (수치)
+        document.getElementById('volDisplay').innerText = currentNaohVol.toFixed(2);
+        
+        // 뷰렛 수위 조절 (단순 시각화용 비율)
+        let buretteHeight = 100 - (currentNaohVol * 2); 
+        if(buretteHeight < 0) buretteHeight = 0;
+        document.getElementById('buretteLiquid').style.height = `${buretteHeight}%`;
+
+        // 물방울 애니메이션
+        const drop = document.getElementById('dropAnimation');
+        drop.style.animation = 'none';
+        drop.offsetHeight; /* trigger reflow */
+        drop.style.animation = 'dropFall 0.5s linear';
+
+        // 색상 변화 로직
+        updateColor();
+    }
+
+    function updateColor() {
+        const liquid = document.getElementById('flaskLiquid');
+        const status = document.getElementById('colorStatus');
+        
+        // 중화점 근처 판별
+        const diff = currentNaohVol - targetVol;
+
+        if (diff < -0.5) {
+            // 산성: 무색
+            liquid.style.backgroundColor = "#E0F7FA";
+            status.innerText = "무색 (산성)";
+            status.style.color = "black";
+        } else if (diff >= -0.5 && diff < 0) {
+            // 중화점 직전 (아주 희미한 반응 시뮬레이션)
+            liquid.style.backgroundColor = "rgba(255, 240, 245, 0.8)";
+            status.innerText = "무색 (곧 변함)";
+        } else if (diff >= 0 && diff < 0.5) {
+            // 중화점 도달 (연한 분홍색) - Best Result
+            liquid.style.backgroundColor = "rgba(255, 182, 193, 0.6)";
+            status.innerText = "연한 분홍색 (중화점)";
+            status.style.color = "#E91E63";
+        } else {
+            // 과적정 (진한 붉은색)
+            liquid.style.backgroundColor = "rgba(255, 20, 147, 0.8)";
+            status.innerText = "진한 붉은색 (염기성/과적정)";
+            status.style.color = "#C2185B";
+        }
+    }
+
+    // Step 3: 종료 및 계산
+    function finishTitration() {
+        document.getElementById('step2-titration').style.display = "none";
+        document.getElementById('step3-calc').style.display = "block";
+        document.getElementById('finalVol').innerText = currentNaohVol.toFixed(2);
+    }
+
+    // 정답 확인
+    function checkAnswer() {
+        const userVal = parseFloat(document.getElementById('userAnswer').value);
+        const feedback = document.getElementById('feedback');
+        
+        // 실제 정답
+        // M_HCl = (M_NaOH * V_NaOH) / V_HCl
+        // 여기서 V_NaOH는 학생이 '멈춘 시점'의 부피를 사용해야 논리적으로 맞음 (실험 오차 반영)
+        // 하지만 교육적으로는 '이론적 정답'과 '실험값'을 비교해주는 것이 좋음.
+        
+        // 시나리오: 학생이 멈춘 지점 기준으로 계산했는지 확인
+        const calculatedFromExperiment = (naohConc * currentNaohVol) / hclVol;
+        
+        if (isNaN(userVal)) {
+            feedback.innerText = "값을 입력해주세요!";
+            feedback.style.color = "red";
+            return;
+        }
+
+        const errorMargin = 0.01;
+        
+        if (Math.abs(userVal - calculatedFromExperiment) <= errorMargin) {
+            // 계산이 정확함
+            // 그런데 실험 자체가 잘 되었는가? (색깔 체크)
+            const diff = currentNaohVol - targetVol;
+            
+            if (diff >= 0 && diff < 0.5) {
+                 feedback.innerHTML = "🎉 훌륭합니다! <br>실험 조작도 완벽하고 계산도 정확합니다.";
+                 feedback.style.color = "green";
+            } else if (diff >= 0.5) {
+                 feedback.innerHTML = "⚠️ 계산은 맞았지만, 실험이 과적정되었습니다.<br>(너무 진한 붉은색입니다. NaOH를 조금 덜 넣었어야 해요.)";
+                 feedback.style.color = "#E67E22";
+            } else {
+                 feedback.innerHTML = "⚠️ 계산은 맞았지만, 중화점에 도달하지 못했습니다.<br>(아직 무색입니다. NaOH를 더 넣어야 해요.)";
+                 feedback.style.color = "#E67E22";
+            }
+        } else {
+            feedback.innerHTML = `❌ 계산이 틀렸습니다.<br>식: (1 × M × 20) = (1 × 0.1 × ${currentNaohVol.toFixed(2)})<br>정답은 약 ${calculatedFromExperiment.toFixed(3)} M 입니다.`;
+            feedback.style.color = "red";
+        }
+    }
+
+    function resetExperiment() {
+        init();
+    }
+
+    // 시작
+    init();
+</script>
+
+</body>
+</html>

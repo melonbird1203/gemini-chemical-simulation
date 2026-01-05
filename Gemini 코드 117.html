@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 표면 장력 비교</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-color: #e74c3c;
+            --text-color: #2c3e50;
+        }
+        body {
+            font-family: 'Malgun Gothic', sans-serif;
+            background-color: var(--secondary-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1 { color: var(--primary-color); }
+        
+        /* Layout */
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+        .lab-panel, .control-panel, .data-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        
+        /* Visualizer Area */
+        .lab-panel {
+            flex: 2;
+            min-width: 300px;
+            text-align: center;
+            position: relative;
+        }
+        canvas {
+            border-bottom: 5px solid #bdc3c7;
+            background: radial-gradient(circle at center, #ffffff 0%, #f0f0f0 100%);
+        }
+        .molecule-view {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 120px;
+            height: 120px;
+            border: 2px solid var(--primary-color);
+            border-radius: 50%;
+            background: white;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+            color: #7f8c8d;
+        }
+        
+        /* Controls */
+        .control-panel {
+            flex: 1;
+            min-width: 250px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        select, button {
+            padding: 10px;
+            border-radius: 5px;
+            border: 1px solid #bdc3c7;
+            font-size: 16px;
+            cursor: pointer;
+        }
+        button.drop-btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            font-weight: bold;
+            font-size: 18px;
+            transition: transform 0.1s;
+        }
+        button.drop-btn:active { transform: scale(0.95); }
+        button.reset-btn { background-color: #95a5a6; color: white; border: none; }
+        
+        /* Data & Feedback */
+        .data-panel {
+            flex: 1;
+            min-width: 250px;
+        }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #bdc3c7; padding: 8px; text-align: center; }
+        th { background-color: var(--primary-color); color: white; }
+        
+        .feedback-box {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #fff3cd;
+            border-left: 5px solid #ffc107;
+            border-radius: 5px;
+            display: none;
+        }
+
+        /* Animation Classes */
+        .spilled { animation: shake 0.5s; }
+        @keyframes shake {
+            0% { transform: translate(1px, 1px) rotate(0deg); }
+            10% { transform: translate(-1px, -2px) rotate(-1deg); }
+            20% { transform: translate(-3px, 0px) rotate(1deg); }
+            30% { transform: translate(3px, 2px) rotate(0deg); }
+            40% { transform: translate(1px, -1px) rotate(1deg); }
+            50% { transform: translate(-1px, 2px) rotate(-1deg); }
+            60% { transform: translate(-3px, 1px) rotate(0deg); }
+            70% { transform: translate(3px, 1px) rotate(-1deg); }
+            80% { transform: translate(-1px, -1px) rotate(1deg); }
+            90% { transform: translate(1px, 2px) rotate(0deg); }
+            100% { transform: translate(1px, -2px) rotate(-1deg); }
+        }
+    </style>
+</head>
+<body>
+
+    <h1>💧 표면 장력 비교 실험실</h1>
+    <p>스포이트를 눌러 동전 위에 액체를 떨어뜨리고, 언제 넘치는지 관찰해보세요.</p>
+
+    <div class="container">
+        <div class="lab-panel" id="labArea">
+            <div class="molecule-view" id="moleculeView">
+                <p>분자 보기</p>
+            </div>
+            <canvas id="simCanvas" width="400" height="300"></canvas>
+            <div id="dropCountDisplay" style="font-size: 24px; font-weight: bold; margin-top: 10px;">방울 수: 0</div>
+        </div>
+
+        <div class="control-panel">
+            <h3>🎛️ 실험 설정</h3>
+            <label for="liquidSelect">액체 종류 선택:</label>
+            <select id="liquidSelect" onchange="resetExperiment()">
+                <option value="water">물 (H₂O)</option>
+                <option value="ethanol">에탄올 (C₂H₅OH)</option>
+                <option value="glycerol">글리세롤 (C₃H₈O₃)</option>
+            </select>
+
+            <button class="drop-btn" onclick="addDrop()">💧 한 방울 떨어뜨리기</button>
+            <button class="reset-btn" onclick="resetExperiment()">🔄 초기화</button>
+            
+            <div style="margin-top: 20px;">
+                <strong>현재 상태:</strong> <span id="statusText">준비됨</span>
+            </div>
+        </div>
+
+        <div class="data-panel">
+            <h3>📊 실험 결과 기록</h3>
+            <table id="resultTable">
+                <thead>
+                    <tr>
+                        <th>액체</th>
+                        <th>시도</th>
+                        <th>최대 방울 수</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    </tbody>
+            </table>
+            
+            <div id="feedback" class="feedback-box">
+                </div>
+        </div>
+    </div>
+
+    <script>
+        // --- 설정 및 변수 ---
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        const moleculeView = document.getElementById('moleculeView');
+        
+        let currentLiquid = 'water';
+        let dropCount = 0;
+        let isSpilled = false;
+        let liquidProperties = {
+            'water': { 
+                name: '물', 
+                color: 'rgba(52, 152, 219, 0.6)', 
+                maxDropsBase: 45, // 평균적으로 물이 가장 많이 쌓임
+                variance: 5,
+                tensionMsg: "높음 (수소결합)",
+                moleculeImg: "⭕⭕ (강한 결합)" 
+            },
+            'ethanol': { 
+                name: '에탄올', 
+                color: 'rgba(231, 76, 60, 0.6)', 
+                maxDropsBase: 20, // 물보다 훨씬 적음
+                variance: 3,
+                tensionMsg: "낮음 (약한 인력)",
+                moleculeImg: "⚪ (약한 결합)"
+            },
+            'glycerol': { 
+                name: '글리세롤', 
+                color: 'rgba(241, 196, 15, 0.6)', 
+                maxDropsBase: 35, // 점성이 높으나 표면장력은 물보다 약간 낮음
+                variance: 4,
+                tensionMsg: "중간 (점성 높음)",
+                moleculeImg: "➰ (복잡한 구조)"
+            }
+        };
+
+        let currentThreshold = 0;
+        let experimentHistory = [];
+
+        // --- 초기화 및 그리기 함수 ---
+        function init() {
+            resetExperiment();
+            draw();
+        }
+
+        function resetExperiment() {
+            currentLiquid = document.getElementById('liquidSelect').value;
+            dropCount = 0;
+            isSpilled = false;
+            document.getElementById('dropCountDisplay').innerText = `방울 수: ${dropCount}`;
+            document.getElementById('statusText').innerText = "준비됨";
+            document.getElementById('feedback').style.display = "none";
+            document.getElementById('labArea').classList.remove('spilled');
+            
+            // 분자 뷰 업데이트 (간단한 텍스트/이모지 시각화)
+            moleculeView.innerHTML = `<div style='text-align:center'>${liquidProperties[currentLiquid].moleculeImg}<br><small>${liquidProperties[currentLiquid].tensionMsg}</small></div>`;
+
+            // 임계값 랜덤 설정 (실제 실험처럼 매번 조금씩 다르게)
+            const base = liquidProperties[currentLiquid].maxDropsBase;
+            const vari = liquidProperties[currentLiquid].variance;
+            currentThreshold = base + Math.floor(Math.random() * vari * 2) - vari;
+            
+            draw();
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. 동전 그리기 (회색 타원)
+            ctx.beginPath();
+            ctx.ellipse(200, 250, 100, 30, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = '#95a5a6';
+            ctx.fill();
+            ctx.strokeStyle = '#7f8c8d';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+            
+            // 동전 옆면 (입체감)
+            ctx.beginPath();
+            ctx.moveTo(100, 250);
+            ctx.quadraticCurveTo(200, 280, 300, 250);
+            ctx.lineTo(300, 260);
+            ctx.quadraticCurveTo(200, 290, 100, 260);
+            ctx.fillStyle = '#7f8c8d';
+            ctx.fill();
+
+            // 2. 액체 방울 그리기
+            if (dropCount > 0) {
+                const maxRadius = 90;
+                // 방울 수에 따라 높이와 퍼짐 정도 계산
+                let progress = Math.min(dropCount / currentThreshold, 1.2); // 1.0 넘어가면 넘침
+                
+                if (isSpilled) {
+                    drawSpilledLiquid();
+                } else {
+                    drawDome(progress);
+                }
+            }
+        }
+
+        function drawDome(progress) {
+            ctx.beginPath();
+            // 베지어 곡선으로 돔 형태 그리기
+            // progress가 커질수록 높이(control point Y)가 올라감
+            // 물은 동그랗게(접촉각 큼), 에탄올은 납작하게 퍼짐(접촉각 작음) 시각화 로직
+            
+            let spread = 80 + (progress * 20); // 옆으로 퍼짐
+            let height = 30 + (progress * 100); // 위로 솟음 (표면장력 시각화)
+            
+            // 액체 특성에 따른 높이 보정 (물은 더 높게 쌓임)
+            if (currentLiquid === 'ethanol') height *= 0.6; 
+
+            ctx.moveTo(200 - spread, 250);
+            // 제어점(Control Point)이 위로 올라가며 볼록해짐
+            ctx.quadraticCurveTo(200, 250 - height, 200 + spread, 250);
+            
+            ctx.fillStyle = liquidProperties[currentLiquid].color;
+            ctx.fill();
+            
+            // 광택 효과
+            ctx.beginPath();
+            ctx.ellipse(180, 250 - (height/2.5), 10, 5, -0.5, 0, 2*Math.PI);
+            ctx.fillStyle = 'rgba(255,255,255,0.7)';
+            ctx.fill();
+        }
+
+        function drawSpilledLiquid() {
+            // 넘친 모양 (불규칙한 웅덩이)
+            ctx.beginPath();
+            ctx.moveTo(90, 260);
+            ctx.bezierCurveTo(50, 280, 150, 300, 200, 290);
+            ctx.bezierCurveTo(250, 300, 350, 280, 310, 260);
+            ctx.lineTo(300, 250);
+            ctx.lineTo(100, 250);
+            ctx.fillStyle = liquidProperties[currentLiquid].color;
+            ctx.fill();
+            
+            // 동전 위 잔여물
+            ctx.beginPath();
+            ctx.ellipse(200, 250, 90, 20, 0, 0, 2 * Math.PI);
+            ctx.fillStyle = liquidProperties[currentLiquid].color;
+            ctx.fill();
+        }
+
+        // --- 상호작용 함수 ---
+        function addDrop() {
+            if (isSpilled) return;
+
+            dropCount++;
+            document.getElementById('dropCountDisplay').innerText = `방울 수: ${dropCount}`;
+            document.getElementById('statusText').innerText = "실험 진행 중...";
+
+            // 임계값 초과 체크
+            if (dropCount > currentThreshold) {
+                spill();
+            } else {
+                draw();
+            }
+        }
+
+        function spill() {
+            isSpilled = true;
+            document.getElementById('statusText').innerText = "⚠️ 액체가 넘쳤습니다!";
+            document.getElementById('labArea').classList.add('spilled');
+            draw();
+            recordResult();
+            provideFeedback();
+        }
+
+        function recordResult() {
+            const table = document.getElementById('resultTable').querySelector('tbody');
+            const row = table.insertRow();
+            const attemptNum = table.rows.length; // 현재 행 개수 = 시도 횟수
+            
+            row.innerHTML = `
+                <td>${liquidProperties[currentLiquid].name}</td>
+                <td>${attemptNum}회</td>
+                <td>${dropCount - 1}방울</td>
+            `; // 넘치기 직전 개수가 기록됨
+        }
+
+        function provideFeedback() {
+            const fbBox = document.getElementById('feedback');
+            fbBox.style.display = 'block';
+            
+            let msg = "";
+            if (currentLiquid === 'water') {
+                msg = `<strong>💡 분석:</strong> 물은 분자 간에 강한 <strong>수소 결합</strong>을 하고 있어 서로 꽉 잡아당깁니다. 이 때문에 표면 장력이 매우 커서 동전 위에 둥글게 많이 쌓일 수 있습니다. 
+
+[Image of hydrogen bonding in water]
+`;
+            } else if (currentLiquid === 'ethanol') {
+                msg = `<strong>💡 분석:</strong> 에탄올은 물보다 분자 간 인력이 약합니다. 서로 잡아당기는 힘이 약해 표면을 최소화하려는 성질(표면 장력)이 작아, 물보다 훨씬 빨리 무너져 내립니다.`;
+            } else {
+                msg = `<strong>💡 분석:</strong> 글리세롤은 점성이 크고 분자 간 힘도 강하지만, 물보다는 약간 적은 방울 수를 보입니다.`;
+            }
+            
+            fbBox.innerHTML = msg;
+        }
+
+        // 시작
+        init();
+    </script>
+</body>
+</html>

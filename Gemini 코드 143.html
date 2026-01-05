@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 온도와 반응 속도</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --bg: #F3F4F6;
+            --surface: #FFFFFF;
+            --text: #1F2937;
+        }
+        body {
+            font-family: 'Pretendard', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        .card {
+            background: var(--surface);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        h1, h2 { margin-top: 0; color: var(--primary); }
+        
+        /* Experiment Area */
+        .beaker-container {
+            position: relative;
+            width: 200px;
+            height: 250px;
+            margin: 20px auto;
+            border: 3px solid #ccc;
+            border-top: none;
+            border-radius: 0 0 20px 20px;
+            background: rgba(255, 255, 255, 0.8);
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .x-mark {
+            font-size: 80px;
+            font-weight: bold;
+            color: black;
+            z-index: 1;
+        }
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            background: #E0F2F1;
+            z-index: 2;
+            transition: background-color 0.5s;
+        }
+        .precipitate {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 80%;
+            background-color: #FBBF24; /* Sulfur color */
+            opacity: 0;
+            z-index: 3;
+        }
+
+        /* Controls */
+        .controls { display: flex; flex-direction: column; gap: 15px; }
+        .slider-group { display: flex; flex-direction: column; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .btn {
+            background: var(--primary);
+            color: white;
+            border: none;
+            padding: 12px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn:disabled { background: #ccc; cursor: not-allowed; }
+        .btn:hover:not(:disabled) { opacity: 0.9; }
+
+        /* Stats */
+        .stats {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 10px;
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+
+        /* Particle Animation Box */
+        .particle-box {
+            width: 100%;
+            height: 150px;
+            background: #111;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            margin-top: 20px;
+        }
+        .particle {
+            position: absolute;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: white;
+        }
+
+        /* Feedback */
+        .feedback {
+            margin-top: 15px;
+            padding: 10px;
+            background: #EEF2FF;
+            border-left: 4px solid var(--primary);
+            border-radius: 4px;
+            font-size: 0.95rem;
+        }
+        
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+    <header style="text-align: center; margin-bottom: 20px;">
+        <h1>🧪 온도와 반응 속도 실험</h1>
+        <p>Na₂S₂O₃와 HCl의 반응을 통해 온도가 속도에 미치는 영향을 알아봅시다.</p>
+    </header>
+
+    <div class="container">
+        <div class="card">
+            <h2>🎛️ 실험 조작</h2>
+            <div class="controls">
+                <div class="slider-group">
+                    <label for="tempSlider">온도 설정: <span id="tempValue">25</span>℃</label>
+                    <input type="range" id="tempSlider" min="5" max="60" value="25" step="5">
+                </div>
+                
+                <div class="beaker-container">
+                    <div class="liquid"></div>
+                    <div class="precipitate" id="precipitateLayer"></div>
+                    <div class="x-mark">X</div>
+                </div>
+
+                <div class="stats">
+                    <div>⏱️ 시간: <span id="timerDisplay">0.00</span>s</div>
+                </div>
+
+                <button class="btn" id="startBtn" onclick="startExperiment()">실험 시작</button>
+                <button class="btn" id="resetBtn" onclick="resetExperiment()" style="background:#6B7280; display:none;">초기화</button>
+            </div>
+            
+            <div id="particleSim" class="particle-box">
+                <div style="position: absolute; top:5px; left:5px; color:white; font-size:10px;">입자 모형 (온도 반영)</div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h2>📊 결과 및 분석</h2>
+            <canvas id="rateChart"></canvas>
+            
+            <div class="feedback" id="feedbackBox">
+                실험 온도를 설정하고 시작 버튼을 눌러보세요. <br>
+                비커 바닥의 X가 안 보일 때까지 얼마나 걸릴까요?
+            </div>
+
+            <div style="margin-top: 20px;">
+                <h3>📝 실험 데이터</h3>
+                <table border="1" style="width:100%; border-collapse: collapse; text-align: center; font-size: 0.9rem;">
+                    <thead>
+                        <tr style="background:#f3f4f6;">
+                            <th>온도(℃)</th>
+                            <th>반응 시간(s)</th>
+                            <th>반응 속도(1/s)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dataTableBody">
+                        </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulation State
+        let temperature = 25;
+        let isRunning = false;
+        let startTime;
+        let reactionTimeTarget;
+        let animationId;
+        
+        // Chart.js Setup
+        const ctx = document.getElementById('rateChart').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: '반응 속도 (1/시간)',
+                    data: [],
+                    borderColor: '#4F46E5',
+                    backgroundColor: 'rgba(79, 70, 229, 0.2)',
+                    tension: 0.3,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: '온도 (℃)' } },
+                    y: { title: { display: true, text: '속도 (1/s)' }, beginAtZero: true }
+                }
+            }
+        });
+
+        // DOM Elements
+        const tempSlider = document.getElementById('tempSlider');
+        const tempValue = document.getElementById('tempValue');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const timerDisplay = document.getElementById('timerDisplay');
+        const precipitateLayer = document.getElementById('precipitateLayer');
+        const feedbackBox = document.getElementById('feedbackBox');
+        const dataTableBody = document.getElementById('dataTableBody');
+
+        // Particle System
+        const particleBox = document.getElementById('particleSim');
+        const particles = [];
+        
+        function initParticles() {
+            particleBox.innerHTML = '<div style="position: absolute; top:5px; left:5px; color:white; font-size:10px;">입자 모형 (온도 반영)</div>';
+            particles.length = 0;
+            for(let i=0; i<30; i++) {
+                const p = document.createElement('div');
+                p.className = 'particle';
+                particleBox.appendChild(p);
+                particles.push({
+                    el: p,
+                    x: Math.random() * 100,
+                    y: Math.random() * 100,
+                    vx: (Math.random() - 0.5) * (temperature / 5), // Velocity based on Temp
+                    vy: (Math.random() - 0.5) * (temperature / 5)
+                });
+            }
+        }
+
+        function updateParticles() {
+            particles.forEach(p => {
+                p.x += p.vx;
+                p.y += p.vy;
+                
+                if(p.x <= 0 || p.x >= 96) p.vx *= -1;
+                if(p.y <= 0 || p.y >= 96) p.vy *= -1;
+
+                p.el.style.left = p.x + '%';
+                p.el.style.top = p.y + '%';
+            });
+            if(isRunning) requestAnimationFrame(updateParticles);
+        }
+
+        // Event Listeners
+        tempSlider.addEventListener('input', (e) => {
+            temperature = parseInt(e.target.value);
+            tempValue.innerText = temperature;
+            initParticles(); // Re-init with new speed logic
+        });
+
+        function startExperiment() {
+            if (isRunning) return;
+            
+            isRunning = true;
+            tempSlider.disabled = true;
+            startBtn.style.display = 'none';
+            resetBtn.style.display = 'none';
+            
+            // Calculate Reaction Time (Simplified Arrhenius-like Model)
+            // Base time at 20C is approx 30s. Rate doubles roughly every 10C.
+            // Formula: Time = 30 * (0.5 ^ ((Temp - 20)/10))
+            const calculatedTime = 30 * Math.pow(0.5, (temperature - 20) / 10);
+            reactionTimeTarget = Math.max(0.5, calculatedTime); // Minimum 0.5s
+            
+            startTime = Date.now();
+            
+            feedbackBox.innerHTML = `⚠️ <strong>반응 진행 중...</strong><br>온도(${temperature}℃)가 입자의 운동에 어떤 영향을 주는지 관찰하세요.<br>황($S$) 앙금이 생성되면서 용액이 뿌옇게 변합니다.`;
+            
+            updateParticles(); // Start particle animation
+            animateReaction();
+        }
+
+        function animateReaction() {
+            const elapsed = (Date.now() - startTime) / 1000;
+            timerDisplay.innerText = elapsed.toFixed(2);
+            
+            // Opacity Logic: 0 to 1 over reactionTimeTarget
+            let progress = elapsed / reactionTimeTarget;
+            if (progress > 1) progress = 1;
+            
+            precipitateLayer.style.opacity = progress;
+
+            if (progress < 1) {
+                animationId = requestAnimationFrame(animateReaction);
+            } else {
+                finishExperiment(elapsed);
+            }
+        }
+
+        function finishExperiment(finalTime) {
+            isRunning = false;
+            resetBtn.style.display = 'inline-block';
+            
+            const rate = (1 / finalTime).toFixed(3);
+            
+            // Update Data & Graph
+            addDataPoint(temperature, finalTime, rate);
+            
+            // Feedback
+            let explanation = "";
+            if(temperature < 20) {
+                explanation = "온도가 낮아 입자의 운동 에너지가 작습니다. 활성화 에너지 이상의 에너지를 가진 입자가 적어 반응이 느립니다.";
+            } else if (temperature > 40) {
+                explanation = "온도가 높아 입자가 매우 활발합니다! 유효 충돌 횟수가 급격히 늘어 반응이 빠르게 종료되었습니다.";
+            } else {
+                explanation = "적당한 온도에서의 반응 속도입니다. 온도를 높이거나 낮추면 어떻게 될까요?";
+            }
+
+            feedbackBox.innerHTML = `✅ <strong>실험 완료!</strong><br>걸린 시간: ${finalTime.toFixed(2)}초<br>반응 속도: ${rate} (1/s)<br><br>💡 <strong>해석:</strong> ${explanation}`;
+        }
+
+        function addDataPoint(temp, time, rate) {
+            // Update Table
+            const row = `<tr><td>${temp}</td><td>${time.toFixed(2)}</td><td>${rate}</td></tr>`;
+            dataTableBody.innerHTML += row;
+
+            // Update Chart
+            // Check if temp already exists to avoid duplicates visually or handle multiple trials
+            const existingIndex = chart.data.labels.indexOf(temp);
+            if(existingIndex !== -1) {
+                chart.data.datasets[0].data[existingIndex] = rate;
+            } else {
+                chart.data.labels.push(temp);
+                chart.data.datasets[0].data.push(rate);
+                // Sort for chart visual consistency
+                const combined = chart.data.labels.map((t, i) => ({ t, r: chart.data.datasets[0].data[i] }));
+                combined.sort((a, b) => a.t - b.t);
+                chart.data.labels = combined.map(c => c.t);
+                chart.data.datasets[0].data = combined.map(c => c.r);
+            }
+            chart.update();
+        }
+
+        function resetExperiment() {
+            precipitateLayer.style.opacity = 0;
+            timerDisplay.innerText = "0.00";
+            tempSlider.disabled = false;
+            startBtn.style.display = 'inline-block';
+            resetBtn.style.display = 'none';
+            feedbackBox.innerHTML = "다른 온도에서도 실험을 진행해보고 그래프의 변화를 관찰해보세요!";
+        }
+
+        // Init
+        initParticles();
+    </script>
+</body>
+</html>

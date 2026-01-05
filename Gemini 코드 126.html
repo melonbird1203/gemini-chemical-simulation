@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>화학 평형 시뮬레이션: Q vs K</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            --primary: #4361ee;
+            --secondary: #3f37c9;
+            --accent: #f72585;
+            --bg: #f8f9fa;
+            --card-bg: #ffffff;
+            --text: #2b2d42;
+            --h2-color: #3a86ff; /* 수소 */
+            --i2-color: #8338ec; /* 아이오딘 */
+            --hi-color: #06d6a0; /* 아이오딘화수소 */
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+            max-width: 800px;
+        }
+
+        h1 { margin-bottom: 5px; color: var(--secondary); }
+        .subtitle { font-size: 0.9rem; color: #666; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+
+        /* 컨트롤 패널 스타일 */
+        .control-group { margin-bottom: 15px; }
+        .control-group label { display: block; margin-bottom: 5px; font-weight: bold; }
+        .slider-container { display: flex; align-items: center; gap: 10px; }
+        input[type="range"] { flex-grow: 1; cursor: pointer; }
+        .val-display { width: 50px; text-align: right; font-family: monospace; }
+        
+        .h2-label { color: var(--h2-color); }
+        .i2-label { color: var(--i2-color); }
+        .hi-label { color: var(--hi-color); }
+
+        /* 결과 패널 스타일 */
+        .result-box {
+            text-align: center;
+            padding: 15px;
+            background-color: #e9ecef;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .formula { font-size: 1.2rem; margin: 10px 0; font-weight: bold; }
+        .comparison { font-size: 1.5rem; color: var(--accent); font-weight: bold; margin: 10px 0; }
+        .direction-arrow { font-size: 2rem; display: block; margin: 10px 0; transition: transform 0.3s; }
+
+        /* 시각화 영역 */
+        canvas#particleCanvas {
+            width: 100%;
+            height: 200px;
+            border-radius: 8px;
+            background: #222;
+        }
+        
+        .btn {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 1rem;
+            width: 100%;
+            margin-top: 10px;
+            transition: background 0.2s;
+        }
+        .btn:hover { background-color: var(--secondary); }
+        .btn-outline {
+            background-color: transparent;
+            border: 2px solid var(--primary);
+            color: var(--primary);
+        }
+        .btn-outline:hover { background-color: #eef2ff; }
+
+        .quiz-section {
+            margin-top: 20px;
+            border-top: 1px solid #ddd;
+            padding-top: 15px;
+        }
+        .feedback {
+            margin-top: 10px;
+            padding: 10px;
+            border-radius: 6px;
+            display: none;
+        }
+        .feedback.correct { background-color: #d4edda; color: #155724; }
+        .feedback.wrong { background-color: #f8d7da; color: #721c24; }
+
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 반응지수(Q)와 평형상수(K)</h1>
+    <div class="subtitle">고등학교 화학Ⅱ: 화학 평형의 진행 방향 예측</div>
+    <p style="margin-top:10px; font-size: 0.95rem;">
+        반응식: <strong style="color:var(--h2-color)">H₂</strong>(g) + <strong style="color:var(--i2-color)">I₂</strong>(g) ⇄ 2<strong style="color:var(--hi-color)">HI</strong>(g)
+    </p>
+</header>
+
+<div class="container">
+    <div class="left-col">
+        <div class="card">
+            <h3>🎛️ 농도 조건 설정 (mol/L)</h3>
+            
+            <div class="control-group">
+                <label class="h2-label">[H₂] 수소 기체</label>
+                <div class="slider-container">
+                    <input type="range" id="h2-slider" min="0.1" max="5.0" step="0.1" value="1.0">
+                    <span id="h2-val" class="val-display">1.0</span> M
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="i2-label">[I₂] 아이오딘 기체</label>
+                <div class="slider-container">
+                    <input type="range" id="i2-slider" min="0.1" max="5.0" step="0.1" value="1.0">
+                    <span id="i2-val" class="val-display">1.0</span> M
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label class="hi-label">[HI] 아이오딘화 수소</label>
+                <div class="slider-container">
+                    <input type="range" id="hi-slider" min="0.0" max="5.0" step="0.1" value="0.5">
+                    <span id="hi-val" class="val-display">0.5</span> M
+                </div>
+            </div>
+
+            <div class="control-group" style="border-top: 1px dashed #ccc; padding-top: 15px;">
+                <label>🌡️ 평형상수 (K)</label>
+                <select id="k-select" style="width: 100%; padding: 8px; border-radius: 4px;">
+                    <option value="4">K = 4 (기본)</option>
+                    <option value="50">K = 50 (정반응 우세)</option>
+                    <option value="0.1">K = 0.1 (역반응 우세)</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h3>📊 결과 분석</h3>
+            <div class="result-box">
+                <div>현재 반응지수 Q값</div>
+                <div class="formula" id="q-formula">Q = 0.25</div>
+                <div class="comparison" id="comparison-text">Q < K</div>
+                <div class="direction-arrow" id="direction-arrow">➡️</div>
+                <div id="direction-desc">정반응 진행 (생성물 증가)</div>
+            </div>
+            
+            <div class="quiz-section">
+                <h4>🤔 예측 퀴즈</h4>
+                <p>현재 조건에서 반응은 어디로 진행될까요?</p>
+                <div style="display: flex; gap: 10px;">
+                    <button class="btn btn-outline" onclick="checkAnswer('forward')">정반응(→)</button>
+                    <button class="btn btn-outline" onclick="checkAnswer('equilibrium')">평형(=)</button>
+                    <button class="btn btn-outline" onclick="checkAnswer('reverse')">역반응(←)</button>
+                </div>
+                <div id="quiz-feedback" class="feedback"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-col">
+        <div class="card">
+            <h3>🔬 입자 모형 (시각화)</h3>
+            <canvas id="particleCanvas"></canvas>
+            <p style="font-size: 0.8rem; text-align: center; color: #666;">*입자의 개수는 농도에 비례하여 표시됩니다.</p>
+        </div>
+
+        <div class="card" style="margin-top: 20px;">
+            <h3>📈 평형 도달 예측 그래프</h3>
+            <div style="position: relative; height: 300px; width: 100%">
+                <canvas id="chartCanvas"></canvas>
+            </div>
+            <button class="btn" onclick="updateGraph()">그래프 업데이트 (평형 예측)</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // 상태 변수
+    let state = {
+        H2: 1.0,
+        I2: 1.0,
+        HI: 0.5,
+        K: 4.0,
+        Q: 0
+    };
+
+    // DOM 요소
+    const sliders = {
+        H2: document.getElementById('h2-slider'),
+        I2: document.getElementById('i2-slider'),
+        HI: document.getElementById('hi-slider')
+    };
+    const displays = {
+        H2: document.getElementById('h2-val'),
+        I2: document.getElementById('i2-val'),
+        HI: document.getElementById('hi-val')
+    };
+    const kSelect = document.getElementById('k-select');
+    
+    // 차트 초기화
+    let simulationChart;
+    
+    function initChart() {
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        simulationChart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [
+                    { label: '[H₂]', borderColor: '#3a86ff', data: [], tension: 0.4 },
+                    { label: '[I₂]', borderColor: '#8338ec', data: [], tension: 0.4 },
+                    { label: '[HI]', borderColor: '#06d6a0', data: [], tension: 0.4 }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { title: { display: true, text: '시간 (가상)' } },
+                    y: { title: { display: true, text: '농도 (M)' }, beginAtZero: true }
+                },
+                animation: {
+                    duration: 1500
+                }
+            }
+        });
+    }
+
+    // Q 계산 및 UI 업데이트
+    function updateCalculation() {
+        // 값 읽기
+        state.H2 = parseFloat(sliders.H2.value);
+        state.I2 = parseFloat(sliders.I2.value);
+        state.HI = parseFloat(sliders.HI.value);
+        state.K = parseFloat(kSelect.value);
+
+        // UI 숫자 표시 업데이트
+        displays.H2.textContent = state.H2.toFixed(1);
+        displays.I2.textContent = state.I2.toFixed(1);
+        displays.HI.textContent = state.HI.toFixed(1);
+
+        // Q 계산: Q = [HI]^2 / ([H2][I2])
+        if (state.H2 * state.I2 === 0) {
+            state.Q = state.HI > 0 ? 9999 : 0; // 분모가 0일 때 처리
+        } else {
+            state.Q = (state.HI * state.HI) / (state.H2 * state.I2);
+        }
+
+        // 결과 텍스트 업데이트
+        const qElem = document.getElementById('q-formula');
+        const compElem = document.getElementById('comparison-text');
+        const arrowElem = document.getElementById('direction-arrow');
+        const descElem = document.getElementById('direction-desc');
+
+        qElem.innerHTML = `Q = ${state.Q.toFixed(2)}`;
+
+        // 비교 로직
+        if (Math.abs(state.Q - state.K) < 0.01) {
+            compElem.textContent = "Q = K";
+            compElem.style.color = "#28a745";
+            arrowElem.textContent = "⇌";
+            descElem.textContent = "현재 평형 상태입니다.";
+            state.direction = 'equilibrium';
+        } else if (state.Q < state.K) {
+            compElem.textContent = "Q < K";
+            compElem.style.color = "#f72585";
+            arrowElem.textContent = "➡️";
+            descElem.textContent = "정반응 진행 (반응물 → 생성물)";
+            state.direction = 'forward';
+        } else {
+            compElem.textContent = "Q > K";
+            compElem.style.color = "#f72585";
+            arrowElem.textContent = "⬅️";
+            descElem.textContent = "역반응 진행 (생성물 → 반응물)";
+            state.direction = 'reverse';
+        }
+
+        // 퀴즈 피드백 초기화
+        document.getElementById('quiz-feedback').style.display = 'none';
+
+        // 캔버스 입자 업데이트
+        updateParticles();
+        
+        // 그래프 자동 업데이트 (옵션)
+        // updateGraph(); 
+    }
+
+    // 퀴즈 정답 확인
+    window.checkAnswer = function(userGuess) {
+        const feedback = document.getElementById('quiz-feedback');
+        feedback.style.display = 'block';
+        
+        let correct = false;
+        if (userGuess === state.direction) correct = true;
+
+        if (correct) {
+            feedback.className = 'feedback correct';
+            feedback.innerHTML = `<strong>정답입니다!</strong><br>Q(${state.Q.toFixed(2)})와 K(${state.K})의 관계를 잘 이해했군요.`;
+        } else {
+            feedback.className = 'feedback wrong';
+            let reason = "";
+            if(state.direction === 'forward') reason = "Q가 K보다 작으므로 평형에 도달하려면 생성물이 더 늘어나야 합니다.";
+            else if(state.direction === 'reverse') reason = "Q가 K보다 크므로 평형에 도달하려면 반응물이 더 늘어나야 합니다.";
+            else reason = "Q와 K가 같으므로 이미 평형 상태입니다.";
+            
+            feedback.innerHTML = `<strong>아쉽네요.</strong><br>${reason}`;
+        }
+    };
+
+    // 그래프 계산 및 그리기 (2차 방정식 근의 공식 활용)
+    window.updateGraph = function() {
+        // 평형 상태의 x 구하기 (H2 - x, I2 - x, HI + 2x)
+        // Kc = (HI + 2x)^2 / ((H2-x)(I2-x))
+        // 풀이: (4 - Kc)x^2 + (4HI + Kc(H2+I2))x + (HI^2 - Kc*H2*I2) = 0
+        
+        const a = 4 - state.K;
+        const b = 4 * state.HI + state.K * (state.H2 + state.I2);
+        const c = Math.pow(state.HI, 2) - state.K * state.H2 * state.I2;
+
+        let x = 0;
+
+        if (Math.abs(a) < 1e-5) {
+            // a가 0에 가까우면 1차 방정식 bx + c = 0
+            x = -c / b;
+        } else {
+            const det = b*b - 4*a*c;
+            if (det >= 0) {
+                const x1 = (-b + Math.sqrt(det)) / (2*a);
+                const x2 = (-b - Math.sqrt(det)) / (2*a);
+                
+                // 물리적으로 가능한 해 찾기 (농도는 음수가 될 수 없음)
+                // -HI/2 < x < min(H2, I2) 조건 필요하나 단순하게 근사
+                // 초기값에서 변화량이 더 작은 쪽이 물리적 해일 가능성이 높음
+                if (Math.abs(x1) < Math.abs(x2)) x = x1;
+                else x = x2;
+            }
+        }
+
+        // 그래프 데이터 생성 (0 ~ 10초)
+        const labels = [];
+        const dataH2 = [];
+        const dataI2 = [];
+        const dataHI = [];
+        const steps = 20;
+
+        for (let i = 0; i <= steps; i++) {
+            labels.push(i);
+            // 지수 함수적 접근으로 평형 도달 시뮬레이션
+            const progress = 1 - Math.exp(-i / 5); // 0 -> 1 로 감
+            const currentX = x * progress;
+            
+            dataH2.push(Math.max(0, state.H2 - currentX));
+            dataI2.push(Math.max(0, state.I2 - currentX));
+            dataHI.push(Math.max(0, state.HI + 2 * currentX));
+        }
+
+        simulationChart.data.labels = labels;
+        simulationChart.data.datasets[0].data = dataH2;
+        simulationChart.data.datasets[1].data = dataI2;
+        simulationChart.data.datasets[2].data = dataHI;
+        simulationChart.update();
+    };
+
+    // 입자 애니메이션 (Canvas)
+    const canvas = document.getElementById('particleCanvas');
+    const ctx = canvas.getContext('2d');
+    let particles = [];
+
+    function resizeCanvas() {
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+    }
+
+    class Particle {
+        constructor(type) {
+            this.type = type; // 'H2', 'I2', 'HI'
+            this.reset();
+        }
+        
+        reset() {
+            this.x = Math.random() * canvas.width;
+            this.y = Math.random() * canvas.height;
+            this.vx = (Math.random() - 0.5) * 2;
+            this.vy = (Math.random() - 0.5) * 2;
+            this.radius = this.type === 'HI' ? 6 : 4;
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            if(this.type === 'H2') ctx.fillStyle = '#3a86ff';
+            else if(this.type === 'I2') ctx.fillStyle = '#8338ec';
+            else ctx.fillStyle = '#06d6a0';
+            ctx.fill();
+            
+            // 분자 모양 디테일 (두 개 붙은 모양 표현)
+            if (this.type !== 'HI') {
+                ctx.beginPath();
+                ctx.arc(this.x + 3, this.y + 3, 2, 0, Math.PI * 2);
+                ctx.fillStyle = 'rgba(255,255,255,0.3)';
+                ctx.fill();
+            }
+        }
+
+        update() {
+            this.x += this.vx;
+            this.y += this.vy;
+
+            if(this.x < 0 || this.x > canvas.width) this.vx *= -1;
+            if(this.y < 0 || this.y > canvas.height) this.vy *= -1;
+            
+            this.draw();
+        }
+    }
+
+    function updateParticles() {
+        particles = [];
+        // 농도에 비례하여 입자 수 생성 (최대 개수 제한)
+        const scale = 10; 
+        const countH2 = Math.min(50, Math.floor(state.H2 * scale));
+        const countI2 = Math.min(50, Math.floor(state.I2 * scale));
+        const countHI = Math.min(50, Math.floor(state.HI * scale));
+
+        for(let i=0; i<countH2; i++) particles.push(new Particle('H2'));
+        for(let i=0; i<countI2; i++) particles.push(new Particle('I2'));
+        for(let i=0; i<countHI; i++) particles.push(new Particle('HI'));
+    }
+
+    function animate() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        particles.forEach(p => p.update());
+        requestAnimationFrame(animate);
+    }
+
+    // 이벤트 리스너 등록
+    Object.values(sliders).forEach(slider => {
+        slider.addEventListener('input', updateCalculation);
+    });
+    kSelect.addEventListener('change', updateCalculation);
+    window.addEventListener('resize', resizeCanvas);
+
+    // 초기 실행
+    initChart();
+    resizeCanvas();
+    updateCalculation();
+    updateGraph(); // 초기 그래프 그리기
+    animate();
+
+</script>
+</body>
+</html>

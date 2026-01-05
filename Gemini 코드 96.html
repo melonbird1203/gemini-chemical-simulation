@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>동위원소 가상 실험실 - Isotope Lab</title>
+    <style>
+        :root {
+            --primary: #4A90E2;
+            --secondary: #50E3C2;
+            --accent: #FF6B6B;
+            --bg: #F5F7FA;
+            --panel: #FFFFFF;
+            --text: #333333;
+        }
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+        h1, h2 { text-align: center; color: #2c3e50; }
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+            justify-content: center;
+        }
+        /* Panels */
+        .panel {
+            background: var(--panel);
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            padding: 20px;
+            flex: 1;
+            min-width: 300px;
+        }
+        .canvas-container {
+            flex: 2;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-width: 400px;
+        }
+        canvas {
+            background: radial-gradient(circle at center, #ffffff 0%, #e6f7ff 100%);
+            border-radius: 50%;
+            box-shadow: inset 0 0 20px rgba(0,0,0,0.05);
+            border: 2px solid #ddd;
+        }
+        
+        /* Controls */
+        .control-group {
+            margin-bottom: 20px;
+            border-bottom: 1px solid #eee;
+            padding-bottom: 15px;
+        }
+        .control-group label {
+            display: block;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: transform 0.1s;
+        }
+        button:active { transform: scale(0.95); }
+        .btn-add { background: var(--primary); color: white; }
+        .btn-remove { background: #e74c3c; color: white; }
+        .btn-reset { background: #95a5a6; color: white; width: 100%; margin-top: 10px; }
+        .btn-target { background: var(--secondary); color: #005f4d; border: 1px solid #005f4d; }
+        
+        /* Stats */
+        .stat-box {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .stat-value { font-weight: bold; font-size: 1.2em; color: var(--primary); }
+        
+        /* Legend */
+        .legend { display: flex; gap: 15px; font-size: 0.9em; margin-top: 10px; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; margin-right: 5px; }
+        
+        /* Feedback */
+        #feedback {
+            margin-top: 15px;
+            padding: 15px;
+            border-radius: 8px;
+            background: #fff3cd;
+            border-left: 5px solid #ffc107;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+
+        /* Average Mass Section */
+        .avg-mass-section {
+            width: 100%;
+            max-width: 1200px;
+            margin-top: 30px;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        }
+        .slider-container { margin: 20px 0; }
+        input[type=range] { width: 100%; }
+        .bar-chart {
+            display: flex;
+            height: 40px;
+            border-radius: 20px;
+            overflow: hidden;
+            margin: 20px 0;
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            line-height: 40px;
+        }
+        
+    </style>
+</head>
+<body>
+
+    <h1>⚛️ 동위원소 제작소 & 평균 원자량 실험</h1>
+    <p>중성자 수를 조절하여 동위원소를 만들고, 평균 원자량의 비밀을 밝혀보세요.</p>
+
+    <div class="container">
+        <div class="panel">
+            <h2>🛠️ 실험 조작</h2>
+            
+            <div class="control-group">
+                <label>목표 원소 선택</label>
+                <div class="btn-group">
+                    <button class="btn-target" onclick="setTarget('H')">수소 (H)</button>
+                    <button class="btn-target" onclick="setTarget('C')">탄소 (C)</button>
+                </div>
+            </div>
+
+            <div class="control-group">
+                <label>입자 조절</label>
+                <div class="stat-box">
+                    <span>🔴 양성자 (Proton)</span>
+                    <div>
+                        <button class="btn-remove" onclick="updateParticle('p', -1)">-</button>
+                        <span id="p-count" class="stat-value">1</span>
+                        <button class="btn-add" onclick="updateParticle('p', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <span>🟡 중성자 (Neutron)</span>
+                    <div>
+                        <button class="btn-remove" onclick="updateParticle('n', -1)">-</button>
+                        <span id="n-count" class="stat-value">0</span>
+                        <button class="btn-add" onclick="updateParticle('n', 1)">+</button>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <span>⚪ 전자 (Electron)</span>
+                    <div>
+                        <button class="btn-remove" onclick="updateParticle('e', -1)">-</button>
+                        <span id="e-count" class="stat-value">1</span>
+                        <button class="btn-add" onclick="updateParticle('e', 1)">+</button>
+                    </div>
+                </div>
+            </div>
+
+            <button class="btn-reset" onclick="resetExperiment()">실험 초기화</button>
+        </div>
+
+        <div class="panel canvas-container">
+            <canvas id="atomCanvas" width="400" height="400"></canvas>
+            <div class="legend">
+                <span><span class="dot" style="background:red;"></span>양성자</span>
+                <span><span class="dot" style="background:gold;"></span>중성자</span>
+                <span><span class="dot" style="background:#ddd; border:1px solid #999;"></span>전자</span>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>📊 관찰 결과</h2>
+            <div class="stat-box">
+                <span>질량수 (Mass Number)</span>
+                <span id="mass-num" class="stat-value">1</span>
+            </div>
+            <div class="stat-box">
+                <span>원자 표기</span>
+                <span id="symbol-display" class="stat-value" style="font-family: serif; font-size: 1.5em;"><sup>1</sup>H</span>
+            </div>
+            
+            <div id="feedback">
+                <strong>💡 학습 도우미</strong><br>
+                수소 원자핵에는 양성자가 1개 있습니다. 중성자를 추가해보며 어떤 변화가 생기는지 관찰해보세요.
+            </div>
+
+            <div style="margin-top: 20px; border-top: 1px solid #eee; padding-top:10px;">
+                <h3>📝 퀵 퀴즈</h3>
+                <p id="quiz-question">현재 상태는 어떤 동위원소인가요?</p>
+                <button onclick="checkAnswer()" style="background:#6c5ce7; color:white; width:100%;">정답 확인하기</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="panel avg-mass-section">
+        <h2>⚖️ 평균 원자량 시뮬레이터 (염소: Cl)</h2>
+        <p>자연계에 존재하는 염소의 동위원소 비율을 조절하여 평균 원자량을 계산해봅시다.</p>
+        
+        <div class="slider-container">
+            <label>Cl-35 존재비: <span id="ratio-35">75</span>%</label>
+            <input type="range" id="abundanceSlider" min="0" max="100" value="75" oninput="updateAvgMass()">
+            <label style="margin-top:5px; color:#666;">(Cl-37 존재비는 자동으로 <span id="ratio-37">25</span>%가 됩니다)</label>
+        </div>
+
+        <div class="bar-chart">
+            <div id="bar-35" style="width: 75%; background: #4A90E2;">Cl-35</div>
+            <div id="bar-37" style="width: 25%; background: #FF6B6B;">Cl-37</div>
+        </div>
+
+        <div class="stat-box" style="justify-content: center; background: #e8f4fd;">
+            <span style="font-size: 1.2em; margin-right: 10px;">계산된 평균 원자량: </span>
+            <span id="avg-mass-result" class="stat-value" style="font-size: 2em; color: #2c3e50;">35.50</span> amu
+        </div>
+        <p style="text-align: center; color: #555; font-size: 0.9em;">
+            공식: (35 × 존재비%) + (37 × 존재비%) / 100
+        </p>
+    </div>
+
+    <script>
+        // --- State Management ---
+        let particles = { p: 1, n: 0, e: 1 };
+        let targetElement = 'H'; // 'H' or 'C'
+
+        // --- Canvas Setup ---
+        const canvas = document.getElementById('atomCanvas');
+        const ctx = canvas.getContext('2d');
+        const center = { x: canvas.width / 2, y: canvas.height / 2 };
+
+        // --- Interaction Logic ---
+        function setTarget(el) {
+            targetElement = el;
+            if (el === 'H') {
+                particles = { p: 1, n: 0, e: 1 };
+                document.getElementById('feedback').innerHTML = "<strong>수소(H)</strong> 선택됨. 가장 가벼운 원소입니다. 중성자가 없는 수소도 있을까요?";
+            } else {
+                particles = { p: 6, n: 6, e: 6 };
+                document.getElementById('feedback').innerHTML = "<strong>탄소(C)</strong> 선택됨. 생명체의 기본 요소입니다. 탄소-12, 13, 14의 차이를 만들어보세요.";
+            }
+            updateUI();
+        }
+
+        function updateParticle(type, change) {
+            const newVal = particles[type] + change;
+            if (newVal < 0) return;
+            if (type === 'e' && newVal > 10) return; // Limit electrons for visual simplicity
+            if (type === 'p' && newVal > 10) return;
+            
+            particles[type] = newVal;
+            updateUI();
+            generateFeedback();
+        }
+
+        function resetExperiment() {
+            setTarget(targetElement);
+        }
+
+        // --- Drawing Logic ---
+        function drawAtom() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // 1. Draw Nucleus (Protons & Neutrons)
+            const nucleusParticles = [];
+            for (let i = 0; i < particles.p; i++) nucleusParticles.push({ color: 'red', type: 'p' });
+            for (let i = 0; i < particles.n; i++) nucleusParticles.push({ color: 'gold', type: 'n' });
+
+            // Shuffle for random cluster look
+            nucleusParticles.sort(() => Math.random() - 0.5);
+
+            // Simple spiral packing for nucleus
+            nucleusParticles.forEach((p, index) => {
+                const angle = index * 137.5; // Golden angle
+                const r = 6 * Math.sqrt(index); // Spread factor
+                const x = center.x + r * Math.cos(angle);
+                const y = center.y + r * Math.sin(angle);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 8, 0, Math.PI * 2);
+                ctx.fillStyle = p.color;
+                ctx.fill();
+                ctx.strokeStyle = '#333';
+                ctx.stroke();
+                
+                // Add text for colorblind accessibility
+                ctx.fillStyle = 'black';
+                ctx.font = '8px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(p.type === 'p' ? '+' : 'n', x, y);
+            });
+
+            // 2. Draw Electrons (Simple Shells)
+            const shellRadii = [60, 100, 140];
+            let eRemaining = particles.e;
+            let shellIdx = 0;
+
+            const electronsPerShell = [2, 8, 8];
+
+            while (eRemaining > 0 && shellIdx < shellRadii.length) {
+                const countInShell = Math.min(eRemaining, electronsPerShell[shellIdx]);
+                const radius = shellRadii[shellIdx];
+
+                // Draw Shell Path
+                ctx.beginPath();
+                ctx.arc(center.x, center.y, radius, 0, Math.PI * 2);
+                ctx.strokeStyle = '#ddd';
+                ctx.stroke();
+
+                // Draw Electrons
+                const time = Date.now() / 1000; // For animation
+                for (let i = 0; i < countInShell; i++) {
+                    const angle = (Math.PI * 2 * i / countInShell) + (time * (shellIdx % 2 === 0 ? 1 : -1));
+                    const ex = center.x + radius * Math.cos(angle);
+                    const ey = center.y + radius * Math.sin(angle);
+
+                    ctx.beginPath();
+                    ctx.arc(ex, ey, 5, 0, Math.PI * 2);
+                    ctx.fillStyle = '#fff';
+                    ctx.fill();
+                    ctx.strokeStyle = '#999';
+                    ctx.stroke();
+                }
+
+                eRemaining -= countInShell;
+                shellIdx++;
+            }
+
+            requestAnimationFrame(drawAtom);
+        }
+
+        // --- Logic & Feedback ---
+        function updateUI() {
+            document.getElementById('p-count').innerText = particles.p;
+            document.getElementById('n-count').innerText = particles.n;
+            document.getElementById('e-count').innerText = particles.e;
+
+            const massNum = particles.p + particles.n;
+            document.getElementById('mass-num').innerText = massNum;
+
+            // Update Symbol: e.g., 12C
+            let symbol = '?';
+            if (particles.p === 1) symbol = 'H';
+            else if (particles.p === 6) symbol = 'C';
+            else if (particles.p === 2) symbol = 'He'; // Just in case user plays around
+            else symbol = 'X';
+
+            document.getElementById('symbol-display').innerHTML = `<sup>${massNum}</sup>${symbol}`;
+        }
+
+        function generateFeedback() {
+            const massNum = particles.p + particles.n;
+            const feedbackEl = document.getElementById('feedback');
+            
+            if (targetElement === 'H') {
+                if (particles.p !== 1) {
+                    feedbackEl.innerHTML = "<span style='color:red'>⚠️ 주의:</span> 수소 원자는 양성자가 항상 1개여야 합니다!";
+                    return;
+                }
+                if (particles.n === 0) feedbackEl.innerHTML = "<strong>수소-1 (경수소):</strong> 가장 흔한 수소입니다. 양성자 1개만으로 핵이 구성됩니다.";
+                else if (particles.n === 1) feedbackEl.innerHTML = "<strong>수소-2 (중수소):</strong> 중성자가 하나 더해져 무거워졌습니다. 자연계에 극소량 존재합니다.";
+                else if (particles.n === 2) feedbackEl.innerHTML = "<strong>수소-3 (삼중수소):</strong> 매우 불안정한 방사성 동위원소입니다.";
+                else feedbackEl.innerHTML = "이론적으로 가능할 수 있으나 매우 불안정한 상태입니다.";
+            } else if (targetElement === 'C') {
+                 if (particles.p !== 6) {
+                    feedbackEl.innerHTML = "<span style='color:red'>⚠️ 주의:</span> 탄소 원자는 양성자가 항상 6개여야 합니다!";
+                    return;
+                }
+                if (particles.n === 6) feedbackEl.innerHTML = "<strong>탄소-12:</strong> 자연계 탄소의 약 99%를 차지하는 가장 안정한 동위원소입니다.";
+                else if (particles.n === 7) feedbackEl.innerHTML = "<strong>탄소-13:</strong> 약 1% 정도 존재하는 동위원소입니다. 화학적 성질은 탄소-12와 같습니다.";
+                else if (particles.n === 8) feedbackEl.innerHTML = "<strong>탄소-14:</strong> 방사성 동위원소로, 연대 측정에 사용됩니다.";
+                else feedbackEl.innerHTML = `질량수 ${massNum}인 탄소 동위원소를 만들었습니다.`;
+            }
+        }
+
+        function checkAnswer() {
+            const massNum = particles.p + particles.n;
+            let answer = "";
+            if(particles.p === 1) answer = `수소-${massNum}`;
+            else if(particles.p === 6) answer = `탄소-${massNum}`;
+            else answer = "알 수 없는 원소";
+            
+            alert(`정답: 이것은 ${answer} 입니다.\n(양성자 수: ${particles.p}, 중성자 수: ${particles.n})`);
+        }
+
+        // --- Average Mass Calculator ---
+        function updateAvgMass() {
+            const p35 = parseInt(document.getElementById('abundanceSlider').value);
+            const p37 = 100 - p35;
+            
+            document.getElementById('ratio-35').innerText = p35;
+            document.getElementById('ratio-37').innerText = p37;
+            
+            document.getElementById('bar-35').style.width = p35 + '%';
+            document.getElementById('bar-37').style.width = p37 + '%';
+            
+            if(p35 === 0) { document.getElementById('bar-35').style.display = 'none'; } else { document.getElementById('bar-35').style.display = 'block'; }
+            if(p37 === 0) { document.getElementById('bar-37').style.display = 'none'; } else { document.getElementById('bar-37').style.display = 'block'; }
+
+            // Calculation Logic
+            const avg = (35 * p35 + 37 * p37) / 100;
+            document.getElementById('avg-mass-result').innerText = avg.toFixed(2);
+        }
+
+        // Initialize
+        drawAtom();
+        updateUI();
+        
+    </script>
+</body>
+</html>

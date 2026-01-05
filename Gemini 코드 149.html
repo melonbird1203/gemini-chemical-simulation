@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 염화 나트륨 용융액의 전기 분해</title>
+    <style>
+        :root {
+            --primary: #4F46E5;
+            --secondary: #10B981;
+            --danger: #EF4444;
+            --bg: #F3F4F6;
+            --text: #1F2937;
+        }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; line-height: 1.6; }
+        .container { max-width: 1000px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        h1 { text-align: center; color: var(--primary); border-bottom: 2px solid #eee; padding-bottom: 20px; }
+        
+        /* Layout */
+        .lab-layout { display: flex; flex-wrap: wrap; gap: 20px; margin-top: 20px; }
+        .canvas-area { flex: 2; min-width: 300px; position: relative; border: 2px solid #ddd; border-radius: 10px; background: #fff; }
+        .control-panel { flex: 1; min-width: 250px; background: #f9fafb; padding: 20px; border-radius: 10px; border: 1px solid #e5e7eb; }
+        
+        /* Controls */
+        .control-group { margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        input[type="range"] { width: 100%; cursor: pointer; }
+        .value-display { font-size: 0.9em; color: var(--primary); font-weight: bold; float: right; }
+        
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; transition: 0.2s; margin-bottom: 10px; }
+        .btn-start { background: var(--primary); color: white; }
+        .btn-start:hover { background: #4338ca; }
+        .btn-reset { background: #9CA3AF; color: white; }
+        .btn-print { background: var(--secondary); color: white; margin-top: 20px;}
+
+        /* Reaction Info */
+        .reaction-board { margin-top: 20px; padding: 15px; background: #eef2ff; border-left: 5px solid var(--primary); border-radius: 5px; }
+        .reaction-eq { font-family: 'Courier New', monospace; font-weight: bold; font-size: 1.1em; }
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 0.8em; color: white; margin-right: 5px; }
+        .badge-ox { background: var(--danger); } /* Oxidation */
+        .badge-red { background: var(--primary); } /* Reduction */
+
+        /* Quiz Section */
+        .quiz-section { margin-top: 30px; border-top: 2px dashed #ddd; padding-top: 20px; }
+        .quiz-item { margin-bottom: 15px; background: #f0fdf4; padding: 15px; border-radius: 8px; display: none; }
+        .quiz-item.active { display: block; }
+        
+        /* Legends */
+        .legend { display: flex; gap: 10px; margin-top: 10px; font-size: 0.8em; justify-content: center; }
+        .dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        
+        @media print {
+            .control-panel, .btn-print { display: none; }
+            .container { box-shadow: none; border: none; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>⚗️ 가상실험: 염화 나트륨(NaCl) 용융 전기분해</h1>
+    
+    <div class="lab-layout">
+        <div class="canvas-area">
+            <canvas id="simCanvas" width="500" height="400"></canvas>
+            <div class="legend">
+                <span><span class="dot" style="background:#818cf8"></span> Na⁺</span>
+                <span><span class="dot" style="background:#34d399"></span> Cl⁻</span>
+                <span><span class="dot" style="background:#fbbf24"></span> 전자(e⁻)</span>
+                <span><span class="dot" style="background:#9ca3af"></span> Na(s)</span>
+                <span><span class="dot" style="background:#10b981"></span> Cl₂(g)</span>
+            </div>
+        </div>
+
+        <div class="control-panel">
+            <h3>🎛️ 실험 조작 패널</h3>
+            
+            <div class="control-group">
+                <label>온도 (가열) <span id="tempVal" class="value-display">25°C</span></label>
+                <input type="range" id="tempRange" min="25" max="1000" step="5" value="25">
+                <p id="stateMsg" style="font-size:0.8em; color:gray;">현재 상태: 고체 (전류 흐름 없음)</p>
+            </div>
+
+            <div class="control-group">
+                <label>전압 (외부 전원) <span id="voltVal" class="value-display">0.0 V</span></label>
+                <input type="range" id="voltRange" min="0" max="10" step="0.1" value="0">
+            </div>
+
+            <div class="control-group">
+                <label>전극 재질</label>
+                <select id="electrodeSelect" style="width:100%; padding:8px;">
+                    <option value="carbon">탄소 (Carbon)</option>
+                    <option value="platinum">백금 (Platinum)</option>
+                </select>
+            </div>
+
+            <button class="btn-start" onclick="toggleSim()">실험 시작 / 정지</button>
+            <button class="btn-reset" onclick="resetSim()">초기화</button>
+            <button class="btn-print" onclick="window.print()">📄 결과 보고서 인쇄 (PDF)</button>
+        </div>
+    </div>
+
+    <div class="reaction-board">
+        <h3>📊 실시간 반응 분석</h3>
+        <p><strong>(+)극 (산화 전극):</strong> <span id="anodeEq" class="reaction-eq">-</span></p>
+        <p><strong>(–)극 (환원 전극):</strong> <span id="cathodeEq" class="reaction-eq">-</span></p>
+        <p style="font-size:0.9em; color:#666;">📝 <strong>Tip:</strong> NaCl의 녹는점은 약 801°C입니다. 온도를 높여 고체를 녹이고 전압을 가해보세요.</p>
+    </div>
+
+    <div class="quiz-section">
+        <h3>🧠 개념 확인 퀴즈</h3>
+        <div id="quiz1" class="quiz-item active">
+            <p><strong>Q1. 전기 분해 장치에서 (-)극으로 이동하는 이온은 무엇인가요?</strong></p>
+            <button onclick="checkAnswer(1, 'Na')">Na⁺ (나트륨 이온)</button>
+            <button onclick="checkAnswer(1, 'Cl')">Cl⁻ (염화 이온)</button>
+            <p id="fb1" style="font-weight:bold; margin-top:10px;"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('simCanvas');
+    const ctx = canvas.getContext('2d');
+    
+    // State
+    let temperature = 25;
+    let voltage = 0;
+    let isRunning = false;
+    let particles = [];
+    let bubbles = [];
+    let sodiumDeposit = 0;
+    let electronOffset = 0;
+
+    // Constants
+    const MELTING_POINT = 801;
+    const DECOMPOSITION_VOLTAGE = 4.0; // Simulated threshold
+
+    class Particle {
+        constructor(type) {
+            this.type = type; // 'Na', 'Cl'
+            this.x = 100 + Math.random() * 300;
+            this.y = 150 + Math.random() * 200;
+            this.vx = 0;
+            this.vy = 0;
+            this.radius = type === 'Na' ? 6 : 8;
+            this.color = type === 'Na' ? '#818cf8' : '#34d399';
+        }
+
+        update() {
+            // State Logic
+            const isMolten = temperature >= MELTING_POINT;
+            
+            if (!isMolten) {
+                // Solid: Vibrate in place
+                this.x += (Math.random() - 0.5) * 1;
+                this.y += (Math.random() - 0.5) * 1;
+            } else {
+                // Liquid: Brownian motion
+                this.vx = (Math.random() - 0.5) * 2;
+                this.vy = (Math.random() - 0.5) * 2;
+
+                // Electrolysis Logic
+                if (voltage >= DECOMPOSITION_VOLTAGE && isRunning) {
+                    const fieldStrength = (voltage / 10) * 2;
+                    if (this.type === 'Na') {
+                        this.vx += fieldStrength; // Move to Right (Cathode -)
+                    } else {
+                        this.vx -= fieldStrength; // Move to Left (Anode +)
+                    }
+                }
+
+                this.x += this.vx;
+                this.y += this.vy;
+
+                // Boundary & Reaction Check
+                // Left Electrode (+) Anode
+                if (this.x < 110 && this.type === 'Cl') {
+                    if (voltage >= DECOMPOSITION_VOLTAGE && isRunning) {
+                        createBubble(this.x, this.y);
+                        this.respawn();
+                    } else {
+                        this.x = 110; this.vx *= -1;
+                    }
+                }
+                // Right Electrode (-) Cathode
+                if (this.x > 390 && this.type === 'Na') {
+                     if (voltage >= DECOMPOSITION_VOLTAGE && isRunning) {
+                        sodiumDeposit += 0.5;
+                        this.respawn();
+                    } else {
+                        this.x = 390; this.vx *= -1;
+                    }
+                }
+                
+                // Container walls
+                if(this.y > 380) this.y = 380;
+                if(this.y < 150) this.y = 150;
+                if(this.x < 100) this.x = 100;
+                if(this.x > 400) this.x = 400;
+            }
+        }
+
+        respawn() {
+            this.x = 200 + Math.random() * 100;
+            this.y = 200 + Math.random() * 100;
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.fillStyle = 'white';
+            ctx.font = '10px Arial';
+            ctx.fillText(this.type === 'Na' ? '+' : '-', this.x - 3, this.y + 3);
+        }
+    }
+
+    function createBubble(x, y) {
+        bubbles.push({x: x, y: y, radius: 2 + Math.random()*3, speed: 1 + Math.random()});
+    }
+
+    function init() {
+        particles = [];
+        for(let i=0; i<30; i++) particles.push(new Particle('Na'));
+        for(let i=0; i<30; i++) particles.push(new Particle('Cl'));
+        draw();
+    }
+
+    function draw() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw Beaker
+        ctx.fillStyle = temperature >= MELTING_POINT ? 'rgba(255, 165, 0, 0.3)' : 'rgba(200, 200, 200, 0.2)';
+        ctx.fillRect(100, 150, 300, 240);
+        ctx.strokeRect(100, 150, 300, 240); // Beaker outline
+
+        // Electrodes
+        ctx.fillStyle = '#555'; // Carbon
+        ctx.fillRect(80, 50, 30, 300); // Left (+) Anode
+        ctx.fillRect(390, 50, 30, 300); // Right (-) Cathode
+        
+        // Electrode Labels
+        ctx.fillStyle = 'black';
+        ctx.font = 'bold 16px Arial';
+        ctx.fillText('(+) 산화 전극', 50, 40);
+        ctx.fillText('(-) 환원 전극', 380, 40);
+
+        // Battery / Circuit
+        ctx.beginPath();
+        ctx.moveTo(95, 50);
+        ctx.lineTo(95, 20);
+        ctx.lineTo(405, 20);
+        ctx.lineTo(405, 50);
+        ctx.strokeStyle = '#333';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Battery Symbol
+        ctx.clearRect(230, 10, 40, 20);
+        ctx.beginPath();
+        ctx.moveTo(240, 10); ctx.lineTo(240, 30); // Long
+        ctx.moveTo(250, 15); ctx.lineTo(250, 25); // Short
+        ctx.stroke();
+        ctx.fillText(voltage + 'V', 235, 45);
+
+        // Particles
+        particles.forEach(p => { p.update(); p.draw(); });
+
+        // Bubbles (Cl2)
+        ctx.fillStyle = '#10b981';
+        bubbles.forEach((b, i) => {
+            b.y -= b.speed;
+            ctx.beginPath();
+            ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2);
+            ctx.fill();
+            if(b.y < 150) bubbles.splice(i, 1);
+        });
+
+        // Sodium Deposit
+        if(sodiumDeposit > 0) {
+            ctx.fillStyle = '#9ca3af'; // Silverish
+            ctx.fillRect(385 - sodiumDeposit, 150, sodiumDeposit, 240);
+        }
+
+        // Electron Flow Animation
+        if(voltage >= DECOMPOSITION_VOLTAGE && temperature >= MELTING_POINT && isRunning) {
+            electronOffset = (electronOffset + 2) % 20;
+            ctx.fillStyle = '#fbbf24';
+            // Top wire flow: Anode -> Battery -> Cathode
+            // Actually electrons flow Anode -> (+) Battery -> (-) Battery -> Cathode
+            // But usually visualized as flow from Anode to Cathode in external circuit
+            for(let i=100; i<400; i+=30) {
+                 ctx.beginPath();
+                 ctx.arc(i + electronOffset, 20, 3, 0, Math.PI*2);
+                 ctx.fill();
+            }
+        }
+
+        requestAnimationFrame(draw);
+    }
+
+    // Controls
+    document.getElementById('tempRange').addEventListener('input', (e) => {
+        temperature = parseInt(e.target.value);
+        document.getElementById('tempVal').innerText = temperature + '°C';
+        const msg = document.getElementById('stateMsg');
+        if(temperature >= MELTING_POINT) {
+            msg.innerText = "상태: 액체 (이온 이동 가능)";
+            msg.style.color = "green";
+        } else {
+            msg.innerText = "상태: 고체 (이온 고정됨 - 부도체)";
+            msg.style.color = "red";
+            sodiumDeposit = 0; // Reset visual on freeze
+        }
+        updateReactionText();
+    });
+
+    document.getElementById('voltRange').addEventListener('input', (e) => {
+        voltage = parseFloat(e.target.value);
+        document.getElementById('voltVal').innerText = voltage + ' V';
+        updateReactionText();
+    });
+
+    function toggleSim() {
+        isRunning = !isRunning;
+        updateReactionText();
+    }
+
+    function resetSim() {
+        temperature = 25;
+        voltage = 0;
+        isRunning = false;
+        sodiumDeposit = 0;
+        document.getElementById('tempRange').value = 25;
+        document.getElementById('voltRange').value = 0;
+        document.getElementById('tempVal').innerText = "25°C";
+        document.getElementById('voltVal').innerText = "0.0 V";
+        document.getElementById('stateMsg').innerText = "상태: 고체 (전류 흐름 없음)";
+        init();
+        updateReactionText();
+    }
+
+    function updateReactionText() {
+        const anodeText = document.getElementById('anodeEq');
+        const cathodeText = document.getElementById('cathodeEq');
+
+        if(temperature >= MELTING_POINT && voltage >= DECOMPOSITION_VOLTAGE && isRunning) {
+            anodeText.innerHTML = "<span class='badge badge-ox'>산화</span> 2Cl⁻(l) → Cl₂(g) + 2e⁻ (황록색 기체 발생)";
+            cathodeText.innerHTML = "<span class='badge badge-red'>환원</span> 2Na⁺(l) + 2e⁻ → 2Na(s) (은백색 금속 생성)";
+        } else {
+            anodeText.innerText = "- (반응 없음)";
+            cathodeText.innerText = "- (반응 없음)";
+        }
+    }
+
+    function checkAnswer(qNum, ans) {
+        const fb = document.getElementById('fb' + qNum);
+        if(ans === 'Na') {
+            fb.innerText = "정답입니다! (+)전하를 띤 나트륨 이온은 (-)극으로 끌려갑니다.";
+            fb.style.color = "green";
+        } else {
+            fb.innerText = "다시 생각해보세요. (-)극은 음전하를 띠므로 반대 전하가 끌려옵니다.";
+            fb.style.color = "red";
+        }
+    }
+
+    init();
+    draw();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 금속의 이온화 경향과 산화 환원</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #50e3c2;
+            --bg-color: #f4f7f6;
+            --text-color: #333;
+            --card-bg: #ffffff;
+            --cu-color: #b87333; /* 구리색 */
+            --ag-color: #e0e0e0; /* 은색 */
+            --zn-color: #9aa5b1; /* 아연색 */
+            --sol-blue: rgba(0, 119, 190, 0.6); /* 구리 용액 */
+            --sol-clear: rgba(220, 240, 255, 0.2); /* 투명 용액 */
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 { color: var(--primary-color); text-align: center; }
+        .subtitle { text-align: center; color: #666; font-size: 0.9em; margin-bottom: 20px; }
+
+        /* 레이아웃 */
+        .lab-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            max-width: 1000px;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .control-panel, .result-panel, .micro-view {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            flex: 1;
+            min-width: 300px;
+        }
+
+        /* 실험 장치 (비커) */
+        .experiment-stage {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            position: relative;
+            background: #eef2f5;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+
+        .beaker {
+            width: 150px;
+            height: 200px;
+            border-bottom: 4px solid #aaa;
+            border-left: 4px solid #aaa;
+            border-right: 4px solid #aaa;
+            border-radius: 0 0 10px 10px;
+            position: relative;
+            background: rgba(255,255,255,0.8);
+            overflow: hidden;
+        }
+
+        .liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 70%;
+            background-color: var(--sol-clear);
+            transition: background-color 3s ease;
+            z-index: 1;
+        }
+
+        .metal-strip {
+            width: 40px;
+            height: 160px;
+            background-color: #ccc;
+            position: absolute;
+            top: 10px; /* 비커 위에 걸침 */
+            left: 50%;
+            transform: translateX(-50%);
+            border-radius: 5px;
+            z-index: 2;
+            transition: background-color 0.5s;
+            box-shadow: inset 2px 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .coating {
+            position: absolute;
+            bottom: 0;
+            width: 100%;
+            height: 0%;
+            background-color: transparent;
+            transition: height 3s ease, background-color 3s ease;
+            z-index: 3;
+            opacity: 0.9;
+        }
+
+        /* 컨트롤 요소 */
+        select, button {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+            font-size: 16px;
+        }
+
+        button {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+
+        button:hover { background-color: #357abd; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+
+        .reset-btn { background-color: #e74c3c; }
+        .reset-btn:hover { background-color: #c0392b; }
+
+        /* 마이크로 뷰 (입자 모형) */
+        .particle-box {
+            width: 100%;
+            height: 150px;
+            background: #222;
+            position: relative;
+            border-radius: 10px;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 0.8em;
+        }
+        
+        .particle-info {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            color: #aaa;
+        }
+
+        .electron {
+            width: 8px;
+            height: 8px;
+            background-color: #ffeb3b;
+            border-radius: 50%;
+            position: absolute;
+            display: none;
+            box-shadow: 0 0 5px #ffeb3b;
+        }
+
+        /* 결과 텍스트 */
+        .equation {
+            font-family: 'Times New Roman', serif;
+            font-style: italic;
+            background: #f0f0f0;
+            padding: 10px;
+            border-radius: 5px;
+            text-align: center;
+            margin-top: 10px;
+        }
+
+        .feedback {
+            margin-top: 15px;
+            font-size: 0.95em;
+            line-height: 1.5;
+        }
+        
+        .safe-badge {
+            display: inline-block;
+            background: #2ecc71;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.7em;
+            margin-left: 5px;
+        }
+
+        /* 퀴즈 영역 */
+        .quiz-section {
+            display: none;
+            margin-top: 20px;
+            border-top: 2px dashed #ddd;
+            padding-top: 20px;
+        }
+
+    </style>
+</head>
+<body>
+
+    <h1>🧪 금속의 산화성 비교 실험실</h1>
+    <div class="subtitle">고등학교 화학Ⅱ: 산화 환원 반응과 이온화 경향성 탐구</div>
+
+    <div class="lab-container">
+        
+        <div class="control-panel">
+            <h3>1. 실험 조건 설정</h3>
+            <p>비커에 담을 용액과 금속 조각을 선택하세요.</p>
+            
+            <label for="solution">🧪 금속염 수용액 (전해질)</label>
+            <select id="solution">
+                <option value="none">선택하세요</option>
+                <option value="ZnSO4">황산 아연 (ZnSO₄)</option>
+                <option value="CuSO4">황산 구리(II) (CuSO₄)</option>
+                <option value="AgNO3">질산 은 (AgNO₃)</option>
+            </select>
+
+            <label for="metal">🧱 금속 조각</label>
+            <select id="metal">
+                <option value="none">선택하세요</option>
+                <option value="Zn">아연 (Zn)</option>
+                <option value="Cu">구리 (Cu)</option>
+                <option value="Ag">은 (Ag)</option>
+            </select>
+
+            <button id="start-btn" onclick="startExperiment()">실험 시작하기</button>
+            <button class="reset-btn" onclick="resetExperiment()">비커 비우기 (초기화)</button>
+
+            <div style="margin-top: 20px; font-size: 0.85em; color: #555;">
+                <strong>⚠️ 안전 가이드:</strong><br>
+                • 질산 은 수용액은 피부에 닿으면 검게 변합니다.<br>
+                • 가상 실험이므로 안전하게 관찰할 수 있습니다 <span class="safe-badge">SAFE</span>
+            </div>
+        </div>
+
+        <div class="control-panel" style="flex: 1.5;">
+            <h3>2. 실험 관찰</h3>
+            <div class="experiment-stage">
+                <div class="beaker">
+                    <div class="liquid" id="liquid-display"></div>
+                    <div class="metal-strip" id="metal-display">
+                        <div class="coating" id="coating-display"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="micro-view">
+                <h4>🔬 입자 확대경 (전자 이동)</h4>
+                <div class="particle-box" id="particle-view">
+                    <div class="particle-info">실험을 시작하면 전자의 이동이 보입니다.</div>
+                    </div>
+            </div>
+        </div>
+
+        <div class="result-panel">
+            <h3>3. 결과 및 해석</h3>
+            <div id="result-text">
+                실험 조건을 선택하고 시작 버튼을 눌러주세요.
+            </div>
+            
+            <div class="quiz-section" id="quiz-area">
+                <h4>📝 이해도 확인 퀴즈</h4>
+                <p id="quiz-question"></p>
+                <div id="quiz-options"></div>
+                <p id="quiz-feedback" style="font-weight: bold;"></p>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // 데이터 베이스
+        const materials = {
+            metals: {
+                Zn: { name: "아연", color: "#9aa5b1", reactivity: 3 },
+                Cu: { name: "구리", color: "#b87333", reactivity: 2 },
+                Ag: { name: "은", color: "#e0e0e0", reactivity: 1 }
+            },
+            solutions: {
+                ZnSO4: { name: "황산 아연", color: "rgba(220, 240, 255, 0.2)", ion: "Zn", reactivity: 3 }, // 투명
+                CuSO4: { name: "황산 구리(II)", color: "rgba(0, 119, 190, 0.6)", ion: "Cu", reactivity: 2 }, // 파랑
+                AgNO3: { name: "질산 은", color: "rgba(220, 240, 255, 0.2)", ion: "Ag", reactivity: 1 } // 투명
+            }
+        };
+
+        let currentMetal = null;
+        let currentSol = null;
+        let isReacting = false;
+
+        function startExperiment() {
+            const metalKey = document.getElementById('metal').value;
+            const solKey = document.getElementById('solution').value;
+
+            if (metalKey === "none" || solKey === "none") {
+                alert("금속과 수용액을 모두 선택해주세요!");
+                return;
+            }
+
+            // 초기화
+            resetVisuals();
+            document.getElementById('start-btn').disabled = true;
+
+            currentMetal = materials.metals[metalKey];
+            currentSol = materials.solutions[solKey];
+
+            // 1. 초기 상태 세팅
+            const liquid = document.getElementById('liquid-display');
+            const metalStrip = document.getElementById('metal-display');
+            
+            liquid.style.backgroundColor = currentSol.color;
+            metalStrip.style.backgroundColor = currentMetal.color;
+
+            // 2. 반응 여부 판단 (금속의 이온화 경향이 용액 속 이온보다 크면 반응)
+            // Zn(3) > Cu(2) > Ag(1)
+            const metalReactivity = currentMetal.reactivity;
+            const ionReactivity = currentSol.reactivity;
+
+            // 같은 금속이면 반응 안함
+            if (metalKey === currentSol.ion) {
+                displayResult(false, metalKey, solKey, true);
+                return;
+            }
+
+            if (metalReactivity > ionReactivity) {
+                // 반응 발생!
+                isReacting = true;
+                runReactionAnimation(metalKey, solKey);
+                displayResult(true, metalKey, solKey, false);
+                startParticleAnimation(true, metalKey, currentSol.ion);
+            } else {
+                // 반응 없음
+                isReacting = false;
+                displayResult(false, metalKey, solKey, false);
+                startParticleAnimation(false);
+            }
+        }
+
+        function runReactionAnimation(metalKey, solKey) {
+            const liquid = document.getElementById('liquid-display');
+            const coating = document.getElementById('coating-display');
+
+            // 1. 용액 색 변화 시뮬레이션
+            setTimeout(() => {
+                if (solKey === "CuSO4") {
+                    // 구리 이온이 사라지므로 투명해짐
+                    liquid.style.backgroundColor = "rgba(220, 240, 255, 0.2)"; 
+                } else if (solKey === "AgNO3" && metalKey === "Cu") {
+                    // 구리가 녹아나오므로 파랗게 변함
+                    liquid.style.backgroundColor = "rgba(0, 119, 190, 0.6)";
+                } else if (solKey === "AgNO3" && metalKey === "Zn") {
+                    // 아연은 무색이므로 색 변화 없음 (투명 유지)
+                }
+            }, 500);
+
+            // 2. 금속 표면 석출 시뮬레이션
+            setTimeout(() => {
+                let coatingColor = "";
+                // 용액 속 이온이 금속이 되어 달라붙음
+                if (solKey === "CuSO4") coatingColor = materials.metals.Cu.color; // 붉은 구리 석출
+                if (solKey === "AgNO3") coatingColor = materials.metals.Ag.color; // 은백색 은 석출
+                
+                coating.style.backgroundColor = coatingColor;
+                coating.style.height = "80%"; // 금속 표면을 덮음
+            }, 500);
+        }
+
+        function startParticleAnimation(reacting, oxidMetal, redIon) {
+            const container = document.getElementById('particle-view');
+            container.innerHTML = ''; // 기존 내용 삭제
+
+            if (!reacting) {
+                container.innerHTML = '<div style="text-align:center;">입자들의 이동이 없습니다.<br>(화학 반응이 일어나지 않음)</div>';
+                return;
+            }
+
+            // 애니메이션 설명
+            const info = document.createElement('div');
+            info.className = 'particle-info';
+            info.innerHTML = `전자(e⁻) 이동: <b>${oxidMetal} → ${redIon}</b>`;
+            container.appendChild(info);
+
+            // 전자 애니메이션 생성 (간단한 CSS 키프레임 대신 JS로 동적 생성)
+            for(let i=0; i<10; i++) {
+                setTimeout(() => {
+                    createElectron(container);
+                }, i * 500);
+            }
+        }
+
+        function createElectron(container) {
+            const el = document.createElement('div');
+            el.className = 'electron';
+            el.style.display = 'block';
+            el.style.left = '20%'; // 금속 위치 (가정)
+            el.style.top = '50%';
+            
+            container.appendChild(el);
+
+            // 애니메이션
+            const anim = el.animate([
+                { transform: 'translate(0, 0)', opacity: 1 },
+                { transform: 'translate(150px, 0)', opacity: 0 } // 용액 쪽으로 이동
+            ], {
+                duration: 1500,
+                iterations: Infinity
+            });
+        }
+
+        function displayResult(reacting, metal, solKey, isSame) {
+            const resultBox = document.getElementById('result-text');
+            const ion = materials.solutions[solKey].ion;
+            
+            let html = "";
+            let equation = "";
+
+            if (isSame) {
+                html = `<p><strong>반응 없음:</strong> 같은 금속 성분이므로 반응이 일어나지 않습니다.</p>`;
+            } else if (reacting) {
+                // 이온화 경향: Metal > Ion
+                html = `<p style="color: blue;"><strong>반응 발생! (산화-환원)</strong></p>`;
+                html += `<p>• <b>${materials.metals[metal].name}</b>이(가) 산화되어 전자를 잃고 녹아납니다.<br>`;
+                html += `• 수용액 속 <b>${materials.metals[ion].name} 이온</b>이 전자를 얻어 금속으로 석출됩니다.</p>`;
+                
+                // 화학 반응식 생성
+                if (metal === 'Zn' && ion === 'Cu') {
+                    equation = `$$ Zn(s) + Cu^{2+}(aq) \\rightarrow Zn^{2+}(aq) + Cu(s) $$`;
+                } else if (metal === 'Cu' && ion === 'Ag') {
+                    equation = `$$ Cu(s) + 2Ag^{+}(aq) \\rightarrow Cu^{2+}(aq) + 2Ag(s) $$`;
+                } else if (metal === 'Zn' && ion === 'Ag') {
+                    equation = `$$ Zn(s) + 2Ag^{+}(aq) \\rightarrow Zn^{2+}(aq) + 2Ag(s) $$`;
+                }
+
+                html += `<div class="equation">${equation}</div>`;
+                html += `<div class="feedback">💡 <strong>해설:</strong> ${materials.metals[metal].name}이 ${materials.metals[ion].name}보다 이온화 경향(반응성)이 크기 때문입니다.</div>`;
+                
+                showQuiz(metal, ion, true);
+
+            } else {
+                html = `<p style="color: #d35400;"><strong>반응 없음</strong></p>`;
+                html += `<p>넣어준 금속(${materials.metals[metal].name})이 수용액 속 이온(${materials.metals[ion].name})보다 이온화 경향이 작습니다.</p>`;
+                html += `<div class="feedback">전자가 이동하지 않아 산화 환원 반응이 일어나지 않습니다.</div>`;
+                
+                showQuiz(metal, ion, false);
+            }
+
+            resultBox.innerHTML = html;
+            // MathJax가 있다면 렌더링 호출하겠지만, 여기서는 텍스트로 표현
+        }
+
+        function showQuiz(metal, ion, reacting) {
+            const quizArea = document.getElementById('quiz-area');
+            const question = document.getElementById('quiz-question');
+            const options = document.getElementById('quiz-options');
+            const feedback = document.getElementById('quiz-feedback');
+
+            quizArea.style.display = 'block';
+            feedback.innerHTML = '';
+            options.innerHTML = '';
+
+            if (reacting) {
+                question.innerText = `Q. 이 반응에서 산화된 물질(전자를 잃은 것)은 무엇인가요?`;
+                // 정답: metal
+                createOption(options, materials.metals[metal].name, true, feedback);
+                createOption(options, materials.metals[ion].name + " 이온", false, feedback);
+            } else {
+                question.innerText = `Q. 반응이 일어나지 않은 이유는 무엇인가요?`;
+                createOption(options, `${materials.metals[metal].name}의 반응성이 더 작아서`, true, feedback);
+                createOption(options, `${materials.metals[metal].name}의 반응성이 더 커서`, false, feedback);
+            }
+        }
+
+        function createOption(container, text, isCorrect, feedbackElem) {
+            const btn = document.createElement('button');
+            btn.innerText = text;
+            btn.style.margin = '5px';
+            btn.style.width = 'auto';
+            btn.onclick = () => {
+                if (isCorrect) {
+                    feedbackElem.innerText = "✅ 정답입니다! 개념을 정확히 이해했군요.";
+                    feedbackElem.style.color = "green";
+                } else {
+                    feedbackElem.innerText = "❌ 다시 생각해보세요.";
+                    feedbackElem.style.color = "red";
+                }
+            };
+            container.appendChild(btn);
+        }
+
+        function resetVisuals() {
+            document.getElementById('liquid-display').style.backgroundColor = "var(--sol-clear)";
+            document.getElementById('metal-display').style.backgroundColor = "#ccc";
+            document.getElementById('coating-display').style.height = "0%";
+            document.getElementById('particle-view').innerHTML = '<div class="particle-info">대기 중...</div>';
+            document.getElementById('result-text').innerText = "실험 조건을 선택하고 시작 버튼을 눌러주세요.";
+            document.getElementById('quiz-area').style.display = 'none';
+        }
+
+        function resetExperiment() {
+            document.getElementById('metal').value = "none";
+            document.getElementById('solution').value = "none";
+            document.getElementById('start-btn').disabled = false;
+            resetVisuals();
+        }
+    </script>
+</body>
+</html>

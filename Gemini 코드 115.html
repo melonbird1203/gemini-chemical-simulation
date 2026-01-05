@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 휴대용 냉각 팩의 원리 (흡열 반응)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Noto Sans KR', sans-serif; background-color: #f0f4f8; }
+        .beaker {
+            transition: background-color 2s;
+            position: relative;
+            overflow: hidden;
+        }
+        .particle {
+            position: absolute;
+            border-radius: 50%;
+            opacity: 0.7;
+            animation: float 3s infinite ease-in-out;
+        }
+        @keyframes float {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-5px); }
+        }
+        .microscope-view {
+            background: radial-gradient(circle, #ffffff 80%, #e2e8f0 95%);
+            border: 4px solid #475569;
+            border-radius: 50%;
+            overflow: hidden;
+            position: relative;
+        }
+    </style>
+</head>
+<body class="flex flex-col h-screen overflow-hidden">
+
+    <header class="bg-indigo-600 text-white p-4 shadow-lg flex justify-between items-center z-10">
+        <div>
+            <h1 class="text-xl font-bold"><i class="fas fa-flask mr-2"></i>휴대용 냉각 팩의 원리: 흡열 용해 반응</h1>
+            <p class="text-xs text-indigo-200 mt-1">고등학교 화학Ⅱ 1-3-02: 물질의 특성과 입자 간 상호작용</p>
+        </div>
+        <button onclick="generateReport()" class="bg-indigo-500 hover:bg-indigo-400 px-4 py-2 rounded text-sm transition">
+            <i class="fas fa-file-pdf mr-2"></i>보고서 생성
+        </button>
+    </header>
+
+    <div class="flex flex-1 overflow-hidden">
+        
+        <aside class="w-1/4 bg-white p-6 shadow-md overflow-y-auto z-10">
+            <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">🎛️ 실험 조건 설정</h2>
+            
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">용질 선택 (냉각제)</label>
+                <select id="soluteType" class="w-full p-2 border rounded bg-gray-50 focus:ring-2 focus:ring-indigo-500">
+                    <option value="NH4NO3">질산암모늄 (NH₄NO₃)</option>
+                    <option value="NH4Cl">염화암모늄 (NH₄Cl)</option>
+                    <option value="NaCl">염화나트륨 (NaCl) - 비교군</option>
+                </select>
+                <p id="soluteDesc" class="text-xs text-gray-500 mt-1">강한 흡열 반응을 일으키는 대표적인 물질입니다.</p>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">물의 초기 온도 (℃)</label>
+                <input type="range" id="waterTemp" min="10" max="40" value="25" class="w-full cursor-pointer accent-indigo-600" oninput="updateLabels()">
+                <div class="flex justify-between text-xs text-gray-500">
+                    <span>10℃</span>
+                    <span id="waterTempLabel" class="font-bold text-indigo-600">25℃</span>
+                    <span>40℃</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">용질의 질량 (g)</label>
+                <input type="range" id="soluteMass" min="5" max="50" step="5" value="30" class="w-full cursor-pointer accent-indigo-600" oninput="updateLabels()">
+                <div class="flex justify-between text-xs text-gray-500">
+                    <span>5g</span>
+                    <span id="soluteMassLabel" class="font-bold text-indigo-600">30g</span>
+                    <span>50g</span>
+                </div>
+            </div>
+
+            <div class="mb-6">
+                <label class="block text-sm font-medium text-gray-700 mb-2">물의 부피 (mL)</label>
+                <input type="range" id="waterVol" min="50" max="200" step="10" value="100" class="w-full cursor-pointer accent-indigo-600" oninput="updateLabels()">
+                <div class="flex justify-between text-xs text-gray-500">
+                    <span>50mL</span>
+                    <span id="waterVolLabel" class="font-bold text-indigo-600">100mL</span>
+                    <span>200mL</span>
+                </div>
+            </div>
+
+            <button onclick="startSimulation()" id="startBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-lg shadow transition transform active:scale-95">
+                <i class="fas fa-play mr-2"></i>실험 시작
+            </button>
+            <button onclick="resetSimulation()" class="w-full mt-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-bold py-2 rounded-lg transition">
+                <i class="fas fa-redo mr-2"></i>초기화
+            </button>
+        </aside>
+
+        <main class="flex-1 bg-gray-100 p-6 flex flex-col relative">
+            
+            <div class="flex gap-4 h-1/2 mb-4">
+                <div class="w-1/3 bg-white rounded-lg shadow p-4 flex flex-col justify-center items-center relative">
+                    <h3 class="text-sm text-gray-500 absolute top-4 left-4">🌡️ 현재 온도</h3>
+                    <div class="text-5xl font-mono font-bold text-gray-800 mb-2">
+                        <span id="currentTempDisplay">25.0</span><span class="text-2xl">℃</span>
+                    </div>
+                    <div id="tempChangeIndicator" class="text-sm font-bold text-blue-500 opacity-0 transition">
+                        ▼ <span id="tempDiffDisplay">0.0</span>℃ 감소 중
+                    </div>
+                    <div class="mt-4 text-center">
+                        <p class="text-xs text-gray-400">에너지 출입 방향</p>
+                        <div id="energyArrow" class="font-bold text-blue-600 mt-1">대기 중...</div>
+                    </div>
+                </div>
+
+                <div class="w-2/3 bg-white rounded-lg shadow p-4">
+                    <canvas id="tempChart"></canvas>
+                </div>
+            </div>
+
+            <div class="flex gap-4 h-1/2">
+                <div class="w-1/2 bg-white rounded-lg shadow p-4 flex justify-center items-end relative" id="labArea">
+                    <div class="absolute top-4 left-4 text-sm text-gray-500">🧪 실험대</div>
+                    
+                    <div class="beaker w-32 h-40 border-b-4 border-l-4 border-r-4 border-gray-400 rounded-b-lg relative bg-blue-50" id="beakerElement">
+                        <div class="absolute bottom-0 w-full bg-blue-200 transition-all duration-1000" id="liquid" style="height: 60%;"></div>
+                        <div id="particleContainer" class="absolute bottom-0 w-full h-full pointer-events-none"></div>
+                    </div>
+                    
+                    <div class="absolute top-10 right-1/4 h-48 w-4 bg-gray-200 rounded-full border border-gray-400 shadow-inner">
+                        <div id="thermometerFluid" class="absolute bottom-1 w-full bg-red-500 rounded-b-full transition-all duration-300" style="height: 50%;"></div>
+                    </div>
+                </div>
+
+                <div class="w-1/2 bg-white rounded-lg shadow p-4 flex flex-col items-center justify-center">
+                    <h3 class="text-sm text-gray-500 mb-2">🔍 입자 확대경 (Micro View)</h3>
+                    <div class="microscope-view w-48 h-48 relative flex items-center justify-center" id="microView">
+                        <p class="text-xs text-gray-400 text-center px-4">실험을 시작하면<br>입자의 움직임이 보입니다.</p>
+                    </div>
+                    <div class="mt-2 text-xs text-center text-gray-600 bg-gray-100 p-2 rounded">
+                        <p id="microExplanation">용매(물) 분자가 용질 입자를 둘러싸며 격자를 끊어냅니다.</p>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="feedbackModal" class="hidden fixed bottom-6 right-6 w-80 bg-white border-l-4 border-yellow-400 shadow-2xl rounded p-4 z-50 animate-bounce">
+        <div class="flex justify-between items-start">
+            <h4 class="font-bold text-gray-800"><i class="fas fa-robot mr-2 text-yellow-500"></i>AI 튜터의 질문</h4>
+            <button onclick="document.getElementById('feedbackModal').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">&times;</button>
+        </div>
+        <p id="feedbackText" class="text-sm text-gray-700 mt-2 leading-relaxed"></p>
+        <div class="mt-3 bg-yellow-50 p-2 rounded text-xs text-yellow-800">
+            <strong>💡 힌트:</strong> <span id="feedbackHint"></span>
+        </div>
+    </div>
+
+    <script>
+        // --- 1. 실험 데이터 및 상수 ---
+        const solutes = {
+            'NH4NO3': { name: '질산암모늄', mw: 80.04, enthalpy: 25.7, type: 'endo' }, // kJ/mol (+ means endothermic)
+            'NH4Cl': { name: '염화암모늄', mw: 53.49, enthalpy: 14.8, type: 'endo' },
+            'NaCl': { name: '염화나트륨', mw: 58.44, enthalpy: 3.9, type: 'neutral' } // 소금은 미미한 흡열
+        };
+
+        let chart;
+        let animationId;
+        let isRunning = false;
+        let currentTemp = 25;
+        let timeSeconds = 0;
+        
+        // --- 2. 차트 초기화 ---
+        function initChart() {
+            const ctx = document.getElementById('tempChart').getContext('2d');
+            chart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: [],
+                    datasets: [{
+                        label: '용액의 온도 (℃)',
+                        borderColor: 'rgb(79, 70, 229)',
+                        backgroundColor: 'rgba(79, 70, 229, 0.1)',
+                        data: [],
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: { title: { display: true, text: '시간 (초)' } },
+                        y: { title: { display: true, text: '온도 (℃)' }, min: 0, max: 50 }
+                    },
+                    animation: { duration: 0 }
+                }
+            });
+        }
+
+        // --- 3. UI 업데이트 로직 ---
+        function updateLabels() {
+            document.getElementById('waterTempLabel').innerText = document.getElementById('waterTemp').value + '℃';
+            document.getElementById('soluteMassLabel').innerText = document.getElementById('soluteMass').value + 'g';
+            document.getElementById('waterVolLabel').innerText = document.getElementById('waterVol').value + 'mL';
+            
+            // 용질 설명 업데이트
+            const soluteKey = document.getElementById('soluteType').value;
+            const desc = soluteKey === 'NaCl' ? '반응열이 매우 작아 온도 변화가 거의 없습니다.' : '물에 녹을 때 주변의 열을 흡수합니다.';
+            document.getElementById('soluteDesc').innerText = desc;
+        }
+
+        // --- 4. 시뮬레이션 핵심 로직 ---
+        function calculateReaction() {
+            const soluteKey = document.getElementById('soluteType').value;
+            const mass = parseFloat(document.getElementById('soluteMass').value);
+            const waterVol = parseFloat(document.getElementById('waterVol').value);
+            const initialTemp = parseFloat(document.getElementById('waterTemp').value);
+            
+            const solute = solutes[soluteKey];
+            
+            // 몰수 계산 (n = w / M)
+            const moles = mass / solute.mw;
+            
+            // 총 열량 변화 q (J) = n * ΔH (kJ/mol) * 1000
+            // 흡열 반응이면 계는 에너지를 흡수하므로 용액의 온도는 내려감.
+            // 식: q_sys = -q_surr
+            // q_reaction = moles * enthalpy * 1000
+            // q_solution = -q_reaction (용액이 열을 뺏김)
+            const q_reaction_J = moles * solute.enthalpy * 1000; 
+            
+            // 온도 변화량 ΔT = q / (m * c)
+            // 용액의 비열은 물과 비슷하다고 가정 (4.18 J/g℃)
+            // 용액의 질량 = 물 질량 + 용질 질량
+            const totalMass = waterVol + mass; // 물 밀도 1g/mL 가정
+            const specificHeat = 4.18;
+            
+            // 온도 변화 (흡열일 경우 enthalpy가 양수 -> q_reaction 양수 -> 용액 온도는 감소해야 함)
+            // 열역학적으로 용해열이 양수(흡열)면 주변(용액) 온도는 내려감.
+            const deltaT = -(q_reaction_J / (totalMass * specificHeat));
+            
+            return {
+                finalTemp: initialTemp + deltaT,
+                deltaT: deltaT,
+                soluteName: solute.name
+            };
+        }
+
+        function startSimulation() {
+            if (isRunning) return;
+            isRunning = true;
+            document.getElementById('startBtn').disabled = true;
+            document.getElementById('startBtn').classList.add('opacity-50', 'cursor-not-allowed');
+
+            const result = calculateReaction();
+            const initialTemp = parseFloat(document.getElementById('waterTemp').value);
+            let targetTemp = result.finalTemp;
+            currentTemp = initialTemp;
+            timeSeconds = 0;
+
+            // 차트 초기화
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            
+            // 입자 애니메이션 시작
+            startParticleAnimation(result.soluteName);
+            
+            // 상태 표시
+            document.getElementById('tempChangeIndicator').classList.remove('opacity-0');
+            document.getElementById('energyArrow').innerText = "열 에너지: 주변(물) ➡️ 계(용질)";
+            document.getElementById('energyArrow').className = "font-bold text-blue-600 mt-1";
+
+            // 시뮬레이션 루프
+            animationId = setInterval(() => {
+                timeSeconds += 0.5;
+                
+                // 지수 함수적 온도 변화 시뮬레이션 (반응 속도 반영)
+                const difference = targetTemp - currentTemp;
+                currentTemp += difference * 0.05; // 접근 속도 계수
+
+                // 그래프 업데이트
+                if (timeSeconds % 1 === 0 || timeSeconds === 0.5) {
+                    chart.data.labels.push(timeSeconds);
+                    chart.data.datasets[0].data.push(currentTemp);
+                    chart.update();
+                }
+
+                // UI 업데이트
+                updateDisplay(currentTemp, initialTemp);
+
+                // 종료 조건 (목표 온도에 근접)
+                if (Math.abs(difference) < 0.05 && timeSeconds > 5) {
+                    finishSimulation(result);
+                }
+            }, 100);
+        }
+
+        function updateDisplay(temp, initial) {
+            document.getElementById('currentTempDisplay').innerText = temp.toFixed(1);
+            
+            // 온도계 높이 조절 (0~100도 기준 매핑)
+            const heightPercent = Math.min(Math.max((temp / 60) * 100, 10), 90);
+            document.getElementById('thermometerFluid').style.height = `${heightPercent}%`;
+            
+            // 비커 색상 변화 (차가울수록 파랗게)
+            const blueIntensity = Math.min(255, (25 - temp) * 10 + 200);
+            document.getElementById('liquid').style.backgroundColor = `rgba(100, 149, 237, ${1 - temp/50})`;
+
+            // 변화량 표시
+            const diff = temp - initial;
+            document.getElementById('tempDiffDisplay').innerText = Math.abs(diff).toFixed(1);
+            document.getElementById('tempChangeIndicator').innerHTML = diff < 0 
+                ? `▼ ${Math.abs(diff).toFixed(1)}℃ 감소 중` 
+                : `- 변화 없음 -`;
+        }
+
+        // --- 5. 입자 애니메이션 (Micro View) ---
+        function startParticleAnimation(soluteName) {
+            const container = document.getElementById('microView');
+            container.innerHTML = ''; // 초기화
+
+            // 물 분자 (배경)
+            for(let i=0; i<20; i++) {
+                const water = document.createElement('div');
+                water.className = 'absolute bg-blue-200 rounded-full w-4 h-4 opacity-50';
+                water.style.left = Math.random() * 100 + '%';
+                water.style.top = Math.random() * 100 + '%';
+                container.appendChild(water);
+            }
+
+            // 용질 이온 (분해되는 모습)
+            const ionColor = soluteName.includes('암모늄') ? 'bg-red-400' : 'bg-gray-400';
+            
+            // 중심에서 퍼져나가는 애니메이션
+            const centerIon = document.createElement('div');
+            centerIon.className = `absolute ${ionColor} w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-lg`;
+            centerIon.style.left = '40%';
+            centerIon.style.top = '40%';
+            centerIon.innerHTML = '+';
+            container.appendChild(centerIon);
+
+            // 주변을 감싸는 물 분자들 (수화) - 애니메이션으로 접근
+            setTimeout(() => {
+                centerIon.classList.add('animate-pulse');
+                document.getElementById('microExplanation').innerText = "입자 사이의 인력이 끊어지며 에너지를 흡수하고 있습니다!";
+            }, 1000);
+        }
+
+        // --- 6. 종료 및 피드백 ---
+        function finishSimulation(result) {
+            clearInterval(animationId);
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            // AI 피드백 팝업
+            const modal = document.getElementById('feedbackModal');
+            modal.classList.remove('hidden');
+            
+            const drop = Math.abs(result.deltaT).toFixed(1);
+            document.getElementById('feedbackText').innerHTML = 
+                `실험이 완료되었습니다! 온도가 <strong>${drop}℃</strong> 내려갔네요.<br>
+                용질 입자가 물에 녹으면서 서로를 끌어당기는 힘(격자 에너지)을 끊기 위해 주변의 열을 빼앗아 갔기 때문입니다.`;
+            
+            document.getElementById('feedbackHint').innerText = "이 현상을 '흡열 반응'이라고 하며, ΔH(엔탈피) 값이 양수(+)입니다.";
+        }
+
+        function resetSimulation() {
+            clearInterval(animationId);
+            isRunning = false;
+            document.getElementById('startBtn').disabled = false;
+            document.getElementById('startBtn').classList.remove('opacity-50', 'cursor-not-allowed');
+            
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            chart.update();
+            
+            document.getElementById('currentTempDisplay').innerText = document.getElementById('waterTemp').value;
+            document.getElementById('tempChangeIndicator').classList.add('opacity-0');
+            document.getElementById('microView').innerHTML = '<p class="text-xs text-gray-400 text-center px-4">실험을 시작하면<br>입자의 움직임이 보입니다.</p>';
+            document.getElementById('feedbackModal').classList.add('hidden');
+        }
+
+        // --- 7. 보고서 생성 (평가용) ---
+        function generateReport() {
+            if(chart.data.datasets[0].data.length === 0) {
+                alert("먼저 실험을 수행해주세요!");
+                return;
+            }
+            const solute = document.getElementById('soluteType').options[document.getElementById('soluteType').selectedIndex].text;
+            const tempChange = document.getElementById('currentTempDisplay').innerText;
+            
+            const printContent = `
+                <html>
+                <head><title>실험 보고서</title></head>
+                <body style="padding: 40px; font-family: sans-serif;">
+                    <h1>[화학Ⅱ] 실험 탐구 보고서</h1>
+                    <hr>
+                    <h3>1. 실험 주제: 휴대용 냉각 팩과 흡열 반응</h3>
+                    <h3>2. 실험 조건</h3>
+                    <ul>
+                        <li>사용 용질: ${solute}</li>
+                        <li>물 온도: ${document.getElementById('waterTemp').value}℃</li>
+                        <li>용질 질량: ${document.getElementById('soluteMass').value}g</li>
+                    </ul>
+                    <h3>3. 실험 결과</h3>
+                    <p>반응 후 최종 온도는 <strong>${tempChange}℃</strong>로 측정되었습니다.</p>
+                    <p>이 결과는 용질이 용해될 때 주변의 열을 흡수하는 <strong>흡열 반응</strong>이 일어났음을 보여줍니다.</p>
+                    <br>
+                    <div style="border:1px solid #ccc; padding:20px;">
+                        <h4>학생 서술형 평가</h4>
+                        <p>Q. 용질의 질량을 2배로 늘리면 온도는 더 많이 내려갈까요? 그 이유는 무엇인가요?</p>
+                        <br><br><br>
+                        <p>(여기에 답을 작성하세요)</p>
+                    </div>
+                </body>
+                </html>
+            `;
+            const win = window.open('', '', 'width=800,height=900');
+            win.document.write(printContent);
+            win.document.close();
+            win.print();
+        }
+
+        // 초기화 실행
+        initChart();
+        updateLabels();
+
+    </script>
+</body>
+</html>

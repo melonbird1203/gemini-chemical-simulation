@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 결합 에너지와 반응 엔탈피</title>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #10b981;
+            --danger-color: #ef4444;
+            --text-color: #1f2937;
+            --bg-color: #f3f4f6;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        h1 { margin: 0; color: var(--primary-color); }
+        p.subtitle { color: #6b7280; margin-top: 5px; }
+
+        .container {
+            display: grid;
+            grid-template-columns: 300px 1fr 300px;
+            gap: 20px;
+            max-width: 1200px;
+            width: 100%;
+        }
+
+        /* Cards */
+        .card {
+            background: var(--card-bg);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        h2 { font-size: 1.2rem; border-bottom: 2px solid #e5e7eb; padding-bottom: 10px; margin-top: 0; }
+
+        /* Controls */
+        .control-group { margin-bottom: 15px; }
+        label { display: block; font-weight: bold; margin-bottom: 5px; }
+        select, input { width: 100%; padding: 8px; border: 1px solid #d1d5db; border-radius: 6px; }
+        button {
+            width: 100%;
+            padding: 10px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.2s;
+            margin-top: 10px;
+        }
+        button:hover { background-color: #1d4ed8; }
+        button:disabled { background-color: #9ca3af; cursor: not-allowed; }
+        
+        .reset-btn { background-color: #6b7280; margin-top: 10px; }
+        .reset-btn:hover { background-color: #4b5563; }
+
+        /* Visualization Area */
+        .visual-area {
+            position: relative;
+            height: 300px;
+            background: #e0f2fe;
+            border-radius: 8px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+            flex-direction: column;
+        }
+
+        .molecule-container {
+            display: flex;
+            gap: 20px;
+            transition: all 1s ease;
+        }
+
+        .molecule {
+            display: flex;
+            align-items: center;
+            background: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            border: 2px solid #cbd5e1;
+            font-weight: bold;
+        }
+
+        .bond {
+            width: 30px;
+            height: 4px;
+            background: #94a3b8;
+            margin: 0 5px;
+            transition: all 0.5s;
+        }
+        
+        .atom {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 0.8rem;
+        }
+
+        .atom-H { background-color: #9ca3af; } /* Gray */
+        .atom-Cl { background-color: #10b981; } /* Green */
+        .atom-N { background-color: #3b82f6; } /* Blue */
+        .atom-O { background-color: #ef4444; } /* Red */
+
+        /* Animation States */
+        .breaking .bond { opacity: 0; width: 50px; background: transparent; border-bottom: 2px dashed #ef4444; }
+        .forming .molecule { animation: popIn 0.5s ease-out; }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+
+        /* Energy Diagram */
+        #energyChart {
+            width: 100%;
+            height: 250px;
+            margin-top: 20px;
+            background: white;
+            border: 1px solid #e5e7eb;
+        }
+
+        /* Result Panel */
+        .calculation-step {
+            margin: 10px 0;
+            padding: 10px;
+            background: #f8fafc;
+            border-radius: 6px;
+            font-size: 0.9rem;
+        }
+        .final-result {
+            font-size: 1.1rem;
+            font-weight: bold;
+            text-align: center;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 10px;
+        }
+        .exothermic { background-color: #fee2e2; color: #b91c1c; border: 1px solid #fca5a5; }
+        .endothermic { background-color: #dbeafe; color: #1e40af; border: 1px solid #93c5fd; }
+
+        .hidden { display: none; }
+
+        @media (max-width: 900px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 반응 엔탈피 가상 실험실</h1>
+    <p class="subtitle">고등학교 화학Ⅱ: 결합 에너지를 이용한 ΔH 계산</p>
+</header>
+
+<div class="container">
+    <div class="card">
+        <h2>1. 실험 설정</h2>
+        <div class="control-group">
+            <label for="reactionSelect">반응식 선택</label>
+            <select id="reactionSelect" onchange="loadReaction()">
+                <option value="HCl">H₂ + Cl₂ → 2HCl</option>
+                <option value="NH3">N₂ + 3H₂ → 2NH₃</option>
+                <option value="H2O">2H₂ + O₂ → 2H₂O</option>
+            </select>
+        </div>
+
+        <div id="bondInputs">
+            </div>
+
+        <button id="startBtn" onclick="startSimulation()">실험 시작 (Start)</button>
+        <button class="reset-btn" onclick="resetSimulation()">초기화</button>
+
+        <div style="margin-top: 20px; font-size: 0.9rem; color: #666;">
+            <strong>💡 팁:</strong><br>
+            결합 에너지는 원자 간 결합을 끊는 데 필요한 에너지입니다. (단위: kJ/mol)
+        </div>
+    </div>
+
+    <div class="card" style="display: flex; flex-direction: column;">
+        <h2>2. 반응 과정 관찰</h2>
+        <div class="visual-area" id="visualArea">
+            <div id="instructionText">왼쪽에서 반응을 선택하고 시작 버튼을 누르세요.</div>
+            <div id="reactantsView" class="molecule-container"></div>
+            <div id="arrowView" style="font-size: 2rem; margin: 0 10px; display:none;">→</div>
+            <div id="productsView" class="molecule-container hidden"></div>
+        </div>
+        
+        <svg id="energyChart" viewBox="0 0 400 250">
+            <line x1="40" y1="220" x2="380" y2="220" stroke="black" stroke-width="2"/>
+            <line x1="40" y1="220" x2="40" y2="20" stroke="black" stroke-width="2"/>
+            <text x="20" y="30" font-size="12" style="writing-mode: tb;">에너지 (kJ)</text>
+            <text x="350" y="240" font-size="12">반응 경로</text>
+            
+            <path id="energyPath" d="" fill="none" stroke="#cbd5e1" stroke-width="2" stroke-dasharray="5,5"/>
+        </svg>
+    </div>
+
+    <div class="card">
+        <h2>3. 결과 분석</h2>
+        <div id="calcSteps">
+            <div class="calculation-step">
+                <strong>① 끊는 에너지 (흡열, +)</strong>
+                <div id="breakCalc">0 kJ</div>
+            </div>
+            <div class="calculation-step">
+                <strong>② 생성 에너지 (발열, -)</strong>
+                <div id="formCalc">0 kJ</div>
+            </div>
+            <hr>
+            <div class="calculation-step">
+                <strong>③ 반응 엔탈피 (ΔH)</strong>
+                <div id="totalCalc">0 kJ</div>
+            </div>
+        </div>
+        <div id="finalResult" class="final-result hidden">
+            </div>
+        <div id="assessment" class="hidden" style="margin-top: 20px;">
+            <p style="font-weight:bold;">📝 확인 문제</p>
+            <p id="questionText" style="font-size:0.9rem; margin-bottom:10px;"></p>
+            <textarea id="studentAnswer" rows="3" style="width:100%; margin-bottom:5px;" placeholder="여기에 답을 적어보세요..."></textarea>
+            <button onclick="checkAnswer()" style="padding:5px;">정답 확인</button>
+            <p id="answerFeedback" style="font-size:0.9rem; color:#2563eb; display:none;"></p>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Data definition
+    const reactions = {
+        "HCl": {
+            eq: "H₂ + Cl₂ → 2HCl",
+            reactants: [{bonds: ["H-H"], count: 1}, {bonds: ["Cl-Cl"], count: 1}],
+            products: [{bonds: ["H-Cl"], count: 2}],
+            defaults: {"H-H": 436, "Cl-Cl": 243, "H-Cl": 432},
+            display: {
+                r: [["H","H"], ["Cl","Cl"]],
+                p: [["H","Cl"], ["H","Cl"]]
+            }
+        },
+        "NH3": {
+            eq: "N₂ + 3H₂ → 2NH₃",
+            reactants: [{bonds: ["N≡N"], count: 1}, {bonds: ["H-H"], count: 3}],
+            products: [{bonds: ["N-H", "N-H", "N-H"], count: 2}],
+            defaults: {"N≡N": 941, "H-H": 436, "N-H": 391},
+            display: {
+                r: [["N","N"], ["H","H"], ["H","H"], ["H","H"]],
+                p: [["H","N","H","H"], ["H","N","H","H"]] // Simplified representation
+            }
+        },
+        "H2O": {
+            eq: "2H₂ + O₂ → 2H₂O",
+            reactants: [{bonds: ["H-H"], count: 2}, {bonds: ["O=O"], count: 1}],
+            products: [{bonds: ["O-H", "O-H"], count: 2}],
+            defaults: {"H-H": 436, "O=O": 498, "O-H": 463},
+            display: {
+                r: [["H","H"], ["H","H"], ["O","O"]],
+                p: [["H","O","H"], ["H","O","H"]]
+            }
+        }
+    };
+
+    let currentReaction = "HCl";
+    let energyValues = {};
+
+    function loadReaction() {
+        const sel = document.getElementById('reactionSelect');
+        currentReaction = sel.value;
+        const data = reactions[currentReaction];
+        
+        // Setup Inputs
+        const inputDiv = document.getElementById('bondInputs');
+        inputDiv.innerHTML = '';
+        energyValues = {...data.defaults};
+        
+        for (const [bond, val] of Object.entries(data.defaults)) {
+            const wrapper = document.createElement('div');
+            wrapper.style.marginBottom = "10px";
+            wrapper.innerHTML = `
+                <label>${bond} 결합 에너지 (kJ/mol):</label>
+                <input type="number" id="val-${bond}" value="${val}" onchange="updateEnergy('${bond}', this.value)">
+            `;
+            inputDiv.appendChild(wrapper);
+        }
+
+        resetSimulation();
+    }
+
+    function updateEnergy(bond, val) {
+        energyValues[bond] = parseInt(val);
+    }
+
+    function renderMolecules(targetId, moleculeList) {
+        const container = document.getElementById(targetId);
+        container.innerHTML = '';
+        
+        moleculeList.forEach(mol => {
+            const molDiv = document.createElement('div');
+            molDiv.className = 'molecule';
+            
+            // Simple rendering logic
+            mol.forEach((atom, idx) => {
+                const aDiv = document.createElement('div');
+                aDiv.className = `atom atom-${atom}`;
+                aDiv.innerText = atom;
+                molDiv.appendChild(aDiv);
+                
+                if (idx < mol.length - 1) {
+                    const bond = document.createElement('div');
+                    bond.className = 'bond';
+                    // Special case for Ammonia/Water structure visualization simplification
+                    if(mol.length > 2 && idx >= 1) { 
+                        // Simplified linear for visualization purposes in this demo
+                    }
+                    molDiv.appendChild(bond);
+                }
+            });
+            container.appendChild(molDiv);
+        });
+    }
+
+    function resetSimulation() {
+        document.getElementById('instructionText').style.display = 'block';
+        document.getElementById('reactantsView').innerHTML = '';
+        document.getElementById('productsView').innerHTML = '';
+        document.getElementById('arrowView').style.display = 'none';
+        document.getElementById('visualArea').style.backgroundColor = '#e0f2fe';
+        
+        document.getElementById('breakCalc').innerText = '0 kJ';
+        document.getElementById('formCalc').innerText = '0 kJ';
+        document.getElementById('totalCalc').innerText = '0 kJ';
+        document.getElementById('finalResult').classList.add('hidden');
+        document.getElementById('assessment').classList.add('hidden');
+        document.getElementById('answerFeedback').style.display = 'none';
+        document.getElementById('studentAnswer').value = '';
+        
+        // Reset SVG
+        const svg = document.getElementById('energyChart');
+        while (svg.lastChild.nodeName === 'path' || svg.lastChild.nodeName === 'circle' || svg.lastChild.nodeName === 'text') {
+            if(svg.lastChild.id !== 'energyPath' && svg.lastChild.textContent !== '에너지 (kJ)' && svg.lastChild.textContent !== '반응 경로') 
+                svg.removeChild(svg.lastChild);
+        }
+        
+        // Enable Start
+        document.getElementById('startBtn').disabled = false;
+    }
+
+    function drawEnergyDiagram(breakE, formE, deltaH) {
+        const svg = document.getElementById('energyChart');
+        // Clear previous dynamic elements
+         while (svg.lastChild.nodeName === 'line' && !svg.lastChild.getAttribute('stroke')) { // sloppy clear
+            svg.removeChild(svg.lastChild);
+        }
+        
+        // Normalize for height (max 200px)
+        const maxE = Math.max(breakE, formE) * 1.5;
+        const scale = 180 / maxE;
+        const baseline = 180; // Reactant Start Y
+
+        const startY = baseline;
+        const peakY = baseline - (breakE * scale);
+        const endY = peakY + (formE * scale); // Go down
+
+        // 1. Reactant Level
+        createSvgLine(50, startY, 120, startY, "#2563eb");
+        createSvgText(60, startY + 20, "반응물");
+
+        // 2. Upward Arrow (Break)
+        createSvgLine(120, startY, 120, peakY, "#ef4444", true);
+        createSvgText(130, (startY + peakY)/2, `+${breakE}`);
+
+        // 3. Activated Complex Level (conceptual)
+        createSvgLine(100, peakY, 220, peakY, "#9ca3af", true);
+
+        // 4. Downward Arrow (Form)
+        createSvgLine(220, peakY, 220, endY, "#10b981", true);
+        createSvgText(230, (peakY + endY)/2, `-${formE}`);
+
+        // 5. Product Level
+        createSvgLine(200, endY, 300, endY, "#2563eb");
+        createSvgText(260, endY + 20, "생성물");
+        
+        // 6. Delta H Label
+        const color = deltaH > 0 ? "#ef4444" : "#2563eb";
+        createSvgText(320, (startY + endY)/2, `ΔH = ${deltaH} kJ`, color);
+    }
+
+    function createSvgLine(x1, y1, x2, y2, color, dashed=false) {
+        const line = document.createElementNS("http://www.w3.org/2000/svg", "line");
+        line.setAttribute("x1", x1);
+        line.setAttribute("y1", y1);
+        line.setAttribute("x2", x2);
+        line.setAttribute("y2", y2);
+        line.setAttribute("stroke", color);
+        line.setAttribute("stroke-width", "3");
+        if(dashed) line.setAttribute("stroke-dasharray", "5,5");
+        document.getElementById('energyChart').appendChild(line);
+    }
+
+    function createSvgText(x, y, text, color="#000") {
+        const txt = document.createElementNS("http://www.w3.org/2000/svg", "text");
+        txt.setAttribute("x", x);
+        txt.setAttribute("y", y);
+        txt.setAttribute("fill", color);
+        txt.textContent = text;
+        document.getElementById('energyChart').appendChild(txt);
+    }
+
+    function startSimulation() {
+        const data = reactions[currentReaction];
+        document.getElementById('startBtn').disabled = true;
+        document.getElementById('instructionText').style.display = 'none';
+
+        // 1. Show Reactants
+        renderMolecules('reactantsView', data.display.r);
+        document.getElementById('productsView').innerHTML = '';
+        document.getElementById('productsView').classList.add('hidden');
+
+        // Calculate Break Energy
+        let breakEnergy = 0;
+        data.reactants.forEach(r => {
+            r.bonds.forEach(bond => { breakEnergy += energyValues[bond]; });
+        });
+        
+        // Animation 1: Break Bonds
+        setTimeout(() => {
+            const mols = document.querySelectorAll('#reactantsView .molecule');
+            mols.forEach(m => m.classList.add('breaking'));
+            document.getElementById('visualArea').style.backgroundColor = '#fee2e2'; // Heat needed
+            document.getElementById('breakCalc').innerText = `+${breakEnergy} kJ (흡수)`;
+        }, 1000);
+
+        // Calculate Form Energy
+        let formEnergy = 0;
+        data.products.forEach(p => {
+            p.bonds.forEach(bond => { formEnergy += energyValues[bond] * (p.count || 1); }); // Simplified calc logic fix needed for generic
+            // Correct calculation based on flat bond list for this demo structure
+             if(currentReaction === 'HCl') formEnergy = energyValues['H-Cl'] * 2;
+             if(currentReaction === 'NH3') formEnergy = energyValues['N-H'] * 3 * 2;
+             if(currentReaction === 'H2O') formEnergy = energyValues['O-H'] * 2 * 2;
+        });
+
+        // Animation 2: Form Products
+        setTimeout(() => {
+            document.getElementById('reactantsView').innerHTML = '';
+            document.getElementById('arrowView').style.display = 'block';
+            document.getElementById('productsView').classList.remove('hidden');
+            renderMolecules('productsView', data.display.p);
+            
+            const products = document.querySelectorAll('#productsView .molecule');
+            products.forEach(p => p.classList.add('forming'));
+            
+            document.getElementById('visualArea').style.backgroundColor = '#dbeafe'; // Cooling/Stable
+            document.getElementById('formCalc').innerText = `-${formEnergy} kJ (방출)`;
+        }, 3000);
+
+        // Final Calculation
+        setTimeout(() => {
+            const deltaH = breakEnergy - formEnergy;
+            document.getElementById('totalCalc').innerText = `${deltaH > 0 ? '+' : ''}${deltaH} kJ`;
+            
+            const resultDiv = document.getElementById('finalResult');
+            resultDiv.classList.remove('hidden', 'exothermic', 'endothermic');
+            
+            let resultText = "";
+            let questionText = "";
+            
+            if (deltaH < 0) {
+                resultDiv.classList.add('exothermic');
+                resultDiv.innerHTML = "🔥 발열 반응 (Exothermic)<br><small>주위의 온도가 올라갑니다.</small>";
+                resultText = "발열";
+                questionText = `이 반응에서 에너지가 방출된 이유는 무엇인가요? (결합 에너지 관점)`;
+            } else {
+                resultDiv.classList.add('endothermic');
+                resultDiv.innerHTML = "❄️ 흡열 반응 (Endothermic)<br><small>주위의 온도가 내려갑니다.</small>";
+                resultText = "흡열";
+                questionText = `이 반응이 일어나기 위해 지속적인 에너지 공급이 필요한 이유는 무엇인가요?`;
+            }
+
+            drawEnergyDiagram(breakEnergy, formEnergy, deltaH);
+            
+            // Assessment
+            document.getElementById('assessment').classList.remove('hidden');
+            document.getElementById('questionText').innerText = questionText;
+            document.getElementById('assessment').dataset.type = resultText;
+
+        }, 4500);
+    }
+
+    function checkAnswer() {
+        const type = document.getElementById('assessment').dataset.type;
+        const feedback = document.getElementById('answerFeedback');
+        feedback.style.display = 'block';
+        
+        if (type === "발열") {
+            feedback.innerText = "정답 포인트: 생성된 결합을 만들 때 방출된 에너지가, 기존 결합을 끊을 때 흡수한 에너지보다 크기 때문입니다.";
+        } else {
+            feedback.innerText = "정답 포인트: 기존 결합을 끊을 때 흡수한 에너지가, 새로운 결합이 생성될 때 방출되는 에너지보다 크기 때문입니다.";
+        }
+    }
+
+    // Init
+    loadReaction();
+</script>
+
+</body>
+</html>

@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험실: 분자의 극성과 전하 분포</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --secondary-color: #f5f6fa;
+            --accent-red: #ff6b6b;
+            --accent-blue: #48dbfb;
+            --text-color: #2f3640;
+            --border-radius: 12px;
+        }
+
+        body {
+            font-family: 'Pretendard', 'Malgun Gothic', sans-serif;
+            background-color: #ececec;
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 1000px;
+            width: 100%;
+            background: white;
+            border-radius: var(--border-radius);
+            box-shadow: 0 10px 25px rgba(0,0,0,0.1);
+            overflow: hidden;
+            display: grid;
+            grid-template-columns: 300px 1fr;
+            grid-template-rows: auto 1fr auto;
+        }
+
+        header {
+            grid-column: 1 / -1;
+            background: var(--primary-color);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        header h1 { margin: 0; font-size: 1.5rem; }
+        header p { margin: 5px 0 0; opacity: 0.9; font-size: 0.9rem; }
+
+        /* Controls Sidebar */
+        .sidebar {
+            background: var(--secondary-color);
+            padding: 20px;
+            border-right: 1px solid #ddd;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .control-group {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        }
+
+        .control-group h3 { margin-top: 0; font-size: 1rem; color: #555; border-bottom: 2px solid #eee; padding-bottom: 5px;}
+
+        label { display: block; margin-bottom: 8px; font-size: 0.9rem; cursor: pointer; }
+        
+        select, button {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ccc;
+            border-radius: 6px;
+            font-size: 1rem;
+            margin-bottom: 5px;
+        }
+
+        button.primary {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            transition: background 0.3s;
+        }
+        button.primary:hover { background-color: #357abd; }
+
+        .slider-container { margin-top: 10px; }
+        .slider-label { display: flex; justify-content: space-between; font-size: 0.8rem; color: #666; }
+        input[type="range"] { width: 100%; }
+
+        /* Main Simulation Area */
+        .main-stage {
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        canvas {
+            background: white;
+            border: 1px solid #eee;
+            border-radius: 8px;
+            cursor: crosshair;
+        }
+
+        /* Info & Feedback */
+        .info-panel {
+            margin-top: 20px;
+            width: 100%;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            border-left: 5px solid var(--primary-color);
+        }
+
+        .legend {
+            display: flex;
+            gap: 15px;
+            margin-top: 10px;
+            font-size: 0.85rem;
+            justify-content: center;
+        }
+        .dot { width: 12px; height: 12px; display: inline-block; border-radius: 50%; margin-right: 5px; }
+
+        /* Quiz Section */
+        .quiz-section {
+            grid-column: 1 / -1;
+            padding: 20px;
+            background: #fff;
+            border-top: 1px solid #eee;
+        }
+
+        .data-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+        .data-table th, .data-table td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: center;
+        }
+        .data-table th { background-color: #f1f1f1; }
+
+        /* Helpers */
+        .hidden { display: none; }
+        .badge {
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 0.8rem;
+            color: white;
+        }
+        .badge.polar { background-color: var(--accent-red); }
+        .badge.nonpolar { background-color: #2ecc71; }
+
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>🧪 화학 결합 가상 실험실</h1>
+        <p>전기 음성도 차이에 따른 분자의 극성과 쌍극자 모멘트 탐구 (화학Ⅰ 3-4-02)</p>
+    </header>
+
+    <aside class="sidebar">
+        <div class="control-group">
+            <h3>1. 분자 선택</h3>
+            <select id="moleculeSelect">
+                <option value="H2">수소 (H₂)</option>
+                <option value="HF" selected>플루오린화 수소 (HF)</option>
+                <option value="HCl">염화 수소 (HCl)</option>
+                <option value="Cl2">염소 (Cl₂)</option>
+                <option value="CO2">이산화 탄소 (CO₂)</option>
+                <option value="NH3">암모니아 (NH₃)</option>
+            </select>
+            <p style="font-size: 0.8rem; color:#666; margin-top:5px;">
+                * 분자를 선택하면 구성 원자가 자동으로 설정됩니다.
+            </p>
+        </div>
+
+        <div class="control-group">
+            <h3>2. 보기 설정</h3>
+            <label><input type="checkbox" id="showBonds" checked> 화학 결합선 표시</label>
+            <label><input type="checkbox" id="showElectrons" checked> 전자 구름 (전하 분포) 표시</label>
+            <label><input type="checkbox" id="showDipole"> 쌍극자 모멘트 (화살표) 표시</label>
+            <label><input type="checkbox" id="showValues"> 전기 음성도 수치 표시</label>
+        </div>
+
+        <div class="control-group">
+            <h3>3. 탐구 활동</h3>
+            <p style="font-size:0.9rem;">이 분자는 극성일까요?</p>
+            <div style="display:flex; gap:5px;">
+                <button id="btnGuessPolar" class="primary" style="background:#ff6b6b;">극성</button>
+                <button id="btnGuessNonPolar" class="primary" style="background:#2ecc71;">무극성</button>
+            </div>
+            <div id="quizFeedback" style="margin-top:10px; font-size:0.9rem; font-weight:bold;"></div>
+        </div>
+    </aside>
+
+    <main class="main-stage">
+        <canvas id="simCanvas" width="600" height="400"></canvas>
+        
+        <div class="legend">
+            <span><span class="dot" style="background:rgba(255, 0, 0, 0.6)"></span>부분 음전하 (δ⁻)</span>
+            <span><span class="dot" style="background:rgba(0, 0, 255, 0.6)"></span>부분 양전하 (δ⁺)</span>
+            <span><span class="dot" style="background:rgba(0, 255, 0, 0.3)"></span>중성/무극성</span>
+        </div>
+
+        <div class="info-panel" id="infoPanel">
+            <strong>💡 실험 분석 AI:</strong>
+            <p id="aiFeedback">분자를 선택하여 실험을 시작해보세요.</p>
+        </div>
+    </main>
+
+    <section class="quiz-section">
+        <h3>📊 실험 결과 기록 (자동 생성)</h3>
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>분자식</th>
+                    <th>구성 원소 (전기음성도)</th>
+                    <th>전기음성도 차이</th>
+                    <th>분자 구조</th>
+                    <th>최종 극성 여부</th>
+                </tr>
+            </thead>
+            <tbody id="resultTableBody">
+                </tbody>
+        </table>
+        <div style="margin-top: 10px; text-align: right;">
+            <button onclick="clearTable()" style="width: auto; padding: 5px 15px;">기록 초기화</button>
+        </div>
+    </section>
+</div>
+
+<script>
+/**
+ * 과학 시뮬레이션 로직
+ * - 데이터 정의: 각 원소의 전기음성도 및 분자 구조 정보
+ * - 렌더링: Canvas에 원자, 결합, 전자구름(Gradient), 벡터 그리기
+ * - 상호작용: 사용자 입력에 따른 상태 변화 및 피드백
+ */
+
+// 1. 데이터베이스
+const ATOMS = {
+    'H': { en: 2.1, color: '#ffffff', radius: 25, labelColor: 'black' },
+    'C': { en: 2.5, color: '#909090', radius: 30, labelColor: 'white' },
+    'N': { en: 3.0, color: '#3050F8', radius: 32, labelColor: 'white' },
+    'O': { en: 3.5, color: '#FF0D0D', radius: 32, labelColor: 'white' },
+    'F': { en: 4.0, color: '#90E050', radius: 28, labelColor: 'black' },
+    'Cl': { en: 3.0, color: '#1FF01F', radius: 35, labelColor: 'black' }
+};
+
+const MOLECULES = {
+    'H2': { 
+        formula: 'H₂', type: 'diatomic', atoms: ['H', 'H'], 
+        geometry: '직선형', desc: '동일한 원자가 결합하여 전기음성도 차이가 0입니다.' 
+    },
+    'HF': { 
+        formula: 'HF', type: 'diatomic', atoms: ['H', 'F'], 
+        geometry: '직선형', desc: 'F의 전기음성도가 매우 커서 전자쌍이 F쪽으로 강하게 치우칩니다.' 
+    },
+    'HCl': { 
+        formula: 'HCl', type: 'diatomic', atoms: ['H', 'Cl'], 
+        geometry: '직선형', desc: 'Cl이 H보다 전기음성도가 커서 약한 극성을 띱니다.' 
+    },
+    'Cl2': { 
+        formula: 'Cl₂', type: 'diatomic', atoms: ['Cl', 'Cl'], 
+        geometry: '직선형', desc: '동일한 원자 결합이므로 무극성입니다.' 
+    },
+    'CO2': { 
+        formula: 'CO₂', type: 'linear_tri', atoms: ['O', 'C', 'O'], 
+        geometry: '직선형 (대칭)', desc: 'C=O 결합 자체는 극성이지만, 대칭 구조로 인해 서로 상쇄되어 무극성 분자입니다.' 
+    },
+    'NH3': { 
+        formula: 'NH₃', type: 'pyramidal', atoms: ['N', 'H', 'H', 'H'], 
+        geometry: '삼각뿔형', desc: '비대칭 구조이며 N쪽으로 전자가 쏠려 전체적으로 큰 극성을 띱니다.' 
+    }
+};
+
+// 상태 변수
+let currentMoleculeKey = 'HF';
+let recordedMolecules = [];
+
+// DOM 요소
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+const selectEl = document.getElementById('moleculeSelect');
+const feedbackEl = document.getElementById('aiFeedback');
+const quizFeedbackEl = document.getElementById('quizFeedback');
+const tableBody = document.getElementById('resultTableBody');
+
+// 이벤트 리스너
+selectEl.addEventListener('change', (e) => {
+    currentMoleculeKey = e.target.value;
+    quizFeedbackEl.textContent = ''; // 퀴즈 초기화
+    quizFeedbackEl.className = '';
+    draw();
+    updateInfo();
+});
+
+['showBonds', 'showElectrons', 'showDipole', 'showValues'].forEach(id => {
+    document.getElementById(id).addEventListener('change', draw);
+});
+
+document.getElementById('btnGuessPolar').addEventListener('click', () => checkAnswer(true));
+document.getElementById('btnGuessNonPolar').addEventListener('click', () => checkAnswer(false));
+
+// 2. 핵심 로직: 그리기 함수
+function draw() {
+    // 캔버스 초기화
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    const molData = MOLECULES[currentMoleculeKey];
+    const type = molData.type;
+    const atomKeys = molData.atoms;
+    
+    // 분자 배치 좌표 계산
+    let positions = [];
+    const cx = canvas.width / 2;
+    const cy = canvas.height / 2;
+    const dist = 100; // 원자 간 거리
+
+    if (type === 'diatomic') {
+        positions = [
+            { x: cx - 60, y: cy, key: atomKeys[0] },
+            { x: cx + 60, y: cy, key: atomKeys[1] }
+        ];
+    } else if (type === 'linear_tri') { // CO2
+        positions = [
+            { x: cx - 100, y: cy, key: atomKeys[0] }, // O
+            { x: cx, y: cy, key: atomKeys[1] },       // C
+            { x: cx + 100, y: cy, key: atomKeys[2] }  // O
+        ];
+    } else if (type === 'pyramidal') { // NH3 (2D 투영: 메르세데스 벤츠 로고 형태)
+        positions = [
+            { x: cx, y: cy - 20, key: atomKeys[0] }, // N (중심)
+            { x: cx, y: cy - 90, key: atomKeys[1] }, // H (위 - 사실 입체적으론 뒤/아래지만 2D 표현상 위로 그림) -> 시각적 수정을 위해 아래로 배치
+            { x: cx - 80, y: cy + 60, key: atomKeys[2] }, // H
+            { x: cx + 80, y: cy + 60, key: atomKeys[3] }  // H
+        ];
+        // NH3의 삼각뿔 형태를 2D에서 직관적으로 보여주기 위해 좌표 재조정
+        positions = [
+            { x: cx, y: cy - 40, key: atomKeys[0] }, // N
+            { x: cx, y: cy + 60, key: atomKeys[1] }, // H
+            { x: cx - 70, y: cy + 30, key: atomKeys[2] }, // H
+            { x: cx + 70, y: cy + 30, key: atomKeys[3] }  // H
+        ];
+    }
+
+    // 결합 그리기
+    if (document.getElementById('showBonds').checked) {
+        ctx.beginPath();
+        ctx.strokeStyle = '#555';
+        ctx.lineWidth = 8;
+        // 중심 원자와 주변 원자 연결
+        const centerIdx = (type === 'diatomic') ? -1 : 0; // 이원자 분자는 중심 없음(서로 연결)
+        
+        if (type === 'diatomic') {
+            ctx.moveTo(positions[0].x, positions[0].y);
+            ctx.lineTo(positions[1].x, positions[1].y);
+        } else if (type === 'linear_tri') {
+            // C -> O, C -> O
+            ctx.moveTo(positions[1].x, positions[1].y);
+            ctx.lineTo(positions[0].x, positions[0].y);
+            ctx.moveTo(positions[1].x, positions[1].y);
+            ctx.lineTo(positions[2].x, positions[2].y);
+        } else if (type === 'pyramidal') {
+            // N -> H, H, H
+            for(let i=1; i<positions.length; i++) {
+                ctx.moveTo(positions[0].x, positions[0].y);
+                ctx.lineTo(positions[i].x, positions[i].y);
+            }
+        }
+        ctx.stroke();
+    }
+
+    // 전자 구름 (전하 분포) 그리기
+    if (document.getElementById('showElectrons').checked) {
+        positions.forEach(pos => {
+            const atom = ATOMS[pos.key];
+            // 주변 원자들과의 전기음성도 차이 계산하여 전하 결정
+            let netCharge = 0;
+            
+            // 간단한 전하 근사 계산 알고리즘
+            if(type === 'diatomic') {
+                const other = positions.find(p => p !== pos);
+                netCharge = ATOMS[pos.key].en - ATOMS[other.key].en;
+            } else {
+                // 중심 원자와의 관계
+                if (type === 'linear_tri') {
+                    const center = positions[1]; // C
+                    if (pos === center) {
+                        netCharge = (ATOMS[pos.key].en - ATOMS[positions[0].key].en) + (ATOMS[pos.key].en - ATOMS[positions[2].key].en);
+                    } else {
+                        netCharge = ATOMS[pos.key].en - ATOMS[center.key].en;
+                    }
+                } else if (type === 'pyramidal') {
+                    const center = positions[0]; // N
+                    if (pos === center) {
+                        positions.slice(1).forEach(h => {
+                             netCharge += (ATOMS[center.key].en - ATOMS[h.key].en);
+                        });
+                    } else {
+                        netCharge = ATOMS[pos.key].en - ATOMS[center.key].en;
+                    }
+                }
+            }
+
+            drawElectronCloud(pos.x, pos.y, atom.radius + 30, netCharge);
+        });
+    }
+
+    // 원자 그리기
+    positions.forEach(pos => {
+        const atom = ATOMS[pos.key];
+        drawAtom(pos.x, pos.y, atom, pos.key);
+    });
+
+    // 쌍극자 모멘트 화살표 그리기
+    if (document.getElementById('showDipole').checked) {
+        drawDipoleVectors(type, positions);
+    }
+}
+
+// 원자 그리기 헬퍼
+function drawAtom(x, y, atomData, label) {
+    ctx.beginPath();
+    ctx.arc(x, y, atomData.radius, 0, Math.PI * 2);
+    ctx.fillStyle = atomData.color;
+    ctx.fill();
+    ctx.strokeStyle = '#333';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    ctx.fillStyle = atomData.labelColor;
+    ctx.font = 'bold 16px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+
+    if (document.getElementById('showValues').checked) {
+        ctx.fillStyle = '#000';
+        ctx.font = '12px Arial';
+        ctx.fillText(atomData.en, x, y + atomData.radius + 15);
+    }
+}
+
+// 전자 구름 그리기 (Gradient)
+function drawElectronCloud(x, y, radius, chargeVal) {
+    // chargeVal > 0 : 전기음성도 큼 (부분 음전하, 붉은색)
+    // chargeVal < 0 : 전기음성도 작음 (부분 양전하, 푸른색)
+    
+    const grad = ctx.createRadialGradient(x, y, radius * 0.2, x, y, radius);
+    
+    if (Math.abs(chargeVal) < 0.1) {
+        grad.addColorStop(0, 'rgba(0, 255, 0, 0.3)'); // 중성 (초록)
+        grad.addColorStop(1, 'rgba(0, 255, 0, 0)');
+    } else if (chargeVal > 0) {
+        const intensity = Math.min(Math.abs(chargeVal) * 0.4, 0.8);
+        grad.addColorStop(0, `rgba(255, 0, 0, ${intensity})`); // 음전하 (빨강)
+        grad.addColorStop(1, 'rgba(255, 0, 0, 0)');
+    } else {
+        const intensity = Math.min(Math.abs(chargeVal) * 0.4, 0.8);
+        grad.addColorStop(0, `rgba(0, 0, 255, ${intensity})`); // 양전하 (파랑)
+        grad.addColorStop(1, 'rgba(0, 0, 255, 0)');
+    }
+
+    ctx.beginPath();
+    ctx.arc(x, y, radius, 0, Math.PI * 2);
+    ctx.fillStyle = grad;
+    ctx.fill();
+}
+
+// 벡터 그리기 로직
+function drawDipoleVectors(type, positions) {
+    // 쌍극자 모멘트: 양전하(+) -> 음전하(-) 방향으로 화살표
+    // 화학에서는 보통 +가 있는 쪽에 십자 표시를 하고, -쪽으로 화살표 머리를 둠
+    
+    // 이원자 분자
+    if (type === 'diatomic') {
+        const p1 = positions[0];
+        const p2 = positions[1];
+        const en1 = ATOMS[p1.key].en;
+        const en2 = ATOMS[p2.key].en;
+        
+        if (Math.abs(en1 - en2) > 0.1) {
+            if (en1 < en2) drawArrow(p1.x, p1.y - 50, p2.x, p2.y - 50, 'black'); // 1 -> 2
+            else drawArrow(p2.x, p2.y - 50, p1.x, p1.y - 50, 'black'); // 2 -> 1
+        }
+    } 
+    // CO2 (상쇄)
+    else if (type === 'linear_tri') {
+        // C(pos[1]) -> O(pos[0]), C -> O(pos[2])
+        // C(2.5) < O(3.5)
+        const c = positions[1];
+        const o1 = positions[0];
+        const o2 = positions[2];
+        
+        drawArrow(c.x - 20, c.y - 60, o1.x, o1.y - 60, 'gray');
+        drawArrow(c.x + 20, c.y - 60, o2.x, o2.y - 60, 'gray');
+        
+        ctx.fillStyle = 'red';
+        ctx.font = 'bold 20px Arial';
+        ctx.fillText("X (상쇄)", c.x, c.y - 80);
+    }
+    // NH3 (합성)
+    else if (type === 'pyramidal') {
+        // H(2.1) -> N(3.0)
+        // 전체적으로 위쪽을 향하는 큰 벡터
+        const n = positions[0];
+        drawArrow(n.x, n.y + 100, n.x, n.y - 80, 'purple', true);
+        ctx.fillStyle = 'purple';
+        ctx.fillText("전체 쌍극자 모멘트", n.x + 80, n.y - 60);
+    }
+}
+
+function drawArrow(fromX, fromY, toX, toY, color, isBig = false) {
+    const headlen = isBig ? 15 : 10;
+    const dx = toX - fromX;
+    const dy = toY - fromY;
+    const angle = Math.atan2(dy, dx);
+    
+    ctx.beginPath();
+    ctx.moveTo(fromX, fromY);
+    ctx.lineTo(toX, toY);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = isBig ? 4 : 2;
+    ctx.stroke();
+
+    // Arrow Head
+    ctx.beginPath();
+    ctx.moveTo(toX, toY);
+    ctx.lineTo(toX - headlen * Math.cos(angle - Math.PI / 6), toY - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.lineTo(toX - headlen * Math.cos(angle + Math.PI / 6), toY - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.fillStyle = color;
+    ctx.fill();
+
+    // Plus tail (dipole symbol)
+    const tailLen = 8;
+    ctx.beginPath();
+    ctx.moveTo(fromX + tailLen * Math.sin(angle), fromY - tailLen * Math.cos(angle));
+    ctx.lineTo(fromX - tailLen * Math.sin(angle), fromY + tailLen * Math.cos(angle));
+    ctx.stroke();
+}
+
+// 3. 로직: 정보 업데이트 및 퀴즈
+function updateInfo() {
+    const molData = MOLECULES[currentMoleculeKey];
+    feedbackEl.innerHTML = `
+        선택된 분자: <strong>${molData.formula}</strong> (${molData.geometry})<br>
+        <br>
+        ${molData.desc}
+    `;
+}
+
+function checkAnswer(userGuessIsPolar) {
+    const molData = MOLECULES[currentMoleculeKey];
+    let isActuallyPolar = false;
+    
+    // 간단한 극성 판단 로직
+    if (molData.type === 'diatomic') {
+        const en1 = ATOMS[molData.atoms[0]].en;
+        const en2 = ATOMS[molData.atoms[1]].en;
+        if (Math.abs(en1 - en2) > 0) isActuallyPolar = true;
+    } else if (molData.key === 'CO2') {
+        isActuallyPolar = false;
+    } else { // NH3
+        isActuallyPolar = true;
+    }
+    
+    // CO2 등 예외 처리 (하드코딩된 데이터 기반)
+    if (currentMoleculeKey === 'Cl2' || currentMoleculeKey === 'H2' || currentMoleculeKey === 'CO2') isActuallyPolar = false;
+    else isActuallyPolar = true;
+
+    const isCorrect = (userGuessIsPolar === isActuallyPolar);
+    
+    if (isCorrect) {
+        quizFeedbackEl.style.color = 'green';
+        quizFeedbackEl.textContent = "🙆‍♂️ 정답입니다! 정확하게 분석하셨네요.";
+        addResultToTable(molData, isActuallyPolar);
+    } else {
+        quizFeedbackEl.style.color = 'red';
+        quizFeedbackEl.textContent = `🙅‍♂️ 다시 생각해보세요. ${isActuallyPolar ? '비대칭 구조 또는 전기음성도 차이로 인해 극성입니다.' : '전기음성도 차이가 없거나 구조적 대칭으로 상쇄되어 무극성입니다.'}`;
+    }
+}
+
+function addResultToTable(molData, isPolar) {
+    // 중복 체크
+    if (recordedMolecules.includes(molData.formula)) return;
+    recordedMolecules.push(molData.formula);
+
+    const row = document.createElement('tr');
+    
+    // EN 차이 계산 문자열
+    let enDiffStr = "";
+    if (molData.type === 'diatomic') {
+        const diff = Math.abs(ATOMS[molData.atoms[0]].en - ATOMS[molData.atoms[1]].en).toFixed(1);
+        enDiffStr = diff;
+    } else {
+        enDiffStr = "-"; // 다원자 분자는 단순히 차이만으로 설명 불가
+    }
+
+    const atomsStr = molData.atoms.map(k => `${k}(${ATOMS[k].en})`).join(', ');
+
+    row.innerHTML = `
+        <td><strong>${molData.formula}</strong></td>
+        <td>${atomsStr}</td>
+        <td>${enDiffStr}</td>
+        <td>${molData.geometry}</td>
+        <td><span class="badge ${isPolar ? 'polar' : 'nonpolar'}">${isPolar ? '극성 분자' : '무극성 분자'}</span></td>
+    `;
+    tableBody.appendChild(row);
+}
+
+function clearTable() {
+    tableBody.innerHTML = '';
+    recordedMolecules = [];
+}
+
+// 초기 실행
+draw();
+updateInfo();
+
+</script>
+</body>
+</html>

@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>가상 실험: 수소 화합물의 끓는점과 분자 간 인력</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2563eb;
+            --secondary-color: #1e40af;
+            --bg-color: #f8fafc;
+            --text-color: #1e293b;
+            --danger-color: #ef4444;
+            --success-color: #10b981;
+        }
+
+        body {
+            font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 350px;
+            gap: 20px;
+        }
+
+        header {
+            grid-column: 1 / -1;
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            margin-bottom: 20px;
+            border-left: 6px solid var(--primary-color);
+        }
+
+        h1 { margin: 0; font-size: 1.5rem; color: var(--secondary-color); }
+        .subtitle { font-size: 0.9rem; color: #64748b; margin-top: 5px; }
+
+        /* Main Experiment Area */
+        .lab-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: 1px solid #cbd5e1;
+            background: white;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        button:hover { background: #f1f5f9; }
+        button.active { background: var(--primary-color); color: white; border-color: var(--primary-color); }
+
+        .canvas-container {
+            position: relative;
+            height: 400px;
+            width: 100%;
+        }
+
+        /* Sidebar Info */
+        .info-panel {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .molecule-viewer {
+            width: 100%;
+            height: 200px;
+            background: #e2e8f0;
+            border-radius: 8px;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 2px solid #cbd5e1;
+        }
+
+        .molecule-label {
+            font-weight: bold;
+            font-size: 1.2rem;
+            margin-bottom: 5px;
+            color: var(--secondary-color);
+        }
+
+        .data-tag {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            margin-right: 5px;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        .tag-hbond { background: #fee2e2; color: #991b1b; border: 1px solid #fecaca; }
+        .tag-vdw { background: #e0f2fe; color: #075985; border: 1px solid #bae6fd; }
+
+        .explanation {
+            font-size: 0.9rem;
+            background: #f8fafc;
+            padding: 10px;
+            border-radius: 6px;
+            border-left: 4px solid var(--primary-color);
+        }
+
+        /* Quiz Section */
+        .quiz-section {
+            margin-top: auto;
+            padding-top: 15px;
+            border-top: 2px dashed #cbd5e1;
+        }
+        
+        .quiz-question { font-weight: bold; font-size: 0.95rem; margin-bottom: 8px; }
+        .quiz-options button { width: 100%; margin-bottom: 5px; text-align: left; }
+        .feedback { font-size: 0.9rem; margin-top: 5px; font-weight: bold; }
+        
+        /* Animation elements */
+        .particle {
+            width: 20px; height: 20px; border-radius: 50%; position: absolute;
+            box-shadow: inset -2px -2px 4px rgba(0,0,0,0.2);
+        }
+        .bond-line {
+            position: absolute; border-top: 2px dashed red; transform-origin: 0 0; opacity: 0; transition: opacity 0.3s;
+        }
+
+        @media (max-width: 768px) {
+            .container { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>🧪 수소 화합물의 끓는점과 분자 간 인력</h1>
+    <div class="subtitle">14~17족 수소 화합물의 끓는점 데이터를 비교하고, 수소 결합의 영향을 탐구합니다.</div>
+</header>
+
+<div class="container">
+    <section class="lab-panel">
+        <div class="controls">
+            <span><strong>데이터 표시 설정:</strong></span>
+            <button onclick="toggleDataset(0)" class="active" id="btn-g14">14족 (CH₄ 등)</button>
+            <button onclick="toggleDataset(1)" id="btn-g15">15족 (NH₃ 등)</button>
+            <button onclick="toggleDataset(2)" id="btn-g16">16족 (H₂O 등)</button>
+            <button onclick="toggleDataset(3)" id="btn-g17">17족 (HF 등)</button>
+            <button onclick="resetZoom()" style="margin-left:auto; background:#f1f5f9;">🔄 그래프 초기화</button>
+        </div>
+        <div class="canvas-container">
+            <canvas id="bpChart"></canvas>
+        </div>
+        <div style="margin-top: 10px; font-size: 0.9rem; color: #666;">
+            💡 <strong>Tip:</strong> 그래프의 점을 클릭하면 해당 분자의 상세 정보와 구조를 오른쪽 패널에서 확인할 수 있습니다.
+        </div>
+    </section>
+
+    <aside class="info-panel">
+        <div>
+            <div class="molecule-label" id="mol-name">분자를 선택하세요</div>
+            <div id="mol-tags">
+                </div>
+        </div>
+
+        <div class="molecule-viewer" id="mol-view">
+            <div style="color: #94a3b8;">그래프의 점을 클릭하여<br>입자 모형 확인</div>
+        </div>
+
+        <div class="explanation" id="mol-desc">
+            왼쪽 그래프에서 원소를 클릭하면 끓는점의 원인을 분석해 드립니다. <br><br>
+            일반적으로 분자량이 클수록 분산력이 커져 끓는점이 높아지지만, 예외가 존재합니다.
+        </div>
+
+        <div class="quiz-section">
+            <div class="quiz-question">Q. H₂O의 끓는점이 같은 족인 H₂S보다 훨씬 높은 주된 이유는?</div>
+            <div class="quiz-options">
+                <button onclick="checkAnswer(1)">분자량이 더 크기 때문에</button>
+                <button onclick="checkAnswer(2)">수소 결합을 하기 때문에</button>
+                <button onclick="checkAnswer(3)">공유 결합이 더 강해서</button>
+            </div>
+            <div id="quiz-feedback" class="feedback"></div>
+        </div>
+    </aside>
+</div>
+
+<script>
+    // --- Data Definition ---
+    const compounds = {
+        // Group 14
+        "CH4": { group: 14, period: 2, bp: -164, mw: 16, hBond: false, color: "#94a3b8", desc: "무극성 분자입니다. 분자량이 작아 분산력이 매우 약하며 끓는점이 낮습니다." },
+        "SiH4": { group: 14, period: 3, bp: -112, mw: 32, hBond: false, color: "#94a3b8", desc: "무극성 분자입니다. CH₄보다 분자량이 커서 분산력이 증가해 끓는점이 약간 높습니다." },
+        "GeH4": { group: 14, period: 4, bp: -88, mw: 77, hBond: false, color: "#94a3b8", desc: "분자량이 더 커져 끓는점이 상승하는 일반적인 경향을 보입니다." },
+        "SnH4": { group: 14, period: 5, bp: -52, mw: 123, hBond: false, color: "#94a3b8", desc: "14족 중 분자량이 가장 크고 분산력이 가장 강합니다." },
+        
+        // Group 15
+        "NH3": { group: 15, period: 2, bp: -33, mw: 17, hBond: true, color: "#8b5cf6", desc: "⚠️ 예외 구간! 분자량은 작지만 질소(N)와 수소(H) 사이의 <strong>수소 결합</strong>으로 인해 끓는점이 비정상적으로 높습니다." },
+        "PH3": { group: 15, period: 3, bp: -87, mw: 34, hBond: false, color: "#8b5cf6", desc: "수소 결합을 하지 않습니다. 분자량은 NH₃보다 크지만 끓는점은 훨씬 낮습니다." },
+        "AsH3": { group: 15, period: 4, bp: -62, mw: 78, hBond: false, color: "#8b5cf6", desc: "분자량이 커지며 분산력이 증가해 PH₃보다 끓는점이 높습니다." },
+        "SbH3": { group: 15, period: 5, bp: -17, mw: 125, hBond: false, color: "#8b5cf6", desc: "분산력의 영향으로 끓는점이 높아지는 경향을 따릅니다." },
+
+        // Group 16
+        "H2O": { group: 16, period: 2, bp: 100, mw: 18, hBond: true, color: "#2563eb", desc: "🎯 핵심 관찰! 산소(O)의 높은 전기음성도로 인해 <strong>매우 강한 수소 결합</strong>을 형성합니다. 그래서 끓는점이 100℃로 매우 높습니다." },
+        "H2S": { group: 16, period: 3, bp: -60, mw: 34, hBond: false, color: "#2563eb", desc: "수소 결합이 없습니다. 물(H₂O)과 비교하면 끓는점 차이가 160℃나 납니다." },
+        "H2Se": { group: 16, period: 4, bp: -41, mw: 81, hBond: false, color: "#2563eb", desc: "분산력 증가에 따라 끓는점이 상승합니다." },
+        "H2Te": { group: 16, period: 5, bp: -2, mw: 130, hBond: false, color: "#2563eb", desc: "분자량이 커서 끓는점이 높지만, 수소 결합을 하는 H₂O에는 미치지 못합니다." },
+
+        // Group 17
+        "HF": { group: 17, period: 2, bp: 20, mw: 20, hBond: true, color: "#10b981", desc: "⚠️ 예외 구간! 플루오린(F)은 전기음성도가 가장 커서 <strong>수소 결합</strong>을 형성합니다. HCl보다 끓는점이 훨씬 높습니다." },
+        "HCl": { group: 17, period: 3, bp: -85, mw: 36.5, hBond: false, color: "#10b981", desc: "수소 결합이 없습니다. 쌍극자 힘과 분산력만 작용합니다." },
+        "HBr": { group: 17, period: 4, bp: -66, mw: 81, hBond: false, color: "#10b981", desc: "분산력 증가로 끓는점이 상승합니다." },
+        "HI": { group: 17, period: 5, bp: -35, mw: 128, hBond: false, color: "#10b981", desc: "가장 큰 분산력을 가집니다." }
+    };
+
+    // --- Chart.js Setup ---
+    const ctx = document.getElementById('bpChart').getContext('2d');
+    
+    // Helper to format data for Chart.js
+    const getDataByGroup = (groupNum) => {
+        return Object.keys(compounds)
+            .filter(key => compounds[key].group === groupNum)
+            .map(key => ({ x: compounds[key].period, y: compounds[key].bp, mol: key }));
+    };
+
+    const chartData = {
+        labels: ['2주기', '3주기', '4주기', '5주기'],
+        datasets: [
+            { label: '14족 (CH₄ 등)', data: getDataByGroup(14), borderColor: '#94a3b8', backgroundColor: '#94a3b8', tension: 0.2, hidden: false },
+            { label: '15족 (NH₃ 등)', data: getDataByGroup(15), borderColor: '#8b5cf6', backgroundColor: '#8b5cf6', tension: 0.2, hidden: true },
+            { label: '16족 (H₂O 등)', data: getDataByGroup(16), borderColor: '#2563eb', backgroundColor: '#2563eb', tension: 0.2, hidden: true },
+            { label: '17족 (HF 등)', data: getDataByGroup(17), borderColor: '#10b981', backgroundColor: '#10b981', tension: 0.2, hidden: true }
+        ]
+    };
+
+    const config = {
+        type: 'line',
+        data: chartData,
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { title: { display: true, text: '주기 (분자량 증가 →)' } },
+                y: { title: { display: true, text: '끓는점 (℃)' }, min: -200, max: 150 }
+            },
+            plugins: {
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return context.raw.mol + ": " + context.raw.y + "℃";
+                        }
+                    }
+                },
+                legend: { display: true }
+            },
+            onClick: (e, activeEls) => {
+                if (activeEls.length > 0) {
+                    const datasetIndex = activeEls[0].datasetIndex;
+                    const dataIndex = activeEls[0].index;
+                    const molName = chartData.datasets[datasetIndex].data[dataIndex].mol;
+                    updateInfoPanel(molName);
+                }
+            }
+        }
+    };
+
+    let myChart = new Chart(ctx, config);
+
+    // --- Interaction Logic ---
+    function toggleDataset(index) {
+        const isHidden = myChart.isDatasetVisible(index);
+        myChart.setDatasetVisibility(index, !isHidden);
+        myChart.update();
+        
+        const btn = document.getElementById(`btn-g${14+index}`);
+        if (!isHidden) btn.classList.remove('active');
+        else btn.classList.add('active');
+    }
+
+    function resetZoom() {
+        myChart.data.datasets.forEach((ds, i) => {
+            myChart.setDatasetVisibility(i, i === 0);
+            document.getElementById(`btn-g${14+i}`).classList.toggle('active', i === 0);
+        });
+        myChart.update();
+        document.getElementById('mol-view').innerHTML = '<div style="color: #94a3b8;">그래프의 점을 클릭하여<br>입자 모형 확인</div>';
+        document.getElementById('mol-name').innerText = "분자를 선택하세요";
+        document.getElementById('mol-desc').innerHTML = "왼쪽 그래프에서 원소를 클릭하면 끓는점의 원인을 분석해 드립니다.";
+        document.getElementById('mol-tags').innerHTML = "";
+    }
+
+    function updateInfoPanel(molKey) {
+        const data = compounds[molKey];
+        
+        // Update Text
+        document.getElementById('mol-name').innerText = `${molKey} (끓는점: ${data.bp}℃)`;
+        document.getElementById('mol-desc').innerHTML = data.desc;
+        
+        // Update Tags
+        let tagsHtml = `<span class="data-tag tag-vdw">분자량: ${data.mw}</span>`;
+        if (data.hBond) {
+            tagsHtml += `<span class="data-tag tag-hbond">🔥 수소 결합 존재</span>`;
+        } else {
+            tagsHtml += `<span class="data-tag tag-vdw">일반 분산력/쌍극자</span>`;
+        }
+        document.getElementById('mol-tags').innerHTML = tagsHtml;
+
+        // Visual Simulation (Simple CSS Animation)
+        const container = document.getElementById('mol-view');
+        container.innerHTML = '';
+        container.style.background = data.hBond ? '#fff1f2' : '#f0f9ff'; // Light Red for H-bond, Light Blue for others
+
+        // Create particles
+        const particleCount = 5;
+        for(let i=0; i<particleCount; i++) {
+            const p = document.createElement('div');
+            p.className = 'particle';
+            p.style.backgroundColor = data.color;
+            // Random position
+            p.style.left = Math.random() * 80 + 10 + '%';
+            p.style.top = Math.random() * 80 + 10 + '%';
+            
+            // Animation logic based on bond type
+            const duration = data.hBond ? '4s' : '1s'; // H-bond moves slower/stickier
+            p.style.transition = `all ${duration} ease-in-out infinite alternate`;
+            
+            container.appendChild(p);
+            
+            // Simple movement loop
+            setInterval(() => {
+                p.style.left = Math.random() * 80 + 10 + '%';
+                p.style.top = Math.random() * 80 + 10 + '%';
+            }, data.hBond ? 2000 : 800);
+        }
+
+        if(data.hBond) {
+            const label = document.createElement('div');
+            label.innerText = "수소 결합 인력 작용 중...";
+            label.style.position = 'absolute';
+            label.style.bottom = '10px';
+            label.style.color = '#ef4444';
+            label.style.fontSize = '0.8rem';
+            label.style.fontWeight = 'bold';
+            container.appendChild(label);
+        }
+    }
+
+    function checkAnswer(option) {
+        const fb = document.getElementById('quiz-feedback');
+        if (option === 2) {
+            fb.style.color = 'var(--success-color)';
+            fb.innerText = "✅ 정답입니다! 물 분자 간에는 강한 수소 결합이 작용하여 분자를 떼어내기 위해 많은 에너지가 필요합니다.";
+        } else if (option === 1) {
+            fb.style.color = 'var(--danger-color)';
+            fb.innerText = "❌ 다시 생각해보세요. 분자량은 H₂S(34)가 H₂O(18)보다 더 큽니다. 분자량만으로는 설명할 수 없어요.";
+        } else {
+            fb.style.color = 'var(--danger-color)';
+            fb.innerText = "❌ 틀렸습니다. 끓는점은 분자 '내' 공유 결합이 아니라, 분자 '간' 인력을 끊는 것과 관련이 있습니다.";
+        }
+    }
+</script>
+
+</body>
+</html>
